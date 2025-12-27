@@ -51,6 +51,15 @@ data "coder_parameter" "enable_gpu" {
   mutable      = true
 }
 
+data "coder_parameter" "enable_dri" {
+  name         = "01_enable_dri"
+  display_name = "[Compute] DRI (/dev/dri)"
+  description  = "Mapea /dev/dri para aceleracion grafica (Intel/AMD o NVIDIA via EGL/GL)."
+  type         = "bool"
+  default      = false
+  mutable      = true
+}
+
 data "coder_parameter" "git_repo_url" {
   name         = "03_git_repo_url"
   display_name = "[Code] Repositorio Git (opcional)"
@@ -145,6 +154,7 @@ locals {
   username             = data.coder_workspace_owner.me.name
   workspace_image      = "ghcr.io/makespacemadrid/coder-mks-developer-android:latest"
   enable_gpu           = data.coder_parameter.enable_gpu.value
+  enable_dri           = data.coder_parameter.enable_dri.value
   persist_home_storage           = data.coder_parameter.persist_home_storage.value
   persist_projects_storage       = data.coder_parameter.persist_projects_storage.value
   host_mount_path                = trimspace(data.coder_parameter.host_mount_path.value)
@@ -232,25 +242,27 @@ PULSECFG
       fi
     fi
 
-    # Alinear grupos para /dev/dri (rendering GPU) sin tocar permisos del host
-    for dev in /dev/dri/renderD128 /dev/dri/card0; do
-      if [ -e "$dev" ]; then
-        dev_gid=$(stat -c '%g' "$dev" 2>/dev/null || echo "")
-        if [ -n "$dev_gid" ]; then
-          dev_group=$(getent group "$dev_gid" | cut -d: -f1)
-          if [ -z "$dev_group" ]; then
-            dev_group="hostgpu_$dev_gid"
-            if ! getent group "$dev_group" >/dev/null; then
-              sudo groupadd -g "$dev_gid" "$dev_group" || true
+    if [ "${tostring(local.enable_dri)}" = "true" ]; then
+      # Alinear grupos para /dev/dri (rendering GPU) sin tocar permisos del host
+      for dev in /dev/dri/renderD128 /dev/dri/card0; do
+        if [ -e "$dev" ]; then
+          dev_gid=$(stat -c '%g' "$dev" 2>/dev/null || echo "")
+          if [ -n "$dev_gid" ]; then
+            dev_group=$(getent group "$dev_gid" | cut -d: -f1)
+            if [ -z "$dev_group" ]; then
+              dev_group="hostgpu_$dev_gid"
+              if ! getent group "$dev_group" >/dev/null; then
+                sudo groupadd -g "$dev_gid" "$dev_group" || true
+              fi
             fi
+            sudo usermod -aG "$dev_group" "$USER" || true
           fi
-          sudo usermod -aG "$dev_group" "$USER" || true
+          if command -v setfacl >/dev/null 2>&1; then
+            sudo setfacl -m "u:$USER:rw" "$dev" 2>/dev/null || true
+          fi
         fi
-        if command -v setfacl >/dev/null 2>&1; then
-          sudo setfacl -m "u:$USER:rw" "$dev" 2>/dev/null || true
-        fi
-      fi
-    done
+      done
+    fi
 
     # Asegurar /home/coder como HOME efectivo incluso si se ejecuta como root
     sudo mkdir -p /home/coder
@@ -312,13 +324,21 @@ JSONCFG
 
     # Refrescar accesos directos en el escritorio (si faltan)
     mkdir -p ~/Desktop
-    for f in code.desktop firefox.desktop; do
+    for f in android-studio.desktop code.desktop firefox.desktop; do
       src="/usr/share/applications/$f"
       if [ -f "$src" ] && [ ! -e "$HOME/Desktop/$f" ]; then
         ln -sf "$src" "$HOME/Desktop/$f"
       fi
     done
     chmod +x ~/Desktop/*.desktop 2>/dev/null || true
+
+    # Forzar launcher nativo de Android Studio para evitar studio.sh
+    if [ -f /usr/share/applications/android-studio.desktop ]; then
+      mkdir -p "$HOME/.local/share/applications"
+      cp -f /usr/share/applications/android-studio.desktop "$HOME/.local/share/applications/android-studio.desktop" || true
+      sed -i 's|^Exec=.*|Exec=/opt/android-studio/bin/studio|g' "$HOME/.local/share/applications/android-studio.desktop" || true
+      chmod +x "$HOME/.local/share/applications/android-studio.desktop" || true
+    fi
 
     MKS_AUTOPROVISIONED_OPENAI="$${MKS_AUTOPROVISIONED_OPENAI:-false}"
     auto_flag="$${AUTO_PROVISION_MKS_API_KEY:-true}"
@@ -785,8 +805,8 @@ module "opencode" {
   version      = "~> 0.1"
   agent_id     = coder_agent.main.id
   workdir      = "/home/coder/"
-  report_tasks = false
-  cli_app      = true
+  report_tasks = true
+  cli_app      = false
 }
 
 module "claude-code" {
@@ -877,8 +897,9 @@ resource "docker_container" "workspace" {
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
     "TZ=Europe/Madrid",
     "NVIDIA_VISIBLE_DEVICES=${local.enable_gpu ? "all" : ""}",
-    "NVIDIA_DRIVER_CAPABILITIES=all"
+    "NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,video"
   ]
+  gpus = local.enable_gpu ? "all" : null
 
   shm_size = 8 * 1024 * 1024 * 1024
   # Permitir FUSE/SSHFS y montajes remotos
@@ -895,6 +916,14 @@ resource "docker_container" "workspace" {
     host_path      = "/dev/kvm"
     container_path = "/dev/kvm"
     permissions    = "rwm"
+  }
+  dynamic "devices" {
+    for_each = local.enable_dri ? ["/dev/dri"] : []
+    content {
+      host_path      = devices.value
+      container_path = devices.value
+      permissions    = "rwm"
+    }
   }
 
   dynamic "mounts" {

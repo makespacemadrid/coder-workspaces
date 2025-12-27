@@ -51,6 +51,15 @@ data "coder_parameter" "enable_gpu" {
   mutable      = true
 }
 
+data "coder_parameter" "enable_dri" {
+  name         = "01_enable_dri"
+  display_name = "[Compute] DRI (/dev/dri)"
+  description  = "Mapea /dev/dri para aceleracion grafica (Intel/AMD o NVIDIA via EGL/GL)."
+  type         = "bool"
+  default      = false
+  mutable      = true
+}
+
 data "coder_parameter" "git_repo_url" {
   name         = "03_git_repo_url"
   display_name = "[Code] Repositorio Git (opcional)"
@@ -136,6 +145,7 @@ locals {
   username             = data.coder_workspace_owner.me.name
   workspace_image      = "ghcr.io/makespacemadrid/coder-mks-design:latest"
   enable_gpu           = data.coder_parameter.enable_gpu.value
+  enable_dri           = data.coder_parameter.enable_dri.value
   persist_home_storage           = data.coder_parameter.persist_home_storage.value
   persist_projects_storage       = data.coder_parameter.persist_projects_storage.value
   host_mount_path                = trimspace(data.coder_parameter.host_mount_path.value)
@@ -201,6 +211,28 @@ PULSECFG
     # Iniciar PulseAudio si no está corriendo
     if ! pgrep -u "$USER" pulseaudio >/dev/null 2>&1; then
       pulseaudio --start --exit-idle-time=-1 || true
+    fi
+
+    if [ "${tostring(local.enable_dri)}" = "true" ]; then
+      # Alinear grupos para /dev/dri (rendering GPU) sin tocar permisos del host
+      for dev in /dev/dri/renderD128 /dev/dri/card0; do
+        if [ -e "$dev" ]; then
+          dev_gid=$(stat -c '%g' "$dev" 2>/dev/null || echo "")
+          if [ -n "$dev_gid" ]; then
+            dev_group=$(getent group "$dev_gid" | cut -d: -f1)
+            if [ -z "$dev_group" ]; then
+              dev_group="hostgpu_$dev_gid"
+              if ! getent group "$dev_group" >/dev/null; then
+                sudo groupadd -g "$dev_gid" "$dev_group" || true
+              fi
+            fi
+            sudo usermod -aG "$dev_group" "$USER" || true
+          fi
+          if command -v setfacl >/dev/null 2>&1; then
+            sudo setfacl -m "u:$USER:rw" "$dev" 2>/dev/null || true
+          fi
+        fi
+      done
     fi
 
     mkdir -p ~/Projects
@@ -823,6 +855,7 @@ resource "docker_container" "workspace" {
     "NVIDIA_VISIBLE_DEVICES=${local.enable_gpu ? "all" : ""}",
     "NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,video"
   ]
+  gpus = local.enable_gpu ? "all" : null
 
   shm_size = 2 * 1024 * 1024 * 1024
   # Permitir FUSE/SSHFS y montajes remotos
@@ -833,6 +866,14 @@ resource "docker_container" "workspace" {
     host_path      = "/dev/fuse"
     container_path = "/dev/fuse"
     permissions    = "rwm"
+  }
+  dynamic "devices" {
+    for_each = local.enable_dri ? ["/dev/dri"] : []
+    content {
+      host_path      = devices.value
+      container_path = devices.value
+      permissions    = "rwm"
+    }
   }
 
   security_opts = ["apparmor:unconfined"]

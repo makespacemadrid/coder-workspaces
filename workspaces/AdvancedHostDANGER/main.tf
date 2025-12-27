@@ -51,6 +51,24 @@ data "coder_parameter" "persist_home_storage" {
   mutable      = true
 }
 
+data "coder_parameter" "enable_gpu" {
+  name         = "01_enable_gpu"
+  display_name = "[Compute] GPU"
+  description  = "Activa --gpus all en el contenedor."
+  type         = "bool"
+  default      = false
+  mutable      = true
+}
+
+data "coder_parameter" "enable_dri" {
+  name         = "01_enable_dri"
+  display_name = "[Compute] DRI (/dev/dri)"
+  description  = "Mapea /dev/dri para aceleracion grafica (Intel/AMD o NVIDIA via EGL/GL)."
+  type         = "bool"
+  default      = false
+  mutable      = true
+}
+
 data "coder_parameter" "persist_projects_storage" {
   name         = "02_02_persist_projects_storage"
   display_name = "[Storage] Persistir solo ~/Projects"
@@ -129,6 +147,8 @@ locals {
   workspace_image      = "ghcr.io/makespacemadrid/coder-mks-developer:latest"
   persist_home_storage           = data.coder_parameter.persist_home_storage.value
   persist_projects_storage       = data.coder_parameter.persist_projects_storage.value
+  enable_gpu                     = data.coder_parameter.enable_gpu.value
+  enable_dri                     = data.coder_parameter.enable_dri.value
   host_mount_path                = trimspace(data.coder_parameter.host_mount_path.value)
   host_mount_uid                 = trimspace(data.coder_parameter.host_mount_uid.value)
   workspace_storage_root         = trimspace(var.users_storage)
@@ -199,6 +219,28 @@ PULSECFG
     # Asegurar /home/coder como HOME efectivo incluso si se ejecuta como root
     sudo mkdir -p /home/coder
     sudo chown "$USER:$USER" /home/coder || true
+
+    if [ "${tostring(local.enable_dri)}" = "true" ]; then
+      # Alinear grupos para /dev/dri (rendering GPU) sin tocar permisos del host
+      for dev in /dev/dri/renderD128 /dev/dri/card0; do
+        if [ -e "$dev" ]; then
+          dev_gid=$(stat -c '%g' "$dev" 2>/dev/null || echo "")
+          if [ -n "$dev_gid" ]; then
+            dev_group=$(getent group "$dev_gid" | cut -d: -f1)
+            if [ -z "$dev_group" ]; then
+              dev_group="hostgpu_$dev_gid"
+              if ! getent group "$dev_group" >/dev/null; then
+                sudo groupadd -g "$dev_gid" "$dev_group" || true
+              fi
+            fi
+            sudo usermod -aG "$dev_group" "$USER" || true
+          fi
+          if command -v setfacl >/dev/null 2>&1; then
+            sudo setfacl -m "u:$USER:rw" "$dev" 2>/dev/null || true
+          fi
+        fi
+      done
+    fi
 
     # Asegurar permisos de pipx para el usuario actual
     sudo mkdir -p /opt/pipx /opt/pipx/bin
@@ -917,9 +959,10 @@ resource "docker_container" "workspace" {
   env = [
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
     "TZ=Europe/Madrid",
-    "NVIDIA_VISIBLE_DEVICES=all",
+    "NVIDIA_VISIBLE_DEVICES=${local.enable_gpu ? "all" : ""}",
     "NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,video"
   ]
+  gpus = local.enable_gpu ? "all" : null
 
   # Permiso para usar Docker del host
   group_add = ["995"]
@@ -939,6 +982,14 @@ resource "docker_container" "workspace" {
     host_path      = "/dev/fuse"
     container_path = "/dev/fuse"
     permissions    = "rwm"
+  }
+  dynamic "devices" {
+    for_each = local.enable_dri ? ["/dev/dri"] : []
+    content {
+      host_path      = devices.value
+      container_path = devices.value
+      permissions    = "rwm"
+    }
   }
 
   dynamic "mounts" {
