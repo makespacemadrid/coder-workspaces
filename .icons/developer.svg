@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <rect width="120" height="120" rx="12" fill="#198754"/>
+  <rect x="18" y="32" width="84" height="48" rx="6" fill="#e9ecef" opacity="0.92"/>
+  <path d="M28 42h24v8H28zM60 42h32v8H60zM28 58h64v8H28z" fill="#198754"/>
+  <circle cx="40" cy="78" r="4" fill="#198754"/>
+  <circle cx="60" cy="78" r="4" fill="#198754"/>
+  <circle cx="80" cy="78" r="4" fill="#198754"/>
+  <text x="60" y="101" fill="#198754" font-family="Segoe UI, sans-serif" font-size="20" font-weight="bold" text-anchor="middle">DEV</text>
+</svg>

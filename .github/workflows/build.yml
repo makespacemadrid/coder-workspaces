@@ -1,0 +1,243 @@
+name: Build and Publish
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  schedule:
+    # Rebuild every 15 days even sin cambios para mantener imágenes frescas
+    - cron: "0 3 */15 * *"
+  workflow_dispatch:
+
+jobs:
+  build-desktop:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      run_build: ${{ steps.changes.outputs.run_build }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changes for desktop
+        id: changes
+        run: |
+          if [ "${GITHUB_EVENT_NAME:-}" = "schedule" ]; then
+            echo "run_build=true" >> "$GITHUB_OUTPUT"
+            echo "Scheduled run: forcing desktop build."
+            exit 0
+          fi
+          BASE_REF="${{ github.event.before }}"
+          if [ -z "$BASE_REF" ] || ! git cat-file -e "$BASE_REF^{commit}" 2>/dev/null; then
+            BASE_REF="HEAD^"
+          fi
+
+          if git diff --quiet "$BASE_REF" HEAD -- Docker-Images/Desktop; then
+            echo "run_build=false" >> "$GITHUB_OUTPUT"
+            echo "No changes in Docker-Images/Desktop, skipping build."
+          else
+            echo "run_build=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected in Docker-Images/Desktop, building image."
+          fi
+
+      - name: Log in to GHCR
+        if: steps.changes.outputs.run_build == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        if: steps.changes.outputs.run_build == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/coder-mks-desktop
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      - name: Set up Docker Buildx
+        if: steps.changes.outputs.run_build == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        if: steps.changes.outputs.run_build == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: Docker-Images/Desktop
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=coder-mks-desktop
+          cache-to: type=gha,mode=max,scope=coder-mks-desktop
+          build-args: |
+            BUILDKIT_STEP_TIMEOUT=1800
+          sbom: false
+
+  build-desktop-kde:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      run_build: ${{ steps.changes.outputs.run_build }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changes for desktop-kde
+        id: changes
+        run: |
+          if [ "${GITHUB_EVENT_NAME:-}" = "schedule" ]; then
+            echo "run_build=true" >> "$GITHUB_OUTPUT"
+            echo "Scheduled run: forcing desktop-kde build."
+            exit 0
+          fi
+          BASE_REF="${{ github.event.before }}"
+          if [ -z "$BASE_REF" ] || ! git cat-file -e "$BASE_REF^{commit}" 2>/dev/null; then
+            BASE_REF="HEAD^"
+          fi
+
+          if git diff --quiet "$BASE_REF" HEAD -- Docker-Images/Desktop-KDE; then
+            echo "run_build=false" >> "$GITHUB_OUTPUT"
+            echo "No changes in Docker-Images/Desktop-KDE, skipping build."
+          else
+            echo "run_build=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected in Docker-Images/Desktop-KDE, building image."
+          fi
+
+      - name: Log in to GHCR
+        if: steps.changes.outputs.run_build == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        if: steps.changes.outputs.run_build == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/coder-mks-desktop-kde
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      - name: Set up Docker Buildx
+        if: steps.changes.outputs.run_build == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        if: steps.changes.outputs.run_build == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: Docker-Images/Desktop-KDE
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=coder-mks-desktop-kde
+          cache-to: type=gha,mode=max,scope=coder-mks-desktop-kde
+          build-args: |
+            BUILDKIT_STEP_TIMEOUT=1800
+          sbom: false
+
+  build:
+    needs: [build-desktop, build-desktop-kde]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image_name: coder-mks-developer
+            context: Docker-Images/Developer
+            base_dep: desktop
+          - image_name: coder-mks-design
+            context: Docker-Images/Designer
+            base_dep: desktop-kde
+          - image_name: coder-mks-developer-android
+            context: Docker-Images/DeveloperAndroid
+            base_dep: desktop-kde
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changes for image
+        id: changes
+        run: |
+          if [ "${GITHUB_EVENT_NAME:-}" = "schedule" ]; then
+            echo "run_build=true" >> "$GITHUB_OUTPUT"
+            echo "Scheduled run: forcing build for ${{ matrix.image_name }}."
+            exit 0
+          fi
+          # If a base image rebuilt, force dependent images to rebuild
+          if [ "${{ matrix.base_dep }}" = "desktop" ] && [ "${{ needs.build-desktop.outputs.run_build }}" = "true" ]; then
+            echo "run_build=true" >> "$GITHUB_OUTPUT"
+            echo "Desktop rebuilt; forcing build for ${{ matrix.image_name }}."
+            exit 0
+          fi
+          if [ "${{ matrix.base_dep }}" = "desktop-kde" ] && [ "${{ needs.build-desktop-kde.outputs.run_build }}" = "true" ]; then
+            echo "run_build=true" >> "$GITHUB_OUTPUT"
+            echo "Desktop-KDE rebuilt; forcing build for ${{ matrix.image_name }}."
+            exit 0
+          fi
+
+          BASE_REF="${{ github.event.before }}"
+          if [ -z "$BASE_REF" ] || ! git cat-file -e "$BASE_REF^{commit}" 2>/dev/null; then
+            BASE_REF="HEAD^"
+          fi
+
+          if git diff --quiet "$BASE_REF" HEAD -- "${{ matrix.context }}"; then
+            echo "run_build=false" >> "$GITHUB_OUTPUT"
+            echo "No changes in ${{ matrix.context }}, skipping build."
+          else
+            echo "run_build=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected in ${{ matrix.context }}, building image."
+          fi
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        if: steps.changes.outputs.run_build == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        if: steps.changes.outputs.run_build == 'true'
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        if: steps.changes.outputs.run_build == 'true'
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        if: steps.changes.outputs.run_build == 'true'
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image_name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}
+          build-args: |
+            BUILDKIT_STEP_TIMEOUT=1800
+          sbom: false

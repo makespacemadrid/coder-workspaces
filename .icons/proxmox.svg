@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <rect width="120" height="120" rx="12" fill="#f26522"/>
+  <path d="M34 42 50 32 66 42 66 62 50 72 34 62Z" fill="#1f1f1f"/>
+  <path d="M54 52 70 42 86 52 86 72 70 82 54 72Z" fill="#f8f9fa" opacity="0.9"/>
+  <path d="M58 54 70 46 82 54 82 70 70 78 58 70Z" fill="#1f1f1f"/>
+  <text x="60" y="105" fill="#1f1f1f" font-family="Segoe UI, sans-serif" font-size="18" font-weight="bold" text-anchor="middle">PVE</text>
+</svg>

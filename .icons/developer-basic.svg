@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <rect width="120" height="120" rx="12" fill="#6c757d"/>
+  <rect x="20" y="34" width="80" height="44" rx="6" fill="#f8f9fa" opacity="0.95"/>
+  <path d="M30 46h30v8H30zM66 46h24v8H66zM30 60h60v8H30z" fill="#6c757d"/>
+  <circle cx="40" cy="78" r="4" fill="#6c757d"/>
+  <circle cx="60" cy="78" r="4" fill="#6c757d"/>
+  <circle cx="80" cy="78" r="4" fill="#6c757d"/>
+  <text x="60" y="104" fill="#343a40" font-family="Segoe UI, sans-serif" font-size="18" font-weight="bold" text-anchor="middle">BASIC</text>
+</svg>

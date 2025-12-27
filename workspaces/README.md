@@ -1,0 +1,32 @@
+# Workspaces Coder
+
+Guía rápida para elegir template y rellenar los parámetros al crear un workspace en Coder.
+
+## Qué template usar
+- `Developer` (DinD): desarrollo general con Docker in Docker, escritorio XFCE/KasmVNC, puertos opcionales y GPU.
+- `AdvancedHostDANGER`: acceso directo a Docker y red del host, escritorio XFCE/KasmVNC. Úsalo solo si necesitas diagnosticar o tocar el host.
+- `DeveloperAndroid`: escritorio KDE/KasmVNC con toolchain Android (SDK/CLI), Node 20, VS Code base y JetBrains Toolbox (+ IntelliJ remoto vía Gateway).
+- `Maker`: entorno gráfico KDE/KasmVNC con suite de diseño 2D/3D, CAD y EDA. GPU opcional.
+- `Minimal`: sin escritorio; code-server + Docker in Docker ligeros.
+
+## Creación rápida en Coder
+1) Elige template y revisa su README (`workspaces/<Template>/README.md`) para ver qué incluye.
+2) Rellena los parámetros clave:
+   - **GPU**: actívalo si lo necesitas.
+   - **Puertos** (`Developer`): decide si expones puertos al host y el rango.
+   - **Persistir home en el host**: monta `/home/coder` en `TF_VAR_users_storage/<usuario>/<workspace>`.
+   - **Persistir solo ~/Projects**: monta `/home/coder/Projects` en `TF_VAR_users_storage/<usuario>/<workspace>/Projects`.
+   - **Montar ruta host en ~/host**: monta una ruta del host en `/home/coder/host`.
+   - **Especificar UID para montar la ruta host**: UID para ejecutar el contenedor cuando montas `/home/coder/host` (por defecto 1000).
+   - **OpenCode**: en plantillas con autoprovisión, deja activa la casilla de MakeSpace; requiere `TF_VAR_opencode_default_base_url` y `TF_VAR_mks_key_endpoint`.
+   - **Clonado inicial**: añade `Repositorio Git` para clonar en `~/Projects` al primer arranque (pre-rellenado con `TF_VAR_default_repo_url`).
+3) Crea el workspace. Usa KasmVNC para escritorio (RDP solo aplica a plantillas Windows).
+
+## Documentación de cada template
+- `workspaces/Developer/README.md`
+- `workspaces/AdvancedHostDANGER/README.md`
+- `workspaces/DeveloperAndroid/README.md`
+- `workspaces/Maker/README.md`
+- `workspaces/Minimal/README.md`
+
+Para publicar cambios tras editarlos, consulta `README.md` y `AGENTS.md`.

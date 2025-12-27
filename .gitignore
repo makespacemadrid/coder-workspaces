@@ -1,0 +1,35 @@
+# Terraform state/lock files for templates
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+*.tfstate
+*.tfstate.backup
+terraform.tfvars
+
+# Editor/OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Node/npm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Logs / temp
+*.log
+*.tmp
+tmp/
+
+# Local agent notes
+AGENTS.private.md
+.claude/

@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: coder-watchtower
+    restart: unless-stopped
+    command:
+      - --label-enable
+      - --cleanup
+      - --scope
+      - coder-workspaces
+    environment:
+      # Cada 6 horas. Formato cron (sec min hour day month weekday)
+      - WATCHTOWER_SCHEDULE=0 0 */6 * * *
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  demo-app:
+    image: nginx:alpine
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "com.centurylinklabs.watchtower.scope=coder-workspaces"
+    ports:
+      - "8080:80"

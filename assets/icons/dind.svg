@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <rect width="120" height="120" rx="12" fill="#198754"/>
+  <rect x="18" y="36" width="84" height="36" rx="6" fill="#e9ecef" opacity="0.9"/>
+  <path d="M28 46h25v8H28zM63 46h29v8H63zM28 58h64v8H28z" fill="#198754"/>
+  <text x="60" y="95" fill="#198754" font-family="Segoe UI, sans-serif" font-size="22" font-weight="bold" text-anchor="middle">DinD</text>
+</svg>
