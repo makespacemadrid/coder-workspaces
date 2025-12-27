@@ -194,7 +194,6 @@ resource "coder_agent" "main" {
     sudo chown "$USER:$USER" /home/coder || true
 
     mkdir -p ~/Projects
-    vscode_bootstrap_marker="$HOME/.vscode_bootstrap_done"
     python3 - <<'PY'
 import json
 import os
@@ -226,27 +225,14 @@ ${join(",\n", formatlist("    \"%s\"", local.vscode_extensions))}
 }
 VSCODEEXT
     fi
-    if [ ! -f "$vscode_bootstrap_marker" ]; then
-      vscode_extensions=(
-${join("\n", formatlist("        \"%s\"", local.vscode_extensions))}
-      )
-      installed_any="false"
-      if command -v code >/dev/null 2>&1; then
-        for ext in "$${vscode_extensions[@]}"; do
-          code --install-extension "$ext" --force >/dev/null 2>&1 || true
-        done
-        installed_any="true"
-      fi
-      if command -v code-server >/dev/null 2>&1; then
-        for ext in "$${vscode_extensions[@]}"; do
-          code-server --install-extension "$ext" --force >/dev/null 2>&1 || true
-        done
-        installed_any="true"
-      fi
-      if [ "$installed_any" = "true" ]; then
-        touch "$vscode_bootstrap_marker"
-      fi
+    mkdir -p ~/.opencode ~/.config/opencode
+    if [ ! -f ~/.opencode/opencode.json ]; then
+      cat > ~/.opencode/opencode.json <<'JSONCFG'
+{}
+JSONCFG
     fi
+    ln -sf ~/.opencode/opencode.json ~/.opencode/config.json || true
+    ln -sf ~/.opencode/opencode.json ~/.config/opencode/opencode.json || true
 
     # Asegurar permisos de pipx para el usuario actual
     sudo mkdir -p /opt/pipx /opt/pipx/bin
@@ -522,7 +508,16 @@ resource "docker_container" "workspace" {
   entrypoint = [
     "sh",
     "-c",
-    replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")
+    <<-EOT
+      set -e
+      mkdir -p /home/coder/.opencode /home/coder/.config/opencode
+      if [ ! -f /home/coder/.opencode/opencode.json ]; then
+        printf '{}' > /home/coder/.opencode/opencode.json
+      fi
+      ln -sf /home/coder/.opencode/opencode.json /home/coder/.opencode/config.json || true
+      ln -sf /home/coder/.opencode/opencode.json /home/coder/.config/opencode/opencode.json || true
+      ${replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")}
+    EOT
   ]
 
   env = [

@@ -14,7 +14,7 @@ provider "coder" {}
 provider "proxmox" {
   endpoint  = var.proxmox_api_url
   api_token = "${var.proxmox_api_token_id}=${var.proxmox_api_token_secret}"
-  insecure  = true
+  insecure  = var.proxmox_insecure
 
   # SSH is needed for file uploads to Proxmox
   ssh {
@@ -40,6 +40,12 @@ variable "proxmox_api_token_id" {
 variable "proxmox_api_token_secret" {
   type      = string
   sensitive = true
+}
+
+variable "proxmox_insecure" {
+  description = "Disable TLS verification for the Proxmox API"
+  type        = bool
+  default     = true
 }
 
 
