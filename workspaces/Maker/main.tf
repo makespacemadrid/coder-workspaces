@@ -191,9 +191,23 @@ resource "coder_agent" "main" {
   startup_script = <<-EOT
     set -e
 
+    # Asegurar soporte de user namespaces para Steam/Flatpak
+    if ! command -v newuidmap >/dev/null 2>&1; then
+      echo "WARN: uidmap no disponible; Steam/Flatpak pueden fallar" >&2
+    fi
+    if [ -w /etc/subuid ] && ! grep -q "^$USER:" /etc/subuid 2>/dev/null; then
+      echo "$USER:100000:65536" | sudo tee -a /etc/subuid >/dev/null
+    fi
+    if [ -w /etc/subgid ] && ! grep -q "^$USER:" /etc/subgid 2>/dev/null; then
+      echo "$USER:100000:65536" | sudo tee -a /etc/subgid >/dev/null
+    fi
+
     # Asegurar permisos de FUSE
+    if ! getent group fuse >/dev/null 2>&1; then
+      sudo groupadd -r fuse || true
+    fi
     sudo usermod -aG fuse "$USER" || true
-    if [ -e /dev/fuse ]; then
+    if [ -e /dev/fuse ] && getent group fuse >/dev/null 2>&1; then
       sudo chown root:fuse /dev/fuse || true
       sudo chmod 666 /dev/fuse || true
     fi

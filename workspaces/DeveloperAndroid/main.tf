@@ -60,6 +60,15 @@ data "coder_parameter" "enable_dri" {
   mutable      = true
 }
 
+data "coder_parameter" "enable_host_network" {
+  name         = "02_00_enable_host_network"
+  display_name = "[Network] Usar red del host (network_mode=host)"
+  description  = "Conecta el contenedor directamente a la red del host (sin mapeo de puertos)."
+  type         = "bool"
+  default      = false
+  mutable      = true
+}
+
 data "coder_parameter" "git_repo_url" {
   name         = "03_git_repo_url"
   display_name = "[Code] Repositorio Git (opcional)"
@@ -155,6 +164,7 @@ locals {
   workspace_image      = "ghcr.io/makespacemadrid/coder-mks-developer-android:latest"
   enable_gpu           = data.coder_parameter.enable_gpu.value
   enable_dri           = data.coder_parameter.enable_dri.value
+  enable_host_network  = data.coder_parameter.enable_host_network.value
   persist_home_storage           = data.coder_parameter.persist_home_storage.value
   persist_projects_storage       = data.coder_parameter.persist_projects_storage.value
   host_mount_path                = trimspace(data.coder_parameter.host_mount_path.value)
@@ -877,6 +887,9 @@ resource "docker_container" "workspace" {
   user = local.host_mount_path != "" ? local.host_mount_uid : "coder"
 
   privileged = true # Requerido para KVM
+
+  # Acceso directo a la red del host (sin mapeo de puertos)
+  network_mode = local.enable_host_network ? "host" : null
 
   entrypoint = [
     "sh",

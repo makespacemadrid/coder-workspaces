@@ -55,6 +55,7 @@ RUN dpkg --add-architecture i386 && \
         cifs-utils \
         nfs-common \
         sshfs \
+        uidmap \
         # dependencias runtime (Perl/VNC) que queremos preinstalar
         libdatetime-perl \
         liblist-moreutils-perl \

@@ -20,6 +20,7 @@ Workspace gráfico KDE/KasmVNC con toolchain Android preinstalado. Usa la imagen
 
 ## Creación rápida en Coder
 - `GPU`: viene activada por defecto; desactívala si no la necesitas.
+- `Usar red del host`: conecta el workspace a la red del host (network_mode=host) y no publica puertos.
 - `Persistir home en el host`: monta `/home/coder` en `TF_VAR_users_storage/<usuario>/<workspace>`.
 - `Persistir solo ~/Projects`: monta `/home/coder/Projects` en `TF_VAR_users_storage/<usuario>/<workspace>/Projects`.
 - `Montar ruta host en ~/host`: monta una ruta del host en `/home/coder/host`.
