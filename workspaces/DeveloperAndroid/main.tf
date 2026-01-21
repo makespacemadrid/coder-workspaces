@@ -784,7 +784,7 @@ module "code-server" {
 module "git-config" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/git-config/coder"
-  version  = "~> 1.1"
+  version  = "~> 1.0"
   agent_id = coder_agent.main.id
 }
 
@@ -806,7 +806,7 @@ module "coder-login" {
 
 module "tmux" {
   source   = "registry.coder.com/anomaly/tmux/coder"
-  version  = "~> 1.1"
+  version  = "~> 1.0"
   agent_id = coder_agent.main.id
 }
 
