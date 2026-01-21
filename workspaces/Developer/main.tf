@@ -289,9 +289,32 @@ PULSECFG
     sudo mkdir -p /opt/pipx /opt/pipx/bin
     sudo chown -R "$USER:$USER" /opt/pipx || true
 
-    # Symlink de opencode cuando se instale bajo /root (start script espera /home/coder/.opencode)
-    if [ -d /root/.opencode ] && [ ! -e /home/coder/.opencode ]; then
-      sudo ln -s /root/.opencode /home/coder/.opencode || true
+    # Configurar PATH para .local/bin (siempre útil)
+    mkdir -p /home/coder/.local/bin
+    if [ ! -f /home/coder/.profile ]; then
+      echo '# ~/.profile: executed by the command interpreter for login shells.' > /home/coder/.profile
+      echo 'if [ -n "$BASH_VERSION" ]; then' >> /home/coder/.profile
+      echo '    if [ -f "$HOME/.bashrc" ]; then' >> /home/coder/.profile
+      echo '        . "$HOME/.bashrc"' >> /home/coder/.profile
+      echo '    fi' >> /home/coder/.profile
+      echo 'fi' >> /home/coder/.profile
+    fi
+
+    # Solo configurar OpenCode si NO se está usando Claude Code
+    if [ "${tostring(local.install_claude)}" = "false" ]; then
+      # Symlink de opencode cuando se instale bajo /root
+      if [ -d /root/.opencode ] && [ ! -e /home/coder/.opencode ]; then
+        sudo ln -s /root/.opencode /home/coder/.opencode || true
+      fi
+      # Añadir OpenCode CLI al PATH
+      if ! grep -q "/.opencode/bin" /home/coder/.profile 2>/dev/null; then
+        echo 'export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"' >> /home/coder/.profile
+      fi
+    else
+      # Si usamos Claude Code, solo añadir .local/bin al PATH
+      if ! grep -q "/.local/bin" /home/coder/.profile 2>/dev/null; then
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/coder/.profile
+      fi
     fi
 
     # Alinear binarios instalados como root (ej. jupyter)
@@ -935,7 +958,7 @@ resource "coder_script" "setup_pipx" {
 module "code-server" {
   count      = data.coder_workspace.me.start_count
   source     = "registry.coder.com/coder/code-server/coder"
-  version    = "~> 1.0"
+  version    = "~> 1.1"
   agent_id   = coder_agent.main.id
   folder     = "/home/coder/Projects"
   extensions = local.vscode_extensions
@@ -945,7 +968,7 @@ module "code-server" {
 module "git-config" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/git-config/coder"
-  version  = "~> 1.0"
+  version  = "~> 1.1"
   agent_id = coder_agent.main.id
 }
 
@@ -967,7 +990,7 @@ module "coder-login" {
 
 module "tmux" {
   source   = "registry.coder.com/anomaly/tmux/coder"
-  version  = "~> 1.0"
+  version  = "~> 1.1"
   agent_id = coder_agent.main.id
 }
 
@@ -983,7 +1006,7 @@ module "kasmvnc" {
 module "github-upload-public-key" {
   count    = 0 # Deshabilitado temporalmente (external-auth no configurado)
   source   = "registry.coder.com/coder/github-upload-public-key/coder"
-  version  = "~> 1.0"
+  version  = "~> 1.1"
   agent_id = coder_agent.main.id
 }
 

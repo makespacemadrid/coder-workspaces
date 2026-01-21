@@ -249,6 +249,25 @@ PULSECFG
       done
     fi
 
+    # Symlink de opencode cuando se instale bajo /root (start script espera /home/coder/.opencode)
+    if [ -d /root/.opencode ] && [ ! -e /home/coder/.opencode ]; then
+      sudo ln -s /root/.opencode /home/coder/.opencode || true
+    fi
+
+    # Configurar PATH para OpenCode CLI y .local/bin
+    mkdir -p /home/coder/.local/bin
+    if [ ! -f /home/coder/.profile ]; then
+      echo '# ~/.profile: executed by the command interpreter for login shells.' > /home/coder/.profile
+      echo 'if [ -n "$BASH_VERSION" ]; then' >> /home/coder/.profile
+      echo '    if [ -f "$HOME/.bashrc" ]; then' >> /home/coder/.profile
+      echo '        . "$HOME/.bashrc"' >> /home/coder/.profile
+      echo '    fi' >> /home/coder/.profile
+      echo 'fi' >> /home/coder/.profile
+    fi
+    if ! grep -q "/.opencode/bin" /home/coder/.profile 2>/dev/null; then
+      echo 'export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"' >> /home/coder/.profile
+    fi
+
     mkdir -p ~/Projects
     if [ -n "$${DEFAULT_REPO_PATH:-}" ]; then
       mkdir -p "$DEFAULT_REPO_PATH"
@@ -746,7 +765,7 @@ EOT
 module "code-server" {
   count      = data.coder_workspace.me.start_count
   source     = "registry.coder.com/coder/code-server/coder"
-  version    = "~> 1.0"
+  version    = "~> 1.1"
   agent_id   = coder_agent.main.id
   folder     = "/home/coder/Projects"
   extensions = local.vscode_extensions

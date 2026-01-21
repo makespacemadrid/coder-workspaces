@@ -277,6 +277,35 @@ PULSECFG
     # Asegurar /home/coder como HOME efectivo incluso si se ejecuta como root
     sudo mkdir -p /home/coder
     sudo chown "$USER:$USER" /home/coder || true
+
+    # Configurar PATH para .local/bin (siempre útil)
+    mkdir -p /home/coder/.local/bin
+    if [ ! -f /home/coder/.profile ]; then
+      echo '# ~/.profile: executed by the command interpreter for login shells.' > /home/coder/.profile
+      echo 'if [ -n "$BASH_VERSION" ]; then' >> /home/coder/.profile
+      echo '    if [ -f "$HOME/.bashrc" ]; then' >> /home/coder/.profile
+      echo '        . "$HOME/.bashrc"' >> /home/coder/.profile
+      echo '    fi' >> /home/coder/.profile
+      echo 'fi' >> /home/coder/.profile
+    fi
+
+    # Solo configurar OpenCode si NO se está usando Claude Code
+    if [ "${tostring(local.install_claude)}" = "false" ]; then
+      # Symlink de opencode cuando se instale bajo /root
+      if [ -d /root/.opencode ] && [ ! -e /home/coder/.opencode ]; then
+        sudo ln -s /root/.opencode /home/coder/.opencode || true
+      fi
+      # Añadir OpenCode CLI al PATH
+      if ! grep -q "/.opencode/bin" /home/coder/.profile 2>/dev/null; then
+        echo 'export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"' >> /home/coder/.profile
+      fi
+    else
+      # Si usamos Claude Code, solo añadir .local/bin al PATH
+      if ! grep -q "/.local/bin" /home/coder/.profile 2>/dev/null; then
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/coder/.profile
+      fi
+    fi
+
     mkdir -p ~/Projects
     if [ -n "$${DEFAULT_REPO_PATH:-}" ]; then
       mkdir -p "$DEFAULT_REPO_PATH"
@@ -745,7 +774,7 @@ CONTINUECFG
 module "code-server" {
   count      = data.coder_workspace.me.start_count
   source     = "registry.coder.com/coder/code-server/coder"
-  version    = "~> 1.0"
+  version    = "~> 1.1"
   agent_id   = coder_agent.main.id
   folder     = "/home/coder/Projects"
   extensions = local.vscode_extensions
@@ -755,7 +784,7 @@ module "code-server" {
 module "git-config" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/git-config/coder"
-  version  = "~> 1.0"
+  version  = "~> 1.1"
   agent_id = coder_agent.main.id
 }
 
@@ -777,7 +806,7 @@ module "coder-login" {
 
 module "tmux" {
   source   = "registry.coder.com/anomaly/tmux/coder"
-  version  = "~> 1.0"
+  version  = "~> 1.1"
   agent_id = coder_agent.main.id
 }
 
