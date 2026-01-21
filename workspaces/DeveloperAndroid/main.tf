@@ -472,7 +472,9 @@ GENMKS
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": [
-    "opencode-openai-codex-auth@4.0.2"
+    "opencode-openai-codex-auth@4.0.2",
+    "opencode-gemini-auth@latest",
+    "opencode-antigravity-auth@beta"
   ],
   "provider": {
     "openai": {
@@ -701,6 +703,33 @@ GENMKS
       "options": {
         "baseURL": "OPENCODE_PROVIDER_URL_VALUE",
         "apiKey": "OPENCODE_API_KEY_VALUE"
+      }
+    },
+    "google": {
+      "models": {
+        "antigravity-claude-opus-4-5-thinking": {
+          "name": "Claude Opus 4.5 Thinking (Antigravity)",
+          "options": { "thinkingBudget": 10000, "includeThoughts": true }
+        },
+        "antigravity-claude-sonnet-4-5-thinking": {
+          "name": "Claude Sonnet 4.5 Thinking (Antigravity)",
+          "options": { "thinkingBudget": 5000, "includeThoughts": true }
+        },
+        "antigravity-gemini-3-pro": {
+          "name": "Gemini 3 Pro (Antigravity)",
+          "options": { "thinkingLevel": "high", "includeThoughts": true }
+        },
+        "antigravity-gemini-3-flash": { "name": "Gemini 3 Flash (Antigravity)" },
+        "gemini-2.5-pro": {
+          "name": "Gemini 2.5 Pro (Free Tier)",
+          "options": { "thinkingBudget": 5000, "includeThoughts": true }
+        },
+        "gemini-2.5-flash": { "name": "Gemini 2.5 Flash (Free Tier)" },
+        "gemini-3-pro-preview": {
+          "name": "Gemini 3 Pro Preview (Free Tier)",
+          "options": { "thinkingLevel": "high", "includeThoughts": true }
+        },
+        "gemini-3-flash-preview": { "name": "Gemini 3 Flash Preview (Free Tier)" }
       }
     }
   },
