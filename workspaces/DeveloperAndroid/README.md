@@ -12,11 +12,14 @@ Workspace gráfico KDE/KasmVNC con toolchain Android preinstalado. Usa la imagen
 
 ## Qué incluye
 - Android SDK CLI con `platform-tools`, emulator y `cmdline-tools;latest` (instala tus propias plataformas/ build-tools según el proyecto).
+- Android Studio Otter 3 Feature Drop (2025.2.3.x).
 - Java 17, Node.js 20 (npm/pnpm/yarn), git/git-lfs y utilidades de desarrollo.
 - VS Code listo para personalizar tus extensiones (sin bundle preinstalado) y soporte C/C++ vía paquetes base.
-- JetBrains Toolbox 3.1 + módulo JetBrains de Coder para lanzar IntelliJ IDEA remoto (instala el plugin Android) vía JetBrains Gateway/Coder Desktop.
+- JetBrains Toolbox + módulo JetBrains de Coder para lanzar IntelliJ IDEA remoto (instala el plugin Android) vía JetBrains Gateway/Coder Desktop.
+- Google Chrome y Firefox preinstalados.
 - Módulos Coder: KasmVNC (KDE), code-server, Filebrowser, OpenCode, git-config, tmux.
 - Autoprovisiona una key de IA MakeSpace (30 días) si dejas activa la casilla `[AI/OpenCode] Provisionar API key MakeSpace automáticamente` y el endpoint está configurado por entorno.
+- Antigravity auto-updater (`antigravity`) preinstalado.
 
 ## Creación rápida en Coder
 - `GPU`: viene activada por defecto; desactívala si no la necesitas.

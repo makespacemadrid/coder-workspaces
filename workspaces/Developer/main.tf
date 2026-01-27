@@ -380,7 +380,7 @@ JSONCFG
 
     # Refrescar accesos directos en el escritorio (si faltan)
     mkdir -p ~/Desktop
-    for f in code.desktop github-desktop.desktop claude-desktop.desktop firefox.desktop geany.desktop appimagepool.desktop; do
+    for f in code.desktop github-desktop.desktop claude-desktop.desktop firefox.desktop google-chrome.desktop geany.desktop appimagepool.desktop; do
       src="/usr/share/applications/$f"
       if [ -f "$src" ] && [ ! -e "$HOME/Desktop/$f" ]; then
         ln -sf "$src" "$HOME/Desktop/$f"
@@ -552,7 +552,10 @@ GENMKS
   "plugin": [
     "opencode-openai-codex-auth@4.0.2",
     "opencode-gemini-auth@latest",
-    "opencode-antigravity-auth@beta"
+    "opencode-antigravity-auth@beta",
+    "opencode-agent-memory",
+    "opencode-mystatus",
+    "opencode-handoff"
   ],
   "provider": {
     "openai": {
@@ -1074,6 +1077,14 @@ module "claude-code" {
   subdomain               = false
   report_tasks            = true
   depends_on              = [module.opencode]
+}
+
+module "antigravity" {
+  count    = data.coder_workspace.me.start_count
+  source   = "registry.coder.com/coder/antigravity/coder"
+  version  = "~> 1.0"
+  agent_id = coder_agent.main.id
+  folder   = "/home/coder/Projects"
 }
 
 module "jupyterlab" {

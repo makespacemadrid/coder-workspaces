@@ -105,6 +105,26 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
     apt-get install -y --no-install-recommends gh && \
     rm -rf /var/lib/apt/lists/*
 
+# Google Chrome (repositorio oficial)
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
+    chmod a+r /etc/apt/keyrings/google-chrome.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+      | tee /etc/apt/sources.list.d/google-chrome.list > /dev/null && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
+
+# Antigravity auto-updater
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://us-central1-apt.pkg.dev/doc/repo-signing-key.gpg | gpg --dearmor --yes -o /etc/apt/keyrings/antigravity-repo-key.gpg && \
+    chmod a+r /etc/apt/keyrings/antigravity-repo-key.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/antigravity-repo-key.gpg] https://us-central1-apt.pkg.dev/projects/antigravity-auto-updater-dev/ antigravity-debian main" \
+      | tee /etc/apt/sources.list.d/antigravity.list > /dev/null && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends antigravity && \
+    rm -rf /var/lib/apt/lists/*
+
 # Node.js 20 y las CLIs de IA para trabajo con código
 RUN install -m 0755 -d /etc/apt/keyrings && \
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
@@ -144,14 +164,53 @@ RUN set -e; \
     rm -rf /var/lib/apt/lists/*
 
 # GitHub Desktop (shiftkey build) y Claude Desktop (unofficial build)
-ARG GITHUB_DESKTOP_VERSION=3.4.13-linux1
-ARG GITHUB_DESKTOP_DEB_URL=https://github.com/shiftkey/desktop/releases/download/release-${GITHUB_DESKTOP_VERSION}/GitHubDesktop-linux-amd64-${GITHUB_DESKTOP_VERSION}.deb
-ARG CLAUDE_DESKTOP_VERSION=0.14.10
-ARG CLAUDE_DESKTOP_DEB_URL=https://github.com/aaddrick/claude-desktop-debian/releases/download/v1.1.10%2Bclaude${CLAUDE_DESKTOP_VERSION}/claude-desktop_${CLAUDE_DESKTOP_VERSION}_amd64.deb
-RUN curl -fsSL "${GITHUB_DESKTOP_DEB_URL}" -o /tmp/github-desktop.deb && \
-    curl -fsSL "${CLAUDE_DESKTOP_DEB_URL}" -o /tmp/claude-desktop.deb && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends /tmp/github-desktop.deb /tmp/claude-desktop.deb && \
+ARG GITHUB_DESKTOP_REPO=shiftkey/desktop
+ARG CLAUDE_DESKTOP_REPO=aaddrick/claude-desktop-debian
+RUN set -e; \
+    GH_DESKTOP_URL="$(python3 - <<'PY' "$GITHUB_DESKTOP_REPO"
+import json
+import re
+import sys
+import urllib.request
+
+repo = sys.argv[1]
+with urllib.request.urlopen(f"https://api.github.com/repos/{repo}/releases/latest") as resp:
+    data = json.load(resp)
+
+pattern = re.compile(r"GitHubDesktop-linux-amd64-.*\\.deb$")
+for asset in data.get("assets", []):
+    name = asset.get("name", "")
+    if pattern.search(name):
+        print(asset["browser_download_url"])
+        break
+else:
+    raise SystemExit("No GitHub Desktop .deb asset found")
+PY
+)"; \
+    CLAUDE_URL="$(python3 - <<'PY' "$CLAUDE_DESKTOP_REPO"
+import json
+import re
+import sys
+import urllib.request
+
+repo = sys.argv[1]
+with urllib.request.urlopen(f"https://api.github.com/repos/{repo}/releases/latest") as resp:
+    data = json.load(resp)
+
+pattern = re.compile(r"claude-desktop_.*_amd64\\.deb$")
+for asset in data.get("assets", []):
+    name = asset.get("name", "")
+    if pattern.search(name):
+        print(asset["browser_download_url"])
+        break
+else:
+    raise SystemExit("No Claude Desktop .deb asset found")
+PY
+)"; \
+    curl -fsSL "$GH_DESKTOP_URL" -o /tmp/github-desktop.deb; \
+    curl -fsSL "$CLAUDE_URL" -o /tmp/claude-desktop.deb; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends /tmp/github-desktop.deb /tmp/claude-desktop.deb; \
     rm -rf /var/lib/apt/lists/* /tmp/github-desktop.deb /tmp/claude-desktop.deb
 
 # Electron apps dentro de contenedores Docker necesitan desactivar el sandbox

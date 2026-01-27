@@ -363,7 +363,7 @@ JSONCFG
 
     # Refrescar accesos directos en el escritorio (si faltan)
     mkdir -p ~/Desktop
-    for f in android-studio.desktop code.desktop firefox.desktop; do
+    for f in android-studio.desktop code.desktop firefox.desktop google-chrome.desktop; do
       src="/usr/share/applications/$f"
       if [ -f "$src" ] && [ ! -e "$HOME/Desktop/$f" ]; then
         ln -sf "$src" "$HOME/Desktop/$f"
@@ -474,7 +474,10 @@ GENMKS
   "plugin": [
     "opencode-openai-codex-auth@4.0.2",
     "opencode-gemini-auth@latest",
-    "opencode-antigravity-auth@beta"
+    "opencode-antigravity-auth@beta",
+    "opencode-agent-memory",
+    "opencode-mystatus",
+    "opencode-handoff"
   ],
   "provider": {
     "openai": {

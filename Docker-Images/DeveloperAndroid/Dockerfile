@@ -23,6 +23,7 @@ RUN dpkg --add-architecture i386 && \
         python3 python3-venv python3-pip pipx \
         unzip zip \
         git git-lfs \
+        gnupg \
         jq \
         curl wget \
         ca-certificates \
@@ -57,6 +58,26 @@ RUN dpkg --add-architecture i386 && \
         libfontenc1 \
         ssl-cert \
     && rm -rf /var/lib/apt/lists/*
+
+# Google Chrome (repositorio oficial)
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
+    chmod a+r /etc/apt/keyrings/google-chrome.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+      | tee /etc/apt/sources.list.d/google-chrome.list > /dev/null && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
+
+# Antigravity auto-updater
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://us-central1-apt.pkg.dev/doc/repo-signing-key.gpg | gpg --dearmor --yes -o /etc/apt/keyrings/antigravity-repo-key.gpg && \
+    chmod a+r /etc/apt/keyrings/antigravity-repo-key.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/antigravity-repo-key.gpg] https://us-central1-apt.pkg.dev/projects/antigravity-auto-updater-dev/ antigravity-debian main" \
+      | tee /etc/apt/sources.list.d/antigravity.list > /dev/null && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends antigravity && \
+    rm -rf /var/lib/apt/lists/*
 
 # Añadir coder al grupo KVM para aceleración del emulador
 RUN usermod -aG kvm coder
@@ -101,9 +122,9 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
 ENV ANDROID_HOME=/opt/android-sdk \
     ANDROID_SDK_ROOT=/opt/android-sdk \
     ANDROID_USER_HOME=/home/coder/.android \
-    PATH=$PATH:/opt/android-sdk/platform-tools:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/emulator:/opt/gradle/gradle-9.2.1/bin
+    PATH=$PATH:/opt/android-sdk/platform-tools:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/emulator:/opt/gradle/gradle-9.3.0/bin
 
-ARG ANDROID_SDK_VERSION=11076708
+ARG ANDROID_SDK_VERSION=13114758
 RUN mkdir -p /opt/android-sdk/cmdline-tools && \
     curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_VERSION}_latest.zip" -o /tmp/cmdline-tools.zip && \
     unzip -q /tmp/cmdline-tools.zip -d /opt/android-sdk/cmdline-tools && \
@@ -118,7 +139,7 @@ RUN mkdir -p /opt/android-sdk/cmdline-tools && \
     install -d -o coder -g coder /home/coder/.android
 
 # Android Studio
-ARG ANDROID_STUDIO_VERSION=2025.2.2.7
+ARG ANDROID_STUDIO_VERSION=2025.2.3.9
 RUN curl -fsSL "https://redirector.gvt1.com/edgedl/android/studio/ide-zips/${ANDROID_STUDIO_VERSION}/android-studio-${ANDROID_STUDIO_VERSION}-linux.tar.gz" -o /tmp/android-studio.tar.gz && \
     tar -xzf /tmp/android-studio.tar.gz -C /opt && \
     rm /tmp/android-studio.tar.gz && \
@@ -148,14 +169,14 @@ Type=Application
 Categories=Development;IDE;
 EOF
 RUN chmod +x /usr/share/applications/android-studio.desktop && \
-    for app in android-studio.desktop code.desktop firefox.desktop; do \
+    for app in android-studio.desktop code.desktop firefox.desktop google-chrome.desktop; do \
       if [ -f "/usr/share/applications/${app}" ]; then \
         ln -sf "/usr/share/applications/${app}" "/etc/skel/Desktop/${app}"; \
       fi; \
     done
 
 # Gradle
-RUN curl -fsSL "https://services.gradle.org/distributions/gradle-9.2.1-bin.zip" -o /tmp/gradle.zip && \
+RUN curl -fsSL "https://services.gradle.org/distributions/gradle-9.3.0-bin.zip" -o /tmp/gradle.zip && \
     unzip -q /tmp/gradle.zip -d /opt/gradle && \
     rm /tmp/gradle.zip
 
