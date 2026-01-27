@@ -167,8 +167,10 @@ RUN set -e; \
 ARG GITHUB_DESKTOP_REPO=shiftkey/desktop
 ARG CLAUDE_DESKTOP_REPO=aaddrick/claude-desktop-debian
 RUN set -e; \
-    GH_DESKTOP_URL="$(python3 - "$GITHUB_DESKTOP_REPO" -c 'import json,re,sys,urllib.request; repo=sys.argv[1]; data=json.load(urllib.request.urlopen(f"https://api.github.com/repos/{repo}/releases/latest")); pattern=re.compile(r"GitHubDesktop-linux-amd64-.*\\.deb$"); print(next(a["browser_download_url"] for a in data.get("assets", []) if pattern.search(a.get("name",""))))' )"; \
-    CLAUDE_URL="$(python3 - "$CLAUDE_DESKTOP_REPO" -c 'import json,re,sys,urllib.request; repo=sys.argv[1]; data=json.load(urllib.request.urlopen(f"https://api.github.com/repos/{repo}/releases/latest")); pattern=re.compile(r"claude-desktop_.*_amd64\\.deb$"); print(next(a["browser_download_url"] for a in data.get("assets", []) if pattern.search(a.get("name",""))))' )"; \
+    GH_DESKTOP_URL="$(python3 - "$GITHUB_DESKTOP_REPO" -c 'import json,re,sys,urllib.request; repo=sys.argv[1]; data=json.load(urllib.request.urlopen(f"https://api.github.com/repos/{repo}/releases/latest")); pattern=re.compile(r"GitHubDesktop-linux-amd64-.*\\.deb$"); sys.stdout.write(next(a["browser_download_url"] for a in data.get("assets", []) if pattern.search(a.get("name",""))))' )"; \
+    CLAUDE_URL="$(python3 - "$CLAUDE_DESKTOP_REPO" -c 'import json,re,sys,urllib.request; repo=sys.argv[1]; data=json.load(urllib.request.urlopen(f"https://api.github.com/repos/{repo}/releases/latest")); pattern=re.compile(r"claude-desktop_.*_amd64\\.deb$"); sys.stdout.write(next(a["browser_download_url"] for a in data.get("assets", []) if pattern.search(a.get("name",""))))' )"; \
+    GH_DESKTOP_URL="$(printf '%s' "$GH_DESKTOP_URL" | tr -d '\r\n')"; \
+    CLAUDE_URL="$(printf '%s' "$CLAUDE_URL" | tr -d '\r\n')"; \
     curl -fsSL "$GH_DESKTOP_URL" -o /tmp/github-desktop.deb; \
     curl -fsSL "$CLAUDE_URL" -o /tmp/claude-desktop.deb; \
     apt-get update; \
