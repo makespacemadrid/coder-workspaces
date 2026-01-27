@@ -168,9 +168,9 @@ ARG GITHUB_DESKTOP_REPO=shiftkey/desktop
 ARG CLAUDE_DESKTOP_REPO=aaddrick/claude-desktop-debian
 RUN set -e; \
     GH_DESKTOP_URL="$(curl -fsSL "https://api.github.com/repos/${GITHUB_DESKTOP_REPO}/releases/latest" | \
-      jq -r '.assets[] | select(.name | test("GitHubDesktop-linux-amd64-.*\\\\.deb$")) | .browser_download_url' | head -n1)"; \
+      jq -r '.assets[] | select(.name | test("GitHubDesktop-linux-amd64-.*\\.deb$")) | .browser_download_url' | head -n1)"; \
     CLAUDE_URL="$(curl -fsSL "https://api.github.com/repos/${CLAUDE_DESKTOP_REPO}/releases/latest" | \
-      jq -r '.assets[] | select(.name | test("claude-desktop_.*_amd64\\\\.deb$")) | .browser_download_url' | head -n1)"; \
+      jq -r '.assets[] | select(.name | test("claude-desktop_.*_amd64\\.deb$")) | .browser_download_url' | head -n1)"; \
     if [ -z "$GH_DESKTOP_URL" ] || [ -z "$CLAUDE_URL" ]; then \
       echo "No se encontraron assets .deb en GitHub releases" >&2; \
       exit 1; \
