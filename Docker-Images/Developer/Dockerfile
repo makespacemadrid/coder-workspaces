@@ -167,46 +167,22 @@ RUN set -e; \
 ARG GITHUB_DESKTOP_REPO=shiftkey/desktop
 ARG CLAUDE_DESKTOP_REPO=aaddrick/claude-desktop-debian
 RUN set -e; \
-    GH_DESKTOP_URL="$(python3 - "$GITHUB_DESKTOP_REPO" <<'PY'
-import json
-import re
-import sys
-import urllib.request
-
-repo = sys.argv[1]
-with urllib.request.urlopen(f"https://api.github.com/repos/{repo}/releases/latest") as resp:
-    data = json.load(resp)
-
-pattern = re.compile(r"GitHubDesktop-linux-amd64-.*\\.deb$")
-for asset in data.get("assets", []):
-    name = asset.get("name", "")
-    if pattern.search(name):
-        print(asset["browser_download_url"])
-        break
-else:
-    raise SystemExit("No GitHub Desktop .deb asset found")
-PY
-)"; \
-    CLAUDE_URL="$(python3 - "$CLAUDE_DESKTOP_REPO" <<'PY'
-import json
-import re
-import sys
-import urllib.request
-
-repo = sys.argv[1]
-with urllib.request.urlopen(f"https://api.github.com/repos/{repo}/releases/latest") as resp:
-    data = json.load(resp)
-
-pattern = re.compile(r"claude-desktop_.*_amd64\\.deb$")
-for asset in data.get("assets", []):
-    name = asset.get("name", "")
-    if pattern.search(name):
-        print(asset["browser_download_url"])
-        break
-else:
-    raise SystemExit("No Claude Desktop .deb asset found")
-PY
-)"; \
+    GH_DESKTOP_URL="$(python3 - "$GITHUB_DESKTOP_REPO" -c 'import json,re,sys,urllib.request; repo=sys.argv[1]; data=json.load(urllib.request.urlopen(f\"https://api.github.com/repos/{repo}/releases/latest\")); pattern=re.compile(r\"GitHubDesktop-linux-amd64-.*\\.deb$\"); \
+for asset in data.get(\"assets\", []): \
+    name=asset.get(\"name\", \"\"); \
+    if pattern.search(name): \
+        print(asset[\"browser_download_url\"]); \
+        break \
+else: \
+    raise SystemExit(\"No GitHub Desktop .deb asset found\")' )"; \
+    CLAUDE_URL="$(python3 - "$CLAUDE_DESKTOP_REPO" -c 'import json,re,sys,urllib.request; repo=sys.argv[1]; data=json.load(urllib.request.urlopen(f\"https://api.github.com/repos/{repo}/releases/latest\")); pattern=re.compile(r\"claude-desktop_.*_amd64\\.deb$\"); \
+for asset in data.get(\"assets\", []): \
+    name=asset.get(\"name\", \"\"); \
+    if pattern.search(name): \
+        print(asset[\"browser_download_url\"]); \
+        break \
+else: \
+    raise SystemExit(\"No Claude Desktop .deb asset found\")' )"; \
     curl -fsSL "$GH_DESKTOP_URL" -o /tmp/github-desktop.deb; \
     curl -fsSL "$CLAUDE_URL" -o /tmp/claude-desktop.deb; \
     apt-get update; \
