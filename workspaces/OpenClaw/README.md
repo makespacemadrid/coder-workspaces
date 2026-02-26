@@ -56,7 +56,7 @@ Template inicial para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid
 - El template puede autoprovisionar 2 credenciales API (si hay endpoints): MakeSpace (`MKS_KEY_ENDPOINT`) y FreeAPI (`FREEAPI_KEY_ENDPOINT`), cada una con su propio toggle en el formulario.
 - El template crea `auth-profiles.json` con perfiles `makespace:manual` y/o `freeapi:manual`.
 - El template define `models.providers.makespace` con `qwen3:14b`, `qwen3:32b`, `qwen3-coder:30b`, `gpt-oss:20b`.
-- El template detecta modelos FreeAPI acabados en `-ha` consultando el endpoint OpenAI-compatible y los registra automáticamente.
+- El template detecta modelos FreeAPI acabados en `-ha` y, cuando está disponible `/model/info` (LiteLLM), enriquece automáticamente capacidades, tokens y costes por modelo.
 - El template rellena `agents.defaults.models` con esos modelos para que aparezcan en el selector de agentes.
 - El template asegura `agents.list` con entrada `id: "main"` para que los cambios de modelo en la UI de agentes se marquen como modificados y el botón `Save` se habilite.
 - Para los modelos de familia `qwen3*`, el template marca `reasoning=true`.

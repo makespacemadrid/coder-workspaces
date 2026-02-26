@@ -567,6 +567,19 @@ PY
       if [ -n "$${FREEAPI_BASE_URL:-}" ]; then
         freeapi_provider_json=$(python3 - <<'PY'
 import json, os, urllib.request
+
+def norm_model_id(raw):
+    if not isinstance(raw, str):
+        return ""
+    s = raw.strip()
+    if not s:
+        return ""
+    if "//" in s:
+        s = s.split("//", 1)[1]
+    if "/" in s:
+        s = s.rsplit("/", 1)[-1]
+    return s
+
 base_url = os.environ.get("FREEAPI_BASE_URL", "").strip().rstrip("/")
 api_key = os.environ.get("FREEAPI_API_KEY", "").strip()
 discovered_ids = []
@@ -584,23 +597,98 @@ for path in ("/v1/models", "/models"):
         for item in items:
             if not isinstance(item, dict):
                 continue
-            model_id = item.get("id")
-            if isinstance(model_id, str) and model_id.endswith("-ha"):
+            model_id = norm_model_id(item.get("id"))
+            if model_id.endswith("-ha"):
                 discovered_ids.append(model_id)
         if discovered_ids:
             break
     except Exception:
         continue
 discovered_ids = sorted(set(discovered_ids))
+
+# Enriquecer capacidades/tokens/costes desde /model/info (LiteLLM-compatible).
+meta = {}
+for path in ("/v1/model/info", "/model/info"):
+    if not base_url:
+        continue
+    try:
+        headers = {"Accept": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        req = urllib.request.Request(f"{base_url}{path}", headers=headers)
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            payload = json.loads(resp.read().decode("utf-8", "replace"))
+        rows = payload.get("data", payload if isinstance(payload, list) else [])
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            model_id = norm_model_id(row.get("model_name") or row.get("id"))
+            if not model_id.endswith("-ha"):
+                continue
+            mi = row.get("model_info", {}) if isinstance(row.get("model_info"), dict) else {}
+            lp = row.get("litellm_params", {}) if isinstance(row.get("litellm_params"), dict) else {}
+            tags = lp.get("tags", [])
+            tags = tags if isinstance(tags, list) else []
+
+            entry = meta.setdefault(model_id, {
+                "contextWindow": 0,
+                "maxTokens": 0,
+                "reasoning": False,
+                "input": {"text"},
+                "cost": {"input": None, "output": None, "cacheRead": None, "cacheWrite": None},
+            })
+
+            # Tokens
+            in_tok = mi.get("max_input_tokens") or mi.get("context_window") or mi.get("max_tokens")
+            out_tok = mi.get("max_output_tokens") or mi.get("output_tokens")
+            for val in (in_tok,):
+                if isinstance(val, int) and val > entry["contextWindow"]:
+                    entry["contextWindow"] = val
+            for val in (out_tok,):
+                if isinstance(val, int) and val > entry["maxTokens"]:
+                    entry["maxTokens"] = val
+
+            # Capacidades
+            tagset = {t for t in tags if isinstance(t, str)}
+            if any("capability:thinking" == t for t in tagset) or bool(lp.get("merge_reasoning_content_in_choices")):
+                entry["reasoning"] = True
+            if any("capability:vision" == t or "capability:image" == t for t in tagset) or bool(mi.get("supports_vision")):
+                entry["input"].add("image")
+            if any("capability:audio" == t for t in tagset) or bool(mi.get("supports_audio_input")):
+                entry["input"].add("audio")
+
+            # Costes
+            cmap = {
+                "input": lp.get("input_cost_per_token"),
+                "output": lp.get("output_cost_per_token"),
+                "cacheRead": lp.get("cache_read_input_token_cost"),
+                "cacheWrite": lp.get("cache_creation_input_token_cost"),
+            }
+            for k, v in cmap.items():
+                if isinstance(v, (int, float)):
+                    entry["cost"][k] = v
+    except Exception:
+        continue
+
 models = []
 for model_id in discovered_ids:
+    m = meta.get(model_id, {})
+    context_window = m.get("contextWindow") if isinstance(m.get("contextWindow"), int) and m.get("contextWindow", 0) > 0 else 32768
+    max_tokens = m.get("maxTokens") if isinstance(m.get("maxTokens"), int) and m.get("maxTokens", 0) > 0 else 8192
+    reasoning = bool(m.get("reasoning")) or model_id.startswith("qwen3")
+    inputs = sorted(m.get("input", {"text"})) if isinstance(m.get("input"), set) else ["text"]
+    cost = m.get("cost") if isinstance(m.get("cost"), dict) else {}
+    for key in ("input", "output", "cacheRead", "cacheWrite"):
+        if not isinstance(cost.get(key), (int, float)):
+            cost[key] = 0
     models.append({
         "id": model_id,
         "name": model_id,
-        "reasoning": model_id.startswith("qwen3"),
-        "input": ["text"],
-        "contextWindow": 32768,
-        "maxTokens": 8192,
+        "reasoning": reasoning,
+        "input": inputs,
+        "contextWindow": context_window,
+        "maxTokens": max_tokens,
+        "cost": cost,
     })
 cfg = {
     "baseUrl": base_url,
