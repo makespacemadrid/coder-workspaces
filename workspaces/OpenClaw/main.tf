@@ -624,10 +624,11 @@ PY
       fi
       freeapi_models_json="[]"
       if [ "$has_freeapi" = "1" ]; then
-        freeapi_models_json=$(openclaw config get models.providers.freeapi --json 2>/dev/null | python3 - <<'PY'
-import json, sys
+        freeapi_provider_cfg_json=$(openclaw config get models.providers.freeapi --json 2>/dev/null || echo "{}")
+        freeapi_models_json=$(FREEAPI_PROVIDER_CFG_JSON="$freeapi_provider_cfg_json" python3 - <<'PY'
+import json, os
 try:
-    cfg = json.load(sys.stdin)
+    cfg = json.loads(os.environ.get("FREEAPI_PROVIDER_CFG_JSON", "{}"))
 except Exception:
     cfg = {}
 models = cfg.get("models", [])
@@ -754,7 +755,7 @@ OPENCLAWSTART
 
     # OpenClaw opcional: arranque determinista antes de finalizar startup.
     if [ "$${OPENCLAW_AUTOSTART:-false}" = "true" ]; then
-      echo ">> KasmVNC listo. OpenClaw sigue instalándose/configurándose y puede tardar 2-3 minutos..."
+      echo ">> OpenClaw sigue instalándose/configurándose y puede tardar 2-3 minutos..."
       if ! "$HOME/.local/bin/start-openclaw"; then
         echo "WARN: no se pudo arrancar OpenClaw automáticamente. Revisa ~/.local/state/openclaw/openclaw.log" >&2
       fi
