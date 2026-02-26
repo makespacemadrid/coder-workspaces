@@ -462,6 +462,11 @@ JSONCFG
       node -v || true
     fi
 
+    # Evitar caídas por EMFILE al usar watchers (skills/workspace/config).
+    sudo sysctl -w fs.inotify.max_user_watches=524288 >/dev/null 2>&1 || true
+    sudo sysctl -w fs.inotify.max_user_instances=1024 >/dev/null 2>&1 || true
+    sudo sysctl -w fs.inotify.max_queued_events=32768 >/dev/null 2>&1 || true
+
     # Homebrew en HOME persistente para skills/plugins opcionales de OpenClaw.
     BREW_PREFIX="$HOME/.linuxbrew"
     BREW_BIN="$BREW_PREFIX/bin/brew"
@@ -867,6 +872,9 @@ fi
 
 cd "$OPENCLAW_WORKDIR" 2>/dev/null || cd "$HOME/Projects"
 ulimit -n 65536 >/dev/null 2>&1 || true
+sudo sysctl -w fs.inotify.max_user_watches=524288 >/dev/null 2>&1 || true
+sudo sysctl -w fs.inotify.max_user_instances=1024 >/dev/null 2>&1 || true
+sudo sysctl -w fs.inotify.max_queued_events=32768 >/dev/null 2>&1 || true
 nohup openclaw gateway run --allow-unconfigured --port "$OPENCLAW_PORT" --auth token --token "$OPENCLAW_GATEWAY_TOKEN" >> "$LOG_FILE" 2>&1 &
 echo $! > "$PID_FILE"
 

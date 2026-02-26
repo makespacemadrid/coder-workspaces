@@ -41,6 +41,7 @@ Template inicial para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid
 ## Notas
 - El arranque de OpenClaw es síncrono en startup: intenta dejar el gateway arriba antes de finalizar el arranque del workspace.
 - Durante startup se muestra un aviso indicando que, aunque KasmVNC ya esté listo, la instalación/configuración de OpenClaw puede tardar 2-3 minutos adicionales.
+- El template sube límites de `inotify` (`max_user_watches/max_user_instances/max_queued_events`) para reducir errores `EMFILE` en watchers de OpenClaw.
 - Si `openclaw` no está instalado y el autoarranque está activo, el template intenta instalarlo automáticamente con el instalador oficial.
 - Tras el autoarranque, el template prueba salud operativa con `openclaw health` (best-effort) para detectar fallos tempranos del gateway.
 - La app `OpenClaw UI` apunta a `http://localhost:<puerto OpenClaw>/?token=<gateway token>` para inyectar credenciales en cada apertura y su healthcheck usa `/`.
