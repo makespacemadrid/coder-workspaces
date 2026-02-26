@@ -599,7 +599,7 @@ cfg = {
     "auth": "api-key",
     "api": "openai-completions",
     "models": [
-        {"id": "gpt-oss:120b-ha", "name": "gpt-oss:120b-ha", "reasoning": False, "input": ["text"], "contextWindow": 32768, "maxTokens": 8192},
+        {"id": "gpt-oss-120b-ha", "name": "gpt-oss-120b-ha", "reasoning": False, "input": ["text"], "contextWindow": 32768, "maxTokens": 8192},
         {"id": "qwen3-coder-ha", "name": "qwen3-coder-ha", "reasoning": True, "input": ["text"], "contextWindow": 32768, "maxTokens": 8192},
     ],
 }
@@ -624,7 +624,7 @@ if os.environ.get("HAS_MAKESPACE") == "1":
     for model in ("qwen3:14b", "qwen3:32b", "qwen3-coder:30b", "gpt-oss:20b"):
         allowed[f"makespace/{model}"] = {}
 if os.environ.get("HAS_FREEAPI") == "1":
-    for model in ("gpt-oss:120b-ha", "qwen3-coder-ha"):
+    for model in ("gpt-oss-120b-ha", "qwen3-coder-ha"):
         allowed[f"freeapi/{model}"] = {}
 print(json.dumps(allowed, separators=(",", ":")))
 PY
@@ -632,6 +632,24 @@ PY
       if [ "$allowed_models_json" != "{}" ]; then
         openclaw config set agents.defaults.models "$allowed_models_json" >/dev/null 2>&1 || true
       fi
+      # La UI de agentes solo habilita Save al editar una entrada existente en
+      # agents.list. Garantizar "main" evita selector activo pero Save deshabilitado.
+      current_agents_list_json=$(openclaw config get agents.list --json 2>/dev/null || echo "[]")
+      merged_agents_list_json=$(CURRENT_AGENTS_LIST_JSON="$current_agents_list_json" python3 - <<'PY'
+import json, os
+raw = os.environ.get("CURRENT_AGENTS_LIST_JSON", "[]")
+try:
+    data = json.loads(raw)
+except Exception:
+    data = []
+if not isinstance(data, list):
+    data = []
+if not any(isinstance(item, dict) and item.get("id") == "main" for item in data):
+    data.append({"id": "main"})
+print(json.dumps(data, separators=(",", ":")))
+PY
+)
+      openclaw config set --json agents.list "$merged_agents_list_json" >/dev/null 2>&1 || true
       if [ -n "$${OPENCLAW_DEFAULT_MODEL:-}" ]; then
         target_model="$OPENCLAW_DEFAULT_MODEL"
         if ! printf '%s' "$target_model" | grep -q '/'; then
