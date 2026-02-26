@@ -640,7 +640,12 @@ for path in ("/v1/model/info", "/model/info"):
 
             # Tokens
             in_tok = mi.get("max_input_tokens") or mi.get("context_window") or mi.get("max_tokens")
-            out_tok = mi.get("max_output_tokens") or mi.get("output_tokens")
+            out_tok = (
+                mi.get("max_output_tokens")
+                or mi.get("max_completion_tokens")
+                or mi.get("output_tokens")
+                or mi.get("max_tokens")
+            )
             for val in (in_tok,):
                 if isinstance(val, int) and val > entry["contextWindow"]:
                     entry["contextWindow"] = val
@@ -650,7 +655,11 @@ for path in ("/v1/model/info", "/model/info"):
 
             # Capacidades
             tagset = {t for t in tags if isinstance(t, str)}
-            if any("capability:thinking" == t for t in tagset) or bool(lp.get("merge_reasoning_content_in_choices")):
+            if (
+                any("capability:thinking" == t for t in tagset)
+                or bool(lp.get("merge_reasoning_content_in_choices"))
+                or bool(mi.get("supports_reasoning"))
+            ):
                 entry["reasoning"] = True
             if any("capability:vision" == t or "capability:image" == t for t in tagset) or bool(mi.get("supports_vision")):
                 entry["input"].add("image")
