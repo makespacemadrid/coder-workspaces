@@ -128,6 +128,14 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
     apt-get install -y --no-install-recommends code && \
     rm -rf /var/lib/apt/lists/*
 
+# OpenCode Desktop
+ARG OPENCODE_DESKTOP_URL=https://opencode.ai/es/download/stable/linux-x64-deb
+RUN set -e; \
+    curl -fsSL "$OPENCODE_DESKTOP_URL" -o /tmp/opencode-desktop.deb; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends /tmp/opencode-desktop.deb; \
+    rm -rf /var/lib/apt/lists/* /tmp/opencode-desktop.deb
+
 # Android SDK commandline tools + componentes principales
 ENV ANDROID_HOME=/opt/android-sdk \
     ANDROID_SDK_ROOT=/opt/android-sdk \
@@ -179,7 +187,7 @@ Type=Application
 Categories=Development;IDE;
 EOF
 RUN chmod +x /usr/share/applications/android-studio.desktop && \
-    for app in android-studio.desktop code.desktop firefox.desktop google-chrome.desktop; do \
+    for app in android-studio.desktop code.desktop OpenCode.desktop firefox.desktop google-chrome.desktop; do \
       if [ -f "/usr/share/applications/${app}" ]; then \
         ln -sf "/usr/share/applications/${app}" "/etc/skel/Desktop/${app}"; \
       fi; \

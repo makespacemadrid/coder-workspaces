@@ -18,7 +18,7 @@ Workspace de desarrollo general, con **Docker in Docker (DinD)**, escritorio XFC
 ## Qué incluye
 - Docker Engine y docker-compose-plugin internos (DinD, no se usa el socket del host).
 - Escritorio XFCE/KasmVNC, code-server y Filebrowser. RDP solo aplica a workspaces Windows según [la guía de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops).
-- Apps desktop: VS Code, GitHub Desktop, Claude Desktop, Google Chrome, Firefox, Geany, AppImage Pool.
+- Apps desktop: VS Code, GitHub Desktop, Claude Desktop, OpenCode Desktop, Google Chrome, Firefox, Geany, AppImage Pool.
 - Node.js 22, CLIs de IA (OpenAI/Codex, Claude, Gemini, Continue, Qwen), git/gh y audio (PulseAudio/ALSA).
 - Utilidades CLI extra: `yq`, `sqlite3`.
 - Python con `python3-venv` y venv base en `~/.venvs/base`.

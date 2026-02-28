@@ -84,6 +84,7 @@ RUN dpkg --add-architecture i386 && \
 RUN <<'EOSH'
 set -e
 ORCA_VERSION="2.3.1"
+OPENCODE_DESKTOP_URL="https://opencode.ai/es/download/stable/linux-x64-deb"
 # Prefer the Ubuntu 22.04 build to avoid newer WebKit (libwebkit2gtk-4.1) requirement,
 # but keep fallbacks so future tags still resolve.
 ORCA_URLS=" \
@@ -109,9 +110,11 @@ LASERGRBL_VERSION="7.14.1"
 LASERGRBL_URL="https://github.com/arkypita/LaserGRBL/releases/download/v${LASERGRBL_VERSION}/install.exe"
 curl -fL "${LASERGRBL_URL}" -o /opt/lasergrbl/LaserGRBL-install.exe
 curl -fL "https://github.com/t-oster/VisiCut/releases/download/2.1/visicut_2.1%2Bdevel-1_all.deb" -o /tmp/visicut.deb
+curl -fL "${OPENCODE_DESKTOP_URL}" -o /tmp/opencode-desktop.deb
 apt-get update
-apt-get install -y --no-install-recommends /tmp/visicut.deb
+apt-get install -y --no-install-recommends /tmp/visicut.deb /tmp/opencode-desktop.deb
 rm /tmp/visicut.deb
+rm /tmp/opencode-desktop.deb
 rm -rf /var/lib/apt/lists/*
 EOSH
 
@@ -206,7 +209,7 @@ RUN update-desktop-database /usr/share/applications || true && \
 
 # Crear accesos directos en Desktop para todas las aplicaciones
 RUN mkdir -p /etc/skel/Desktop && \
-    for f in firefox.desktop org.freecadweb.FreeCAD.desktop org.inkscape.Inkscape.desktop gimp.desktop org.kde.krita.desktop org.kicad.kicad.desktop openscad.desktop PrusaSlicer.desktop librecad.desktop meshlab.desktop org.fritzing.Fritzing.desktop net.launchpad.code.simulide.desktop geany.desktop VisiCut.desktop orcaslicer.desktop appimagepool.desktop; do \
+    for f in firefox.desktop org.freecadweb.FreeCAD.desktop org.inkscape.Inkscape.desktop gimp.desktop org.kde.krita.desktop org.kicad.kicad.desktop openscad.desktop PrusaSlicer.desktop librecad.desktop meshlab.desktop org.fritzing.Fritzing.desktop net.launchpad.code.simulide.desktop geany.desktop VisiCut.desktop orcaslicer.desktop appimagepool.desktop OpenCode.desktop; do \
       src="/usr/share/applications/$f"; \
       if [ -f "$src" ]; then ln -sf "$src" "/etc/skel/Desktop/$f"; fi; \
     done && \

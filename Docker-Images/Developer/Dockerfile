@@ -163,23 +163,25 @@ RUN set -e; \
     fi; \
     rm -rf /var/lib/apt/lists/*
 
-# GitHub Desktop (shiftkey build) y Claude Desktop (unofficial build)
+# GitHub Desktop (shiftkey build), Claude Desktop (unofficial build) y OpenCode Desktop
 ARG GITHUB_DESKTOP_REPO=shiftkey/desktop
 ARG CLAUDE_DESKTOP_REPO=aaddrick/claude-desktop-debian
+ARG OPENCODE_DESKTOP_URL=https://opencode.ai/es/download/stable/linux-x64-deb
 RUN set -e; \
     GH_DESKTOP_URL="$(curl -fsSL "https://api.github.com/repos/${GITHUB_DESKTOP_REPO}/releases/latest" | \
       jq -r '.assets[] | select(.name | test("GitHubDesktop-linux-amd64-.*\\.deb$")) | .browser_download_url' | head -n1)"; \
     CLAUDE_URL="$(curl -fsSL "https://api.github.com/repos/${CLAUDE_DESKTOP_REPO}/releases/latest" | \
       jq -r '.assets[] | select(.name | test("claude-desktop_.*_amd64\\.deb$")) | .browser_download_url' | head -n1)"; \
-    if [ -z "$GH_DESKTOP_URL" ] || [ -z "$CLAUDE_URL" ]; then \
-      echo "No se encontraron assets .deb en GitHub releases" >&2; \
+    if [ -z "$GH_DESKTOP_URL" ] || [ -z "$CLAUDE_URL" ] || [ -z "$OPENCODE_DESKTOP_URL" ]; then \
+      echo "No se encontraron URLs .deb válidas para las apps desktop" >&2; \
       exit 1; \
     fi; \
     curl -fsSL "$GH_DESKTOP_URL" -o /tmp/github-desktop.deb; \
     curl -fsSL "$CLAUDE_URL" -o /tmp/claude-desktop.deb; \
+    curl -fsSL "$OPENCODE_DESKTOP_URL" -o /tmp/opencode-desktop.deb; \
     apt-get update; \
-    apt-get install -y --no-install-recommends /tmp/github-desktop.deb /tmp/claude-desktop.deb; \
-    rm -rf /var/lib/apt/lists/* /tmp/github-desktop.deb /tmp/claude-desktop.deb
+    apt-get install -y --no-install-recommends /tmp/github-desktop.deb /tmp/claude-desktop.deb /tmp/opencode-desktop.deb; \
+    rm -rf /var/lib/apt/lists/* /tmp/github-desktop.deb /tmp/claude-desktop.deb /tmp/opencode-desktop.deb
 
 # Electron apps dentro de contenedores Docker necesitan desactivar el sandbox
 # (no hay user namespaces). Los wrappers añaden --no-sandbox y pistas de Ozone.
@@ -265,7 +267,7 @@ RUN update-desktop-database /usr/share/applications || true && \
 # Accesos directos en el escritorio por defecto
 RUN set -e; \
     mkdir -p /etc/skel/Desktop && \
-    for f in code.desktop github-desktop.desktop claude-desktop.desktop firefox.desktop geany.desktop appimagepool.desktop; do \
+    for f in code.desktop github-desktop.desktop claude-desktop.desktop OpenCode.desktop firefox.desktop geany.desktop appimagepool.desktop; do \
       src="/usr/share/applications/$f"; \
       if [ -f "$src" ]; then ln -sf "$src" "/etc/skel/Desktop/$f"; fi; \
     done; \

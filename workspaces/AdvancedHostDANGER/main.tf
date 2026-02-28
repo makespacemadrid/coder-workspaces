@@ -337,7 +337,7 @@ JSONCFG
 
     # Refrescar accesos directos en el escritorio (si faltan)
     mkdir -p ~/Desktop
-    for f in code.desktop github-desktop.desktop claude-desktop.desktop firefox.desktop google-chrome.desktop geany.desktop appimagepool.desktop; do
+    for f in code.desktop github-desktop.desktop claude-desktop.desktop OpenCode.desktop firefox.desktop google-chrome.desktop geany.desktop appimagepool.desktop; do
       src="/usr/share/applications/$f"
       if [ -f "$src" ] && [ ! -e "$HOME/Desktop/$f" ]; then
         ln -sf "$src" "$HOME/Desktop/$f"

@@ -16,7 +16,7 @@ Template con escritorio KDE/KasmVNC y herramientas de diseño 2D/3D + electróni
 - Impresión 3D: PrusaSlicer, OrcaSlicer (AppImage)
 - Electrónica/EDA: KiCad (footprints/símbolos/templates), Fritzing, SimulIDE
 - Láser/CNC: LaserGRBL (via Wine)
-- Navegación y utilidades: Firefox (.deb, sin snap), Geany, AppImage Pool (tienda/gestor de AppImage)
+- Navegación y utilidades: Firefox (.deb, sin snap), Geany, OpenCode Desktop, AppImage Pool (tienda/gestor de AppImage)
 - Media/imagen: ImageMagick, FFmpeg, ExifTool
 - Docs/tipografía: Pandoc, FontForge
 - Módulos Coder: KasmVNC, Filebrowser, OpenCode. RDP aplica solo a workspaces Windows según [las docs de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops); esta imagen Linux usa KasmVNC.
