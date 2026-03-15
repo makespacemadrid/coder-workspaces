@@ -202,6 +202,28 @@ SHWRAP
 TARGET_BIN=/usr/lib/github-desktop/github-desktop EXTRA_FLAGS="--password-store=basic" wrap /usr/bin/github-desktop /usr/lib/github-desktop/github-desktop
 TARGET_BIN=/usr/share/claude-desktop/claude-desktop EXTRA_FLAGS="--disable-gpu" wrap /usr/bin/claude-desktop /usr/share/claude-desktop/claude-desktop
 TARGET_BIN=/usr/share/code/bin/code EXTRA_FLAGS="" wrap /usr/bin/code /usr/share/code/bin/code
+# Google Chrome (no es Electron pero también necesita --no-sandbox en Docker)
+if [ -x /opt/google/chrome/google-chrome ]; then
+  mv /usr/bin/google-chrome-stable /usr/bin/google-chrome-stable.real 2>/dev/null || true
+  cat > /usr/bin/google-chrome-stable <<'GCWRAP'
+#!/bin/sh
+exec /opt/google/chrome/google-chrome --no-sandbox --disable-gpu-sandbox --disable-setuid-sandbox "$@"
+GCWRAP
+  chmod +x /usr/bin/google-chrome-stable
+  ln -sf google-chrome-stable /usr/bin/google-chrome 2>/dev/null || true
+fi
+# OpenCode Desktop (Electron) - descubrir el binario real del paquete .deb
+_oc_real=""
+for _try in \
+  /usr/share/opencode-desktop/opencode-desktop \
+  /usr/lib/opencode-desktop/opencode-desktop \
+  /usr/share/opencode/opencode \
+  /usr/lib/opencode/opencode; do
+  if [ -x "$_try" ]; then _oc_real="$_try"; break; fi
+done
+if [ -n "$_oc_real" ] && [ -x /usr/bin/opencode-desktop ]; then
+  TARGET_BIN="$_oc_real" EXTRA_FLAGS="--disable-gpu" wrap /usr/bin/opencode-desktop "$_oc_real"
+fi
 EOSH
 
 # Extensiones VS Code preinstaladas para escritorio/remoto
