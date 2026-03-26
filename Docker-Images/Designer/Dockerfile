@@ -80,6 +80,19 @@ RUN dpkg --add-architecture i386 && \
         alsa-utils \
     && rm -rf /var/lib/apt/lists/*
 
+# PulseAudio: null-sink virtual para contenedores sin hardware de audio
+# Permite que KasmVNC capture audio via el monitor de este sink
+RUN mkdir -p /etc/pulse/default.pa.d && \
+    printf 'load-module module-null-sink sink_name=vcable sink_properties=device.description="VirtualCable"\nset-default-sink vcable\n' \
+    > /etc/pulse/default.pa.d/10-null-sink.pa
+
+# Vulkan loader + Mesa Vulkan drivers (incluye Zink: OpenGL sobre Vulkan para NVIDIA en KasmVNC)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libvulkan1 \
+        mesa-vulkan-drivers \
+    && rm -rf /var/lib/apt/lists/*
+
 # OrcaSlicer (AppImage), LaserGRBL (Wine), OpenCode Desktop y VisiCut (.deb)
 RUN <<'EOSH'
 set -e

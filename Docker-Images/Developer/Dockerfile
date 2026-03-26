@@ -70,6 +70,19 @@ RUN apt-get update && \
 # Configuración FUSE para permitir AppImages (allow_other)
 RUN echo "user_allow_other" > /etc/fuse.conf
 
+# PulseAudio: null-sink virtual para contenedores sin hardware de audio
+# Permite que KasmVNC capture audio via el monitor de este sink
+RUN mkdir -p /etc/pulse/default.pa.d && \
+    printf 'load-module module-null-sink sink_name=vcable sink_properties=device.description="VirtualCable"\nset-default-sink vcable\n' \
+    > /etc/pulse/default.pa.d/10-null-sink.pa
+
+# Vulkan loader + Mesa Vulkan drivers (incluye Zink: OpenGL sobre Vulkan para NVIDIA en KasmVNC)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libvulkan1 \
+        mesa-vulkan-drivers \
+    && rm -rf /var/lib/apt/lists/*
+
 # KasmVNC viene como módulo de Coder; solo dejamos KDE como session manager
 RUN update-alternatives --set x-session-manager /usr/bin/startplasma-x11 || true
 

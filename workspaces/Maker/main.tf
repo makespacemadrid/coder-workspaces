@@ -217,6 +217,16 @@ PULSECFG
     if ! pgrep -u "$USER" pulseaudio >/dev/null 2>&1; then
       pulseaudio --start --exit-idle-time=-1 || true
     fi
+    # Cargar null-sink virtual para que KasmVNC pueda capturar audio
+    # (en contenedores Docker no hay hardware de audio; el null-sink actua como sink por defecto)
+    for _pa_try in 1 2 3; do
+      if pactl load-module module-null-sink sink_name=vcable sink_properties=device.description="VirtualCable" 2>/dev/null; then
+        pactl set-default-sink vcable 2>/dev/null || true
+        break
+      fi
+      sleep 1
+    done
+    unset _pa_try
 
     if [ "${tostring(local.enable_dri)}" = "true" ]; then
       # Alinear grupos para /dev/dri (rendering GPU) sin tocar permisos del host
@@ -261,9 +271,18 @@ desktop:
     hw3d: true
     drinode: /dev/dri/renderD128
 KASMGPUCFG
+      elif [ "$HAS_NVIDIA" = "true" ]; then
+        # NVIDIA propietario: hw3d no soporta DRI3/GBM; configurar Zink (OpenGL→Vulkan→GPU)
+        if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
+          rm -f "$KASM_USER_CFG"
+        fi
+        ZINK_TAG="# managed-by-maker-template: zink-nvidia"
+        if ! grep -qF "$ZINK_TAG" "$HOME/.xsessionrc" 2>/dev/null; then
+          printf '%s\nexport MESA_LOADER_DRIVER_OVERRIDE=zink\nexport GALLIUM_DRIVER=zink\n' \
+            "$ZINK_TAG" >> "$HOME/.xsessionrc"
+        fi
       else
-        # Si existe un fichero gestionado por este template, retirarlo para evitar
-        # que KasmVNC no arranque en hosts sin soporte GBM/DRI compatible.
+        # Sin render node accesible: limpiar config gestionada
         if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
           rm -f "$KASM_USER_CFG"
         fi

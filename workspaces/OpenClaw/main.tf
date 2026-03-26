@@ -158,6 +158,16 @@ PULSECFG
     if ! pgrep -u "$USER" pulseaudio >/dev/null 2>&1; then
       pulseaudio --start --exit-idle-time=-1 || true
     fi
+    # Cargar null-sink virtual para que KasmVNC pueda capturar audio
+    # (en contenedores Docker no hay hardware de audio; el null-sink actua como sink por defecto)
+    for _pa_try in 1 2 3; do
+      if pactl load-module module-null-sink sink_name=vcable sink_properties=device.description="VirtualCable" 2>/dev/null; then
+        pactl set-default-sink vcable 2>/dev/null || true
+        break
+      fi
+      sleep 1
+    done
+    unset _pa_try
 
     # Asegurar /home/coder como HOME efectivo incluso si se ejecuta como root
     sudo mkdir -p /home/coder
@@ -183,6 +193,45 @@ PULSECFG
           fi
         fi
       done
+
+      # Activar aceleracion 3D en KasmVNC solo cuando la ruta GBM/DRI es viable.
+      # Nota: con driver NVIDIA propietario suele fallar con "Failed to create gbm".
+      mkdir -p "$HOME/.vnc"
+      KASM_USER_CFG="$HOME/.vnc/kasmvnc.yaml"
+      KASM_MANAGED_TAG="# managed-by-openclaw-template: kasmvnc-hw3d"
+      HAS_RENDER_NODE=false
+      if [ -e /dev/dri/renderD128 ] && [ -r /dev/dri/renderD128 ] && [ -w /dev/dri/renderD128 ]; then
+        HAS_RENDER_NODE=true
+      fi
+      HAS_NVIDIA=false
+      if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
+        HAS_NVIDIA=true
+      fi
+
+      if [ "$HAS_RENDER_NODE" = "true" ] && [ "$HAS_NVIDIA" = "false" ]; then
+        cat > "$KASM_USER_CFG" <<'KASMGPUCFG'
+# managed-by-openclaw-template: kasmvnc-hw3d
+desktop:
+  gpu:
+    hw3d: true
+    drinode: /dev/dri/renderD128
+KASMGPUCFG
+      elif [ "$HAS_NVIDIA" = "true" ]; then
+        # NVIDIA propietario: hw3d no soporta DRI3/GBM; configurar Zink (OpenGL→Vulkan→GPU)
+        if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
+          rm -f "$KASM_USER_CFG"
+        fi
+        ZINK_TAG="# managed-by-openclaw-template: zink-nvidia"
+        if ! grep -qF "$ZINK_TAG" "$HOME/.xsessionrc" 2>/dev/null; then
+          printf '%s\nexport MESA_LOADER_DRIVER_OVERRIDE=zink\nexport GALLIUM_DRIVER=zink\n' \
+            "$ZINK_TAG" >> "$HOME/.xsessionrc"
+        fi
+      else
+        # Sin render node accesible: limpiar config gestionada
+        if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
+          rm -f "$KASM_USER_CFG"
+        fi
+      fi
     fi
 
     # Configurar PATH para .local/bin (siempre útil)
