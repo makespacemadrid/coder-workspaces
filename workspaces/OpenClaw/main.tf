@@ -283,17 +283,35 @@ PY
     touch "$HOME/.codex/config.toml"
     # Migrar config antigua de chrome-devtools (formato bash -lc) si existe
     python3 - <<'PY'
-import re, os
+import os
 path = os.path.expanduser("~/.codex/config.toml")
 try:
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         content = f.read()
 except FileNotFoundError:
     content = ""
 if "[mcp_servers.chrome-devtools]" in content and '"bash"' in content:
-    content = re.sub(r'\n*\[mcp_servers\.chrome-devtools\][^\[]*', '', content, flags=re.DOTALL)
-    with open(path, 'w') as f:
-        f.write(content.rstrip('\n') + '\n')
+    lines = content.splitlines()
+    cleaned = []
+    i = 0
+    removed = False
+    while i < len(lines):
+        if lines[i].strip() == "[mcp_servers.chrome-devtools]":
+            j = i + 1
+            block = [lines[i]]
+            while j < len(lines) and not lines[j].lstrip().startswith("["):
+                block.append(lines[j])
+                j += 1
+            if '"bash"' in "\n".join(block):
+                removed = True
+                i = j
+                continue
+        cleaned.append(lines[i])
+        i += 1
+    if removed:
+        content = "\n".join(cleaned).rstrip("\n")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write((content + "\n") if content else "")
 PY
     if ! grep -q '^\[mcp_servers\.chrome-devtools\]' "$HOME/.codex/config.toml" 2>/dev/null; then
       cat >> "$HOME/.codex/config.toml" <<'CODEXCFG'

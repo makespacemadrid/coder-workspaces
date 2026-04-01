@@ -318,3 +318,10 @@ module "cursor" {
   version  = "1.3.0"
   agent_id = coder_agent.dev.id
 }
+
+module "filebrowser" {
+  count    = data.coder_workspace.me.start_count
+  source   = "registry.coder.com/coder/filebrowser/coder"
+  version  = "1.0.8"
+  agent_id = coder_agent.dev.id
+}

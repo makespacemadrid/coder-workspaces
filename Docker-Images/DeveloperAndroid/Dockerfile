@@ -170,7 +170,7 @@ RUN mkdir -p /opt/android-sdk/cmdline-tools && \
     install -d -o coder -g coder /home/coder/.android
 
 # Android Studio
-ARG ANDROID_STUDIO_VERSION=2025.2.3.9
+ARG ANDROID_STUDIO_VERSION=2025.3.2
 RUN curl -fsSL "https://redirector.gvt1.com/edgedl/android/studio/ide-zips/${ANDROID_STUDIO_VERSION}/android-studio-${ANDROID_STUDIO_VERSION}-linux.tar.gz" -o /tmp/android-studio.tar.gz && \
     tar -xzf /tmp/android-studio.tar.gz -C /opt && \
     rm /tmp/android-studio.tar.gz && \
