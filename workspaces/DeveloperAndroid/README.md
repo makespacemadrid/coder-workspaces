@@ -11,7 +11,7 @@ tags: [android, mobile, kde, workspace, makespace]
 Workspace gráfico KDE/KasmVNC con toolchain Android preinstalado. Usa la imagen `ghcr.io/makespacemadrid/coder-mks-developer-android:latest`.
 
 ## Qué incluye
-- Android SDK CLI con `platform-tools`, emulator y `cmdline-tools;latest` (instala tus propias plataformas/ build-tools según el proyecto).
+- Android SDK CLI en `/home/coder/Android/Sdk` con `platform-tools`, emulator y `cmdline-tools;latest` (instala tus propias plataformas/ build-tools según el proyecto).
 - Android Studio Otter 3 Feature Drop (2025.2.3.x).
 - Java 17, Node.js 22 (npm/pnpm/yarn), git/git-lfs y utilidades de desarrollo.
 - VS Code listo para personalizar tus extensiones (sin bundle preinstalado) y soporte C/C++ vía paquetes base.
@@ -37,6 +37,8 @@ Workspace gráfico KDE/KasmVNC con toolchain Android preinstalado. Usa la imagen
 
 ## Notas
 - Escritorio KDE vía KasmVNC; VS Code (web y desktop) listo para configurar a tu gusto.
+- El SDK Android canónico del workspace es `/home/coder/Android/Sdk`; `/opt/android-sdk` queda como compatibilidad para tooling heredado.
+- El emulador Android usa `-gpu swiftshader` por defecto para evitar cierres con `-gpu host` en escritorios remotos; puedes sobrescribirlo con `ANDROID_EMULATOR_DEFAULT_GPU` o pasando `-gpu` manualmente.
 - Bloqueo de pantalla/ahorro de energía deshabilitado para no interrumpir builds largos.
 - Botones JetBrains disponibles en el dashboard (IntelliJ IDEA remoto); instala el plugin de Android para emular Android Studio y requiere JetBrains Gateway/Coder Desktop.
 - Home persistente en `/home/coder` (volumen o bind mount según parámetros); labels de Watchtower habilitadas.

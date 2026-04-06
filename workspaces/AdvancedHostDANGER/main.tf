@@ -194,6 +194,34 @@ PULSECFG
     done
     unset _pa_try
 
+    # Configurar Claude Desktop cowork VM para usar HostBackend en Docker
+    # COWORK_VM_BACKEND=host evita que Claude Desktop use bwrap (que falla en contenedores)
+    # El contenedor Docker ya provee el aislamiento necesario
+    COWORK_TAG="# managed-by-danger-template: cowork-vm-backend"
+    for cowork_file in "$HOME/.xsessionrc" "$HOME/.profile"; do
+      if ! grep -qF "$COWORK_TAG" "$cowork_file" 2>/dev/null; then
+        printf '%s\nexport COWORK_VM_BACKEND=host\n' "$COWORK_TAG" >> "$cowork_file"
+      fi
+    done
+    mkdir -p "$HOME/.config/environment.d"
+    cat > "$HOME/.config/environment.d/claude-cowork.conf" <<EOF
+$${COWORK_TAG}
+COWORK_VM_BACKEND=host
+EOF
+    CLAUDE_WRAP_TAG="# managed-by-danger-template: claude-desktop-wrapper"
+    if [ -x /usr/bin/claude-desktop ] && ! grep -qF "$CLAUDE_WRAP_TAG" /usr/bin/claude-desktop 2>/dev/null; then
+      if [ ! -x /usr/bin/claude-desktop.real ]; then
+        sudo cp /usr/bin/claude-desktop /usr/bin/claude-desktop.real
+      fi
+      sudo tee /usr/bin/claude-desktop >/dev/null <<EOF
+#!/bin/sh
+$${CLAUDE_WRAP_TAG}
+exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="$${ELECTRON_OZONE_PLATFORM_HINT:-auto}" COWORK_VM_BACKEND="$${COWORK_VM_BACKEND:-host}" \
+  /usr/bin/claude-desktop.real "$$@"
+EOF
+      sudo chmod 0755 /usr/bin/claude-desktop
+    fi
+
     # Asegurar /home/coder como HOME efectivo incluso si se ejecuta como root
     sudo mkdir -p /home/coder
     sudo chown "$USER:$USER" /home/coder || true
@@ -331,17 +359,35 @@ PY
     touch "$HOME/.codex/config.toml"
     # Migrar config antigua de chrome-devtools (formato bash -lc) si existe
     python3 - <<'PY'
-import re, os
+import os
 path = os.path.expanduser("~/.codex/config.toml")
 try:
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         content = f.read()
 except FileNotFoundError:
     content = ""
 if "[mcp_servers.chrome-devtools]" in content and '"bash"' in content:
-    content = re.sub(r'\n*\[mcp_servers\.chrome-devtools\][^\[]*', '', content, flags=re.DOTALL)
-    with open(path, 'w') as f:
-        f.write(content.rstrip('\n') + '\n')
+    lines = content.splitlines()
+    cleaned = []
+    i = 0
+    removed = False
+    while i < len(lines):
+        if lines[i].strip() == "[mcp_servers.chrome-devtools]":
+            j = i + 1
+            block = [lines[i]]
+            while j < len(lines) and not lines[j].lstrip().startswith("["):
+                block.append(lines[j])
+                j += 1
+            if '"bash"' in "\n".join(block):
+                removed = True
+                i = j
+                continue
+        cleaned.append(lines[i])
+        i += 1
+    if removed:
+        content = "\n".join(cleaned).rstrip("\n")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write((content + "\n") if content else "")
 PY
     if ! grep -q '^\[mcp_servers\.chrome-devtools\]' "$HOME/.codex/config.toml" 2>/dev/null; then
       cat >> "$HOME/.codex/config.toml" <<'CODEXCFG'
@@ -1212,6 +1258,9 @@ resource "docker_container" "workspace" {
 
   # Para mejorar KasmVNC y navegadores
   shm_size = 2 * 1024 * 1024 * 1024
+  # seccomp=unconfined: necesario para bwrap (Claude Code/Desktop usan bwrap para sandbox bash)
+  # SYS_ADMIN solo no es suficiente; seccomp bloquea CLONE_NEWUSER incluso con esa capability
+  security_opts = ["seccomp=unconfined"]
   # Permitir FUSE/SSHFS y montajes remotos
   capabilities {
     add = ["SYS_ADMIN"]

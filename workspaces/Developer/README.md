@@ -46,6 +46,7 @@ Workspace de desarrollo general, con **Docker in Docker (DinD)**, escritorio XFC
 - El daemon Docker se arranca dentro del contenedor (`dockerd` con overlay2) y guarda datos en `/var/lib/docker`.
 - Usa KasmVNC para escritorio XFCE (consola del workspace -> abrir URL de KasmVNC).
 - El contenedor lleva labels `com.centurylinklabs.watchtower.*` para auto-actualización vía Watchtower.
+- Claude Desktop fuerza `COWORK_VM_BACKEND=host` para que el modo cowork no intente usar `bwrap` dentro del contenedor.
 
 ### Limitaciones de DinD
 - No hay Swarm ni orquestador, por lo que `docker compose` ignora la sección `deploy.*` (incluidos `resources.reservations/limits`, `placement`, `replicas`); solo aplican los flags directos de `docker run`/`docker compose` como `--cpus` o `--memory`.

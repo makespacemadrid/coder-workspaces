@@ -65,13 +65,6 @@ RUN mkdir -p /etc/pulse/default.pa.d && \
     printf 'load-module module-null-sink sink_name=vcable sink_properties=device.description="VirtualCable"\nset-default-sink vcable\n' \
     > /etc/pulse/default.pa.d/10-null-sink.pa
 
-# Vulkan loader + Mesa Vulkan drivers (incluye Zink: OpenGL sobre Vulkan para NVIDIA en KasmVNC)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libvulkan1 \
-        mesa-vulkan-drivers \
-    && rm -rf /var/lib/apt/lists/*
-
 # GitHub CLI (repositorio oficial)
 RUN install -m 0755 -d /etc/apt/keyrings && \
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg && \
@@ -150,28 +143,44 @@ RUN set -e; \
     rm -rf /var/lib/apt/lists/* /tmp/opencode-desktop.deb
 
 # Android SDK commandline tools + componentes principales
-ENV ANDROID_HOME=/opt/android-sdk \
-    ANDROID_SDK_ROOT=/opt/android-sdk \
+ENV ANDROID_HOME=/home/coder/Android/Sdk \
+    ANDROID_SDK_ROOT=/home/coder/Android/Sdk \
+    ANDROID_EMULATOR_DEFAULT_GPU=swiftshader \
     ANDROID_USER_HOME=/home/coder/.android \
-    PATH=$PATH:/opt/android-sdk/platform-tools:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/emulator:/opt/gradle/gradle-9.3.1/bin
+    PATH=$PATH:/home/coder/Android/Sdk/platform-tools:/home/coder/Android/Sdk/cmdline-tools/latest/bin:/home/coder/Android/Sdk/emulator:/opt/gradle/gradle-9.3.1/bin
 
 ARG ANDROID_SDK_VERSION=14742923
-RUN mkdir -p /opt/android-sdk/cmdline-tools && \
+RUN mkdir -p /home/coder/Android/Sdk/cmdline-tools && \
     curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_VERSION}_latest.zip" -o /tmp/cmdline-tools.zip && \
-    unzip -q /tmp/cmdline-tools.zip -d /opt/android-sdk/cmdline-tools && \
-    mv /opt/android-sdk/cmdline-tools/cmdline-tools /opt/android-sdk/cmdline-tools/latest && \
+    unzip -q /tmp/cmdline-tools.zip -d /home/coder/Android/Sdk/cmdline-tools && \
+    mv /home/coder/Android/Sdk/cmdline-tools/cmdline-tools /home/coder/Android/Sdk/cmdline-tools/latest && \
     rm /tmp/cmdline-tools.zip && \
-    yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true && \
-    /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --update && \
-    /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager \
+    yes | /home/coder/Android/Sdk/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true && \
+    /home/coder/Android/Sdk/cmdline-tools/latest/bin/sdkmanager --update && \
+    /home/coder/Android/Sdk/cmdline-tools/latest/bin/sdkmanager \
       "platform-tools" \
       "emulator" && \
-    chown -R coder:coder /opt/android-sdk && \
+    mv /home/coder/Android/Sdk/emulator/emulator /home/coder/Android/Sdk/emulator/emulator.real && \
+    { \
+      printf '%s\n' '#!/usr/bin/env bash' 'set -e' ''; \
+      printf '%s\n' 'default_gpu="${ANDROID_EMULATOR_DEFAULT_GPU:-swiftshader}"'; \
+      printf '%s\n' 'for arg in "$@"; do'; \
+      printf '%s\n' '  if [ "$arg" = "-gpu" ]; then'; \
+      printf '%s\n' '    exec /home/coder/Android/Sdk/emulator/emulator.real "$@"'; \
+      printf '%s\n' '  fi'; \
+      printf '%s\n' 'done' ''; \
+      printf '%s\n' 'exec /home/coder/Android/Sdk/emulator/emulator.real -gpu "$default_gpu" "$@"'; \
+    } > /home/coder/Android/Sdk/emulator/emulator && \
+    chmod +x /home/coder/Android/Sdk/emulator/emulator && \
+    ln -sfn /home/coder/Android/Sdk /opt/android-sdk && \
+    chown -R coder:coder /home/coder/Android /home/coder/.android && \
     install -d -o coder -g coder /home/coder/.android
 
 # Android Studio
-ARG ANDROID_STUDIO_VERSION=2025.2.3.9
-RUN curl -fsSL "https://redirector.gvt1.com/edgedl/android/studio/ide-zips/${ANDROID_STUDIO_VERSION}/android-studio-${ANDROID_STUDIO_VERSION}-linux.tar.gz" -o /tmp/android-studio.tar.gz && \
+ARG ANDROID_STUDIO_VERSION=2025.3.2
+ARG ANDROID_STUDIO_BUILD=2025.3.2.6
+ARG ANDROID_STUDIO_PACKAGE=android-studio-panda2-linux.tar.gz
+RUN curl -fsSL "https://redirector.gvt1.com/edgedl/android/studio/ide-zips/${ANDROID_STUDIO_BUILD}/${ANDROID_STUDIO_PACKAGE}" -o /tmp/android-studio.tar.gz && \
     tar -xzf /tmp/android-studio.tar.gz -C /opt && \
     rm /tmp/android-studio.tar.gz && \
     chown -R coder:coder /opt/android-studio && \

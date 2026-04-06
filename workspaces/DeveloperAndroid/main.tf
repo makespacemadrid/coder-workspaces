@@ -212,6 +212,34 @@ PULSECFG
     done
     unset _pa_try
 
+    # Configurar Claude Desktop cowork VM para usar HostBackend en Docker
+    # COWORK_VM_BACKEND=host evita que Claude Desktop use bwrap (que falla en contenedores)
+    # El contenedor Docker ya provee el aislamiento necesario
+    COWORK_TAG="# managed-by-android-template: cowork-vm-backend"
+    for cowork_file in "$HOME/.xsessionrc" "$HOME/.profile"; do
+      if ! grep -qF "$COWORK_TAG" "$cowork_file" 2>/dev/null; then
+        printf '%s\nexport COWORK_VM_BACKEND=host\n' "$COWORK_TAG" >> "$cowork_file"
+      fi
+    done
+    mkdir -p "$HOME/.config/environment.d"
+    cat > "$HOME/.config/environment.d/claude-cowork.conf" <<EOF
+$${COWORK_TAG}
+COWORK_VM_BACKEND=host
+EOF
+    CLAUDE_WRAP_TAG="# managed-by-android-template: claude-desktop-wrapper"
+    if [ -x /usr/bin/claude-desktop ] && ! grep -qF "$CLAUDE_WRAP_TAG" /usr/bin/claude-desktop 2>/dev/null; then
+      if [ ! -x /usr/bin/claude-desktop.real ]; then
+        sudo cp /usr/bin/claude-desktop /usr/bin/claude-desktop.real
+      fi
+      sudo tee /usr/bin/claude-desktop >/dev/null <<EOF
+#!/bin/sh
+$${CLAUDE_WRAP_TAG}
+exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="$${ELECTRON_OZONE_PLATFORM_HINT:-auto}" COWORK_VM_BACKEND="$${COWORK_VM_BACKEND:-host}" \
+  /usr/bin/claude-desktop.real "$$@"
+EOF
+      sudo chmod 0755 /usr/bin/claude-desktop
+    fi
+
     # Alinear grupos para /dev/kvm sin tocar permisos del host
     if [ -e /dev/kvm ]; then
       kvm_gid=$(stat -c '%g' /dev/kvm 2>/dev/null || echo "")
@@ -250,46 +278,41 @@ PULSECFG
           fi
         fi
       done
-
-      # Activar aceleracion 3D en KasmVNC solo cuando la ruta GBM/DRI es viable.
-      # Nota: con driver NVIDIA propietario suele fallar con "Failed to create gbm".
-      mkdir -p "$HOME/.vnc"
-      KASM_USER_CFG="$HOME/.vnc/kasmvnc.yaml"
-      KASM_MANAGED_TAG="# managed-by-developerandroid-template: kasmvnc-hw3d"
-      HAS_RENDER_NODE=false
-      if [ -e /dev/dri/renderD128 ] && [ -r /dev/dri/renderD128 ] && [ -w /dev/dri/renderD128 ]; then
-        HAS_RENDER_NODE=true
-      fi
-      HAS_NVIDIA=false
-      if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
-        HAS_NVIDIA=true
-      fi
-
-      if [ "$HAS_RENDER_NODE" = "true" ] && [ "$HAS_NVIDIA" = "false" ]; then
-        cat > "$KASM_USER_CFG" <<'KASMGPUCFG'
-# managed-by-developerandroid-template: kasmvnc-hw3d
-desktop:
-  gpu:
-    hw3d: true
-    drinode: /dev/dri/renderD128
-KASMGPUCFG
-      elif [ "$HAS_NVIDIA" = "true" ]; then
-        # NVIDIA propietario: hw3d no soporta DRI3/GBM; configurar Zink (OpenGL→Vulkan→GPU)
-        if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
-          rm -f "$KASM_USER_CFG"
-        fi
-        ZINK_TAG="# managed-by-developerandroid-template: zink-nvidia"
-        if ! grep -qF "$ZINK_TAG" "$HOME/.xsessionrc" 2>/dev/null; then
-          printf '%s\nexport MESA_LOADER_DRIVER_OVERRIDE=zink\nexport GALLIUM_DRIVER=zink\n' \
-            "$ZINK_TAG" >> "$HOME/.xsessionrc"
-        fi
-      else
-        # Sin render node accesible: limpiar config gestionada
-        if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
-          rm -f "$KASM_USER_CFG"
-        fi
-      fi
     fi
+
+    # Revertir config gestionada de hw3d/zink en workspaces existentes.
+    mkdir -p "$HOME/.vnc"
+    KASM_USER_CFG="$HOME/.vnc/kasmvnc.yaml"
+    KASM_MANAGED_TAG="# managed-by-developerandroid-template: kasmvnc-hw3d"
+    if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
+      rm -f "$KASM_USER_CFG"
+    fi
+    python3 - <<'PY'
+import os
+
+path = os.path.expanduser("~/.xsessionrc")
+tag = "# managed-by-developerandroid-template: zink-nvidia"
+try:
+    with open(path, encoding="utf-8") as f:
+        lines = f.readlines()
+except FileNotFoundError:
+    lines = []
+
+if lines:
+    cleaned = []
+    skip = 0
+    for line in lines:
+        if skip:
+            skip -= 1
+            continue
+        if line.rstrip("\n") == tag:
+            skip = 2
+            continue
+        cleaned.append(line)
+    if cleaned != lines:
+        with open(path, "w", encoding="utf-8") as f:
+            f.writelines(cleaned)
+PY
 
     # Asegurar /home/coder como HOME efectivo incluso si se ejecuta como root
     sudo mkdir -p /home/coder
@@ -352,17 +375,35 @@ PY
     touch "$HOME/.codex/config.toml"
     # Migrar config antigua de chrome-devtools (formato bash -lc) si existe
     python3 - <<'PY'
-import re, os
+import os
 path = os.path.expanduser("~/.codex/config.toml")
 try:
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         content = f.read()
 except FileNotFoundError:
     content = ""
 if "[mcp_servers.chrome-devtools]" in content and '"bash"' in content:
-    content = re.sub(r'\n*\[mcp_servers\.chrome-devtools\][^\[]*', '', content, flags=re.DOTALL)
-    with open(path, 'w') as f:
-        f.write(content.rstrip('\n') + '\n')
+    lines = content.splitlines()
+    cleaned = []
+    i = 0
+    removed = False
+    while i < len(lines):
+        if lines[i].strip() == "[mcp_servers.chrome-devtools]":
+            j = i + 1
+            block = [lines[i]]
+            while j < len(lines) and not lines[j].lstrip().startswith("["):
+                block.append(lines[j])
+                j += 1
+            if '"bash"' in "\n".join(block):
+                removed = True
+                i = j
+                continue
+        cleaned.append(lines[i])
+        i += 1
+    if removed:
+        content = "\n".join(cleaned).rstrip("\n")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write((content + "\n") if content else "")
 PY
     if ! grep -q '^\[mcp_servers\.chrome-devtools\]' "$HOME/.codex/config.toml" 2>/dev/null; then
       cat >> "$HOME/.codex/config.toml" <<'CODEXCFG'

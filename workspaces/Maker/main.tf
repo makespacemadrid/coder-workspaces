@@ -228,6 +228,34 @@ PULSECFG
     done
     unset _pa_try
 
+    # Configurar Claude Desktop cowork VM para usar HostBackend en Docker
+    # COWORK_VM_BACKEND=host evita que Claude Desktop use bwrap (que falla en contenedores)
+    # El contenedor Docker ya provee el aislamiento necesario
+    COWORK_TAG="# managed-by-maker-template: cowork-vm-backend"
+    for cowork_file in "$HOME/.xsessionrc" "$HOME/.profile"; do
+      if ! grep -qF "$COWORK_TAG" "$cowork_file" 2>/dev/null; then
+        printf '%s\nexport COWORK_VM_BACKEND=host\n' "$COWORK_TAG" >> "$cowork_file"
+      fi
+    done
+    mkdir -p "$HOME/.config/environment.d"
+    cat > "$HOME/.config/environment.d/claude-cowork.conf" <<EOF
+$${COWORK_TAG}
+COWORK_VM_BACKEND=host
+EOF
+    CLAUDE_WRAP_TAG="# managed-by-maker-template: claude-desktop-wrapper"
+    if [ -x /usr/bin/claude-desktop ] && ! grep -qF "$CLAUDE_WRAP_TAG" /usr/bin/claude-desktop 2>/dev/null; then
+      if [ ! -x /usr/bin/claude-desktop.real ]; then
+        sudo cp /usr/bin/claude-desktop /usr/bin/claude-desktop.real
+      fi
+      sudo tee /usr/bin/claude-desktop >/dev/null <<EOF
+#!/bin/sh
+$${CLAUDE_WRAP_TAG}
+exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="$${ELECTRON_OZONE_PLATFORM_HINT:-auto}" COWORK_VM_BACKEND="$${COWORK_VM_BACKEND:-host}" \
+  /usr/bin/claude-desktop.real "$$@"
+EOF
+      sudo chmod 0755 /usr/bin/claude-desktop
+    fi
+
     if [ "${tostring(local.enable_dri)}" = "true" ]; then
       # Alinear grupos para /dev/dri (rendering GPU) sin tocar permisos del host
       for dev in /dev/dri/renderD128 /dev/dri/card0; do

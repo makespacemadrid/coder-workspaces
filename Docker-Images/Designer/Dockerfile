@@ -131,6 +131,8 @@ rm /tmp/opencode-desktop.deb
 rm -rf /var/lib/apt/lists/*
 EOSH
 
+ENV COWORK_VM_BACKEND=host
+
 # Claude Desktop (.deb repo comunitario) + wrapper no-sandbox para Electron
 RUN <<'EOSH'
 set -e
@@ -143,8 +145,8 @@ if [ -x /usr/share/claude-desktop/claude-desktop ] && [ -x /usr/bin/claude-deskt
   mv /usr/bin/claude-desktop /usr/bin/claude-desktop.real || true
   cat > /usr/bin/claude-desktop <<'EOFWRAP'
 #!/bin/sh
-exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="${ELECTRON_OZONE_PLATFORM_HINT:-auto}" \
-  /usr/share/claude-desktop/claude-desktop --no-sandbox --disable-gpu-sandbox --disable-setuid-sandbox --disable-seccomp-filter-sandbox --no-zygote --disable-gpu "$@"
+exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="${ELECTRON_OZONE_PLATFORM_HINT:-auto}" COWORK_VM_BACKEND="${COWORK_VM_BACKEND:-host}" \
+  /usr/bin/claude-desktop.real "$@"
 EOFWRAP
   chmod +x /usr/bin/claude-desktop
 fi

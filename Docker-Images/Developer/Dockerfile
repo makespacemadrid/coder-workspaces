@@ -197,7 +197,8 @@ RUN set -e; \
 # Electron apps dentro de contenedores Docker necesitan desactivar el sandbox
 # (no hay user namespaces). Los wrappers añaden --no-sandbox y pistas de Ozone.
 ENV ELECTRON_DISABLE_SANDBOX=1 \
-    ELECTRON_OZONE_PLATFORM_HINT=auto
+    ELECTRON_OZONE_PLATFORM_HINT=auto \
+    COWORK_VM_BACKEND=host
 RUN <<'EOSH'
 set -e
 wrap() {
@@ -206,15 +207,23 @@ wrap() {
     mv "$name" "${name}.real" || true
     cat > "$name" <<SHWRAP
 #!/bin/sh
-exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="${ELECTRON_OZONE_PLATFORM_HINT:-auto}" \
+exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="${ELECTRON_OZONE_PLATFORM_HINT:-auto}" COWORK_VM_BACKEND="${COWORK_VM_BACKEND:-host}" \
   "$target" --no-sandbox --disable-gpu-sandbox --disable-setuid-sandbox --disable-seccomp-filter-sandbox --no-zygote $EXTRA_FLAGS "$@"
 SHWRAP
     chmod +x "$name"
   fi
 }
 TARGET_BIN=/usr/lib/github-desktop/github-desktop EXTRA_FLAGS="--password-store=basic" wrap /usr/bin/github-desktop /usr/lib/github-desktop/github-desktop
-TARGET_BIN=/usr/share/claude-desktop/claude-desktop EXTRA_FLAGS="--disable-gpu" wrap /usr/bin/claude-desktop /usr/share/claude-desktop/claude-desktop
 TARGET_BIN=/usr/share/code/bin/code EXTRA_FLAGS="" wrap /usr/bin/code /usr/share/code/bin/code
+if [ -x /usr/bin/claude-desktop ]; then
+  mv /usr/bin/claude-desktop /usr/bin/claude-desktop.real || true
+  cat > /usr/bin/claude-desktop <<'EOFWRAP'
+#!/bin/sh
+exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="${ELECTRON_OZONE_PLATFORM_HINT:-auto}" COWORK_VM_BACKEND="${COWORK_VM_BACKEND:-host}" \
+  /usr/bin/claude-desktop.real "$@"
+EOFWRAP
+  chmod +x /usr/bin/claude-desktop
+fi
 # Google Chrome (no es Electron pero también necesita --no-sandbox en Docker)
 if [ -x /opt/google/chrome/google-chrome ]; then
   mv /usr/bin/google-chrome-stable /usr/bin/google-chrome-stable.real 2>/dev/null || true
