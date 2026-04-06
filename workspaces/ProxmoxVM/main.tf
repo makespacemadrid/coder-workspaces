@@ -131,6 +131,12 @@ variable "clone_template_vmid" {
   }
 }
 
+variable "clone_full" {
+  description = "Use full clone. Set false only when the template disk storage supports linked clones."
+  type        = bool
+  default     = true
+}
+
 data "coder_workspace" "me" {}
 data "coder_workspace_owner" "me" {}
 
@@ -239,7 +245,7 @@ resource "proxmox_virtual_environment_vm" "workspace" {
   clone {
     node_name = var.proxmox_node
     vm_id     = var.clone_template_vmid
-    full      = false
+    full      = var.clone_full
     retries   = 5
   }
 
@@ -249,10 +255,6 @@ resource "proxmox_virtual_environment_vm" "workspace" {
 
   on_boot = true
   started = true
-
-  startup {
-    order = 1
-  }
 
   scsi_hardware = "virtio-scsi-pci"
   boot_order    = ["scsi0", "ide2"]
