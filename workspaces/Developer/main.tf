@@ -248,7 +248,7 @@ PULSECFG
     done
     mkdir -p "$HOME/.config/environment.d"
     cat > "$HOME/.config/environment.d/claude-cowork.conf" <<EOF
-${COWORK_TAG}
+$${COWORK_TAG}
 COWORK_VM_BACKEND=host
 EOF
     CLAUDE_WRAP_TAG="# managed-by-developer-template: claude-desktop-wrapper"
@@ -258,9 +258,9 @@ EOF
       fi
       sudo tee /usr/bin/claude-desktop >/dev/null <<EOF
 #!/bin/sh
-${CLAUDE_WRAP_TAG}
-exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="\${ELECTRON_OZONE_PLATFORM_HINT:-auto}" COWORK_VM_BACKEND="\${COWORK_VM_BACKEND:-host}" \
-  /usr/bin/claude-desktop.real "\$@"
+$${CLAUDE_WRAP_TAG}
+exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="$${ELECTRON_OZONE_PLATFORM_HINT:-auto}" COWORK_VM_BACKEND="$${COWORK_VM_BACKEND:-host}" \
+  /usr/bin/claude-desktop.real "$$@"
 EOF
       sudo chmod 0755 /usr/bin/claude-desktop
     fi
