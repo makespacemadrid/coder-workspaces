@@ -2,7 +2,7 @@
 FROM ghcr.io/makespacemadrid/coder-mks-desktop-kde:latest
 
 LABEL org.opencontainers.image.title="coder-mks-developer-android" \
-      org.opencontainers.image.description="Coder Desktop KDE con toolchain Android (SDK/CLI), Node 22 y VS Code" \
+      org.opencontainers.image.description="Coder Desktop KDE con toolchain Android (SDK/CLI), Node 24 y VS Code" \
       org.opencontainers.image.source="https://github.com/makespacemadrid/coder-workspaces" \
       org.opencontainers.image.url="ghcr.io/makespacemadrid/coder-mks-developer-android:latest" \
       com.centurylinklabs.watchtower.enable="true" \
@@ -106,10 +106,10 @@ RUN if [ -x /usr/bin/startplasma-x11 ] && [ ! -x /usr/bin/startkde ]; then \
 # Disable KDE screen locker/screensaver
 RUN printf '[Daemon]\nTimeout=0\nLockOnResume=false\nLockOnSuspend=false\nAutolock=false\n' > /etc/xdg/kscreenlockerrc
 
-# Node.js 22 LTS + package managers (para React Native/JS tooling)
+# Node.js 24 LTS + package managers (para React Native/JS tooling)
 RUN install -m 0755 -d /etc/apt/keyrings && \
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" \
       | tee /etc/apt/sources.list.d/nodesource.list > /dev/null && \
     apt-get update && \
     apt-get install -y --no-install-recommends nodejs && \
@@ -147,7 +147,7 @@ ENV ANDROID_HOME=/home/coder/Android/Sdk \
     ANDROID_SDK_ROOT=/home/coder/Android/Sdk \
     ANDROID_EMULATOR_DEFAULT_GPU=swiftshader \
     ANDROID_USER_HOME=/home/coder/.android \
-    PATH=$PATH:/home/coder/Android/Sdk/platform-tools:/home/coder/Android/Sdk/cmdline-tools/latest/bin:/home/coder/Android/Sdk/emulator:/opt/gradle/gradle-9.3.1/bin
+    PATH=$PATH:/home/coder/Android/Sdk/platform-tools:/home/coder/Android/Sdk/cmdline-tools/latest/bin:/home/coder/Android/Sdk/emulator:/opt/gradle/gradle-9.6.1/bin
 
 ARG ANDROID_SDK_VERSION=14742923
 RUN mkdir -p /home/coder/Android/Sdk/cmdline-tools && \
@@ -177,9 +177,9 @@ RUN mkdir -p /home/coder/Android/Sdk/cmdline-tools && \
     install -d -o coder -g coder /home/coder/.android
 
 # Android Studio
-ARG ANDROID_STUDIO_VERSION=2025.3.2
-ARG ANDROID_STUDIO_BUILD=2025.3.2.6
-ARG ANDROID_STUDIO_PACKAGE=android-studio-panda2-linux.tar.gz
+ARG ANDROID_STUDIO_VERSION=2026.1.1
+ARG ANDROID_STUDIO_BUILD=2026.1.1.8
+ARG ANDROID_STUDIO_PACKAGE=android-studio-quail1-linux.tar.gz
 RUN curl -fsSL "https://redirector.gvt1.com/edgedl/android/studio/ide-zips/${ANDROID_STUDIO_BUILD}/${ANDROID_STUDIO_PACKAGE}" -o /tmp/android-studio.tar.gz && \
     tar -xzf /tmp/android-studio.tar.gz -C /opt && \
     rm /tmp/android-studio.tar.gz && \
@@ -188,7 +188,7 @@ RUN curl -fsSL "https://redirector.gvt1.com/edgedl/android/studio/ide-zips/${AND
     ln -sf /opt/android-studio/bin/studio /usr/local/bin/studio
 
 # JetBrains Toolbox (para JetBrains Gateway/IDE remotos)
-ARG JETBRAINS_TOOLBOX_VERSION=3.1.2.64642
+ARG JETBRAINS_TOOLBOX_VERSION=3.6.1.85592
 RUN curl -fsSL "https://download.jetbrains.com/toolbox/jetbrains-toolbox-${JETBRAINS_TOOLBOX_VERSION}.tar.gz" -o /tmp/jetbrains-toolbox.tar.gz && \
     mkdir -p /opt/jetbrains-toolbox && \
     tar -xzf /tmp/jetbrains-toolbox.tar.gz -C /opt/jetbrains-toolbox --strip-components=1 && \
@@ -216,7 +216,7 @@ RUN chmod +x /usr/share/applications/android-studio.desktop && \
     done
 
 # Gradle
-RUN curl -fsSL "https://services.gradle.org/distributions/gradle-9.3.1-bin.zip" -o /tmp/gradle.zip && \
+RUN curl -fsSL "https://services.gradle.org/distributions/gradle-9.6.1-bin.zip" -o /tmp/gradle.zip && \
     unzip -q /tmp/gradle.zip -d /opt/gradle && \
     rm /tmp/gradle.zip
 

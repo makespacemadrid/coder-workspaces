@@ -5,7 +5,7 @@ Guía rápida para elegir template y rellenar los parámetros al crear un worksp
 ## Qué template usar
 - `Developer` (DinD): desarrollo general con Docker in Docker, escritorio XFCE/KasmVNC, puertos opcionales y GPU.
 - `AdvancedHostDANGER`: acceso directo a Docker y red del host, escritorio XFCE/KasmVNC. Úsalo solo si necesitas diagnosticar o tocar el host.
-- `DeveloperAndroid`: escritorio KDE/KasmVNC con toolchain Android (SDK/CLI), Node 22, VS Code base y JetBrains Toolbox (+ IntelliJ remoto vía Gateway).
+- `DeveloperAndroid`: escritorio KDE/KasmVNC con toolchain Android (SDK/CLI), Node 24, VS Code base y JetBrains Toolbox (+ IntelliJ remoto vía Gateway).
 - `Maker`: entorno gráfico KDE/KasmVNC con suite de diseño 2D/3D, CAD y EDA. GPU opcional.
 - `Minimal`: sin escritorio; code-server + Docker in Docker ligeros.
 - `OpenClaw`: template inicial para agentes/OpenClaw con escritorio XFCE (KasmVNC), Chrome, code-server + DinD y arranque configurable.

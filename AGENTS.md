@@ -10,13 +10,13 @@ Lee esto antes de tocar plantillas o imágenes. Para notas privadas, usa `AGENTS
 - Ejemplo de Watchtower: `watchtower/README.md`
 
 ## Imágenes base
-- `ghcr.io/makespacemadrid/coder-mks-developer:latest` (Docker-Images/Developer/Dockerfile): escritorio XFCE/KasmVNC, Docker Engine, Node.js 22, CLIs de IA (Codex, Claude, Gemini), VS Code, GitHub Desktop, Claude Desktop, AppImage Pool, audio (PulseAudio/ALSA), Geany y tooling dev (Docker, gh, etc.).
+- `ghcr.io/makespacemadrid/coder-mks-developer:latest` (Docker-Images/Developer/Dockerfile): escritorio XFCE/KasmVNC, Docker Engine, Node.js 24, CLIs de IA (Codex, Claude, Gemini), VS Code, GitHub Desktop, Claude Desktop, AppImage Pool, audio (PulseAudio/ALSA), Geany y tooling dev (Docker, gh, etc.).
 - `ghcr.io/makespacemadrid/coder-mks-design:latest` (Docker-Images/Designer/Dockerfile): stack de diseño 2D/3D y electrónica (Inkscape, GIMP, Krita, Blender, FreeCAD, OpenSCAD, PrusaSlicer, OrcaSlicer, MeshLab, LibreCAD, KiCad, Fritzing, SimulIDE, LaserGRBL via Wine) + AppImage Pool y Geany.
 
 ## Templates Coder
 - `Developer` (DinD): workspace general con Docker-in-Docker y GPUs opcionales; volúmenes persistentes `/home/coder` y `/var/lib/docker`; red bridge. Escritorio XFCE/KasmVNC.
 - `AdvancedHostDANGER`: **DANGER** acceso directo a Docker y red del host. Usa `Developer` si no necesitas tocar el host. Escritorio XFCE/KasmVNC.
-- `DeveloperAndroid`: escritorio KDE/KasmVNC con toolchain Android (SDK/CLI), Node 22 y VS Code base.
+- `DeveloperAndroid`: escritorio KDE/KasmVNC con toolchain Android (SDK/CLI), Node 24 y VS Code base.
 - `Maker`: escritorio KDE/KasmVNC con herramientas de diseño/CAD/EDA; GPUs opcionales; home persistente; módulos Filebrowser/OpenCode. RDP aplica solo a workspaces Windows según [la guía de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops).
 - `Minimal`: sin escritorio; code-server + Docker-in-Docker ligeros.
 - `OpenClaw`: template inicial para agentes/OpenClaw con escritorio XFCE/KasmVNC, Chrome, code-server + DinD y arranque configurable (`[OpenClaw] Auto-iniciar servicio`, puerto, directorio y comando).

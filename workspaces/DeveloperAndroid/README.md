@@ -1,6 +1,6 @@
 ---
 display_name: Developer Android
-description: "Workspace KDE con toolchain Android (SDK/CLI), Node 22 y VS Code"
+description: "Workspace KDE con toolchain Android (SDK/CLI), Node 24 y VS Code"
 icon: icon.svg
 maintainer_github: makespacemadrid
 tags: [android, mobile, kde, workspace, makespace]
@@ -13,7 +13,7 @@ Workspace gráfico KDE/KasmVNC con toolchain Android preinstalado. Usa la imagen
 ## Qué incluye
 - Android SDK CLI en `/home/coder/Android/Sdk` con `platform-tools`, emulator y `cmdline-tools;latest` (instala tus propias plataformas/ build-tools según el proyecto).
 - Android Studio Otter 3 Feature Drop (2025.2.3.x).
-- Java 17, Node.js 22 (npm/pnpm/yarn), git/git-lfs y utilidades de desarrollo.
+- Java 17, Node.js 24 (npm/pnpm/yarn), git/git-lfs y utilidades de desarrollo.
 - VS Code listo para personalizar tus extensiones (sin bundle preinstalado) y soporte C/C++ vía paquetes base.
 - JetBrains Toolbox + módulo JetBrains de Coder para lanzar IntelliJ IDEA remoto (instala el plugin Android) vía JetBrains Gateway/Coder Desktop.
 - Google Chrome, Firefox y OpenCode Desktop preinstalados.

@@ -138,10 +138,10 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
     apt-get install -y --no-install-recommends antigravity && \
     rm -rf /var/lib/apt/lists/*
 
-# Node.js 22 LTS y las CLIs de IA para trabajo con código
+# Node.js 24 LTS y las CLIs de IA para trabajo con código
 RUN install -m 0755 -d /etc/apt/keyrings && \
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" \
       | tee /etc/apt/sources.list.d/nodesource.list > /dev/null && \
     apt-get update && \
     apt-get install -y --no-install-recommends nodejs && \
@@ -169,14 +169,14 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
 # Utilidades NVIDIA para poder usar `nvidia-smi` cuando hay GPUs
 RUN set -e; \
     apt-get update; \
-    if ! apt-get install -y --no-install-recommends nvidia-utils-535; then \
-      if ! apt-get install -y --no-install-recommends nvidia-utils-530; then \
-        apt-get install -y --no-install-recommends nvidia-utils-525 || true; \
+    if ! apt-get install -y --no-install-recommends nvidia-utils-580; then \
+      if ! apt-get install -y --no-install-recommends nvidia-utils-570; then \
+        apt-get install -y --no-install-recommends nvidia-utils-565 || true; \
       fi; \
     fi; \
     rm -rf /var/lib/apt/lists/*
 
-# GitHub Desktop (shiftkey build), Claude Desktop (repo APT) y OpenCode Desktop
+# GitHub Desktop (shiftkey build) y OpenCode Desktop
 ARG GITHUB_DESKTOP_REPO=shiftkey/desktop
 ARG OPENCODE_DESKTOP_URL=https://opencode.ai/es/download/stable/linux-x64-deb
 RUN set -e; \
@@ -191,16 +191,24 @@ RUN set -e; \
     apt-get update && \
     apt-get install -y --no-install-recommends gnome-keyring libwebkit2gtk-4.1-0 && \
     apt-get install -y --no-install-recommends /tmp/github-desktop.deb /tmp/opencode-desktop.deb; \
-    if curl -fsSL https://aaddrick.github.io/claude-desktop-debian/KEY.gpg | gpg --dearmor -o /usr/share/keyrings/claude-desktop.gpg; then \
-      echo "deb [signed-by=/usr/share/keyrings/claude-desktop.gpg arch=amd64,arm64] https://aaddrick.github.io/claude-desktop-debian stable main" > /etc/apt/sources.list.d/claude-desktop.list; \
+    rm -rf /var/lib/apt/lists/* /tmp/github-desktop.deb /tmp/opencode-desktop.deb
+
+# Claude Desktop desde el repo APT oficial de Anthropic (downloads.claude.ai).
+# Se mantiene el source list para recibir actualizaciones vía `apt upgrade`.
+# No hace falta wrapper --no-sandbox: ELECTRON_DISABLE_SANDBOX / OZONE / COWORK_VM_BACKEND
+# se fijan como ENV globales más abajo, y el .desktop oficial hace `Exec=claude-desktop`.
+# El fallo no es fatal para no romper el build si el repo no está disponible.
+RUN set -e; \
+    if curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc https://downloads.claude.ai/claude-desktop/key.asc; then \
+      echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" \
+        > /etc/apt/sources.list.d/claude-desktop.list; \
       if ! apt-get update || ! apt-get install -y --no-install-recommends claude-desktop; then \
-        echo "WARN: no se pudo instalar Claude Desktop desde el repo externo; se continua sin esa app" >&2; \
+        echo "WARN: no se pudo instalar Claude Desktop desde el repo oficial; se continua sin esa app" >&2; \
       fi; \
     else \
       echo "WARN: no se pudo descargar la key de Claude Desktop; se continua sin esa app" >&2; \
     fi; \
-    rm -f /etc/apt/sources.list.d/claude-desktop.list /usr/share/keyrings/claude-desktop.gpg; \
-    rm -rf /var/lib/apt/lists/* /tmp/github-desktop.deb /tmp/opencode-desktop.deb
+    rm -rf /var/lib/apt/lists/*
 
 # Electron apps dentro de contenedores Docker necesitan desactivar el sandbox
 # (no hay user namespaces). Los wrappers añaden --no-sandbox y pistas de Ozone.
@@ -223,15 +231,8 @@ SHWRAP
 }
 TARGET_BIN=/usr/lib/github-desktop/github-desktop EXTRA_FLAGS="--password-store=basic" wrap /usr/bin/github-desktop /usr/lib/github-desktop/github-desktop
 TARGET_BIN=/usr/share/code/bin/code EXTRA_FLAGS="" wrap /usr/bin/code /usr/share/code/bin/code
-if [ -x /usr/bin/claude-desktop ]; then
-  mv /usr/bin/claude-desktop /usr/bin/claude-desktop.real || true
-  cat > /usr/bin/claude-desktop <<'EOFWRAP'
-#!/bin/sh
-exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="${ELECTRON_OZONE_PLATFORM_HINT:-auto}" COWORK_VM_BACKEND="${COWORK_VM_BACKEND:-host}" \
-  /usr/bin/claude-desktop.real "$@"
-EOFWRAP
-  chmod +x /usr/bin/claude-desktop
-fi
+# Claude Desktop (paquete oficial) no necesita wrapper: el sandbox se desactiva vía
+# ELECTRON_DISABLE_SANDBOX=1 (ENV global) y COWORK_VM_BACKEND=host evita bwrap/qemu.
 # Google Chrome (no es Electron pero también necesita --no-sandbox en Docker)
 if [ -x /opt/google/chrome/google-chrome ]; then
   mv /usr/bin/google-chrome-stable /usr/bin/google-chrome-stable.real 2>/dev/null || true
@@ -267,7 +268,7 @@ RUN su - coder -c 'set -e; \
   mkdir -p /home/coder/.vscode-server/extensions'
 
 # AppImage Pool (gestor de AppImages con actualizaciones e integración en menú)
-ARG APPIMAGEPOOL_VERSION=5.0.0
+ARG APPIMAGEPOOL_VERSION=5.1.0
 RUN <<'EOSH'
 set -e
 mkdir -p /opt/appimagepool
@@ -319,7 +320,7 @@ RUN update-desktop-database /usr/share/applications || true && \
 # Accesos directos en el escritorio por defecto
 RUN set -e; \
     mkdir -p /etc/skel/Desktop && \
-    for f in code.desktop github-desktop.desktop claude-desktop.desktop OpenCode.desktop firefox.desktop geany.desktop appimagepool.desktop; do \
+    for f in code.desktop github-desktop.desktop com.anthropic.Claude.desktop OpenCode.desktop firefox.desktop geany.desktop appimagepool.desktop; do \
       src="/usr/share/applications/$f"; \
       if [ -f "$src" ]; then ln -sf "$src" "/etc/skel/Desktop/$f"; fi; \
     done; \

@@ -96,7 +96,7 @@ RUN apt-get update && \
 # OrcaSlicer (AppImage), LaserGRBL (Wine), OpenCode Desktop y VisiCut (.deb)
 RUN <<'EOSH'
 set -e
-ORCA_VERSION="2.3.1"
+ORCA_VERSION="2.4.2"
 OPENCODE_DESKTOP_URL="https://opencode.ai/es/download/stable/linux-x64-deb"
 # Prefer the Ubuntu 22.04 build to avoid newer WebKit (libwebkit2gtk-4.1) requirement,
 # but keep fallbacks so future tags still resolve.
@@ -134,37 +134,32 @@ EOSH
 
 ENV COWORK_VM_BACKEND=host
 
-# Claude Desktop (.deb repo comunitario) + wrapper no-sandbox para Electron
+# Claude Desktop desde el repo APT oficial de Anthropic (downloads.claude.ai).
+# Se mantiene el source list para recibir actualizaciones vía `apt upgrade`.
+# No hace falta wrapper --no-sandbox: ELECTRON_DISABLE_SANDBOX/OZONE (ENV globales)
+# y COWORK_VM_BACKEND=host bastan; el .desktop oficial hace `Exec=claude-desktop`.
 RUN <<'EOSH'
 set -e
-if curl -fsSL https://aaddrick.github.io/claude-desktop-debian/KEY.gpg | gpg --dearmor -o /usr/share/keyrings/claude-desktop.gpg; then
-  echo "deb [signed-by=/usr/share/keyrings/claude-desktop.gpg arch=amd64,arm64] https://aaddrick.github.io/claude-desktop-debian stable main" > /etc/apt/sources.list.d/claude-desktop.list
+if curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc https://downloads.claude.ai/claude-desktop/key.asc; then
+  echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" > /etc/apt/sources.list.d/claude-desktop.list
   if ! apt-get update || ! apt-get install -y --no-install-recommends claude-desktop; then
-    echo "WARN: no se pudo instalar Claude Desktop desde el repo externo; se continua sin esa app" >&2
+    echo "WARN: no se pudo instalar Claude Desktop desde el repo oficial; se continua sin esa app" >&2
   fi
 else
   echo "WARN: no se pudo descargar la key de Claude Desktop; se continua sin esa app" >&2
 fi
-rm -f /etc/apt/sources.list.d/claude-desktop.list /usr/share/keyrings/claude-desktop.gpg
 rm -rf /var/lib/apt/lists/*
-if [ -x /usr/share/claude-desktop/claude-desktop ] && [ -x /usr/bin/claude-desktop ]; then
-  mv /usr/bin/claude-desktop /usr/bin/claude-desktop.real || true
-  cat > /usr/bin/claude-desktop <<'EOFWRAP'
-#!/bin/sh
-exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="${ELECTRON_OZONE_PLATFORM_HINT:-auto}" COWORK_VM_BACKEND="${COWORK_VM_BACKEND:-host}" \
-  /usr/bin/claude-desktop.real "$@"
-EOFWRAP
-  chmod +x /usr/bin/claude-desktop
-fi
 EOSH
 
-# Blender 3.6 LTS (binario oficial)
-ARG BLENDER_VERSION=3.6.23
+# Blender 4.5 LTS (binario oficial)
+ARG BLENDER_VERSION=4.5.11
 RUN <<'EOSH'
 set -e
 BLENDER_DIR="/opt/blender"
 BLENDER_PKG="blender-${BLENDER_VERSION}-linux-x64"
-BLENDER_URL="https://download.blender.org/release/Blender3.6/${BLENDER_PKG}.tar.xz"
+# Directorio de release = serie mayor.menor (p.ej. 4.5.11 -> Blender4.5)
+BLENDER_SERIES="$(echo "${BLENDER_VERSION}" | cut -d. -f1-2)"
+BLENDER_URL="https://download.blender.org/release/Blender${BLENDER_SERIES}/${BLENDER_PKG}.tar.xz"
 mkdir -p /opt
 curl -fL "${BLENDER_URL}" -o /tmp/blender.tar.xz
 tar -xJf /tmp/blender.tar.xz -C /opt
@@ -207,17 +202,17 @@ ENV ELECTRON_DISABLE_SANDBOX=1 \
 # Utilidades NVIDIA para `nvidia-smi` cuando se habilitan GPUs
 RUN set -e; \
     apt-get update; \
-    if ! apt-get install -y --no-install-recommends nvidia-utils-535; then \
-      if ! apt-get install -y --no-install-recommends nvidia-utils-530; then \
-        apt-get install -y --no-install-recommends nvidia-utils-525 || true; \
+    if ! apt-get install -y --no-install-recommends nvidia-utils-580; then \
+      if ! apt-get install -y --no-install-recommends nvidia-utils-570; then \
+        apt-get install -y --no-install-recommends nvidia-utils-565 || true; \
       fi; \
     fi; \
     rm -rf /var/lib/apt/lists/*
 
-# Node.js 22 LTS + CLIs de IA para trabajo con código
+# Node.js 24 LTS + CLIs de IA para trabajo con código
 RUN install -m 0755 -d /etc/apt/keyrings && \
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" \
       | tee /etc/apt/sources.list.d/nodesource.list > /dev/null && \
     apt-get update && \
     apt-get install -y --no-install-recommends nodejs && \
@@ -251,7 +246,7 @@ RUN su - coder -c 'set -e; \
   mkdir -p /home/coder/.vscode-server/extensions'
 
 # AppImage Pool (gestor de AppImages con actualizaciones e integración en menú)
-ARG APPIMAGEPOOL_VERSION=5.0.0
+ARG APPIMAGEPOOL_VERSION=5.1.0
 RUN <<'EOSH'
 set -e
 mkdir -p /opt/appimagepool
@@ -310,7 +305,7 @@ RUN update-desktop-database /usr/share/applications || true && \
 
 # Crear accesos directos en Desktop para todas las aplicaciones
 RUN mkdir -p /etc/skel/Desktop && \
-    for f in firefox.desktop org.freecadweb.FreeCAD.desktop org.inkscape.Inkscape.desktop gimp.desktop org.kde.krita.desktop org.kicad.kicad.desktop openscad.desktop PrusaSlicer.desktop librecad.desktop meshlab.desktop org.fritzing.Fritzing.desktop net.launchpad.code.simulide.desktop geany.desktop VisiCut.desktop orcaslicer.desktop appimagepool.desktop OpenCode.desktop claude-desktop.desktop; do \
+    for f in firefox.desktop org.freecadweb.FreeCAD.desktop org.inkscape.Inkscape.desktop gimp.desktop org.kde.krita.desktop org.kicad.kicad.desktop openscad.desktop PrusaSlicer.desktop librecad.desktop meshlab.desktop org.fritzing.Fritzing.desktop net.launchpad.code.simulide.desktop geany.desktop VisiCut.desktop orcaslicer.desktop appimagepool.desktop OpenCode.desktop com.anthropic.Claude.desktop; do \
       src="/usr/share/applications/$f"; \
       if [ -f "$src" ]; then ln -sf "$src" "/etc/skel/Desktop/$f"; fi; \
     done && \
