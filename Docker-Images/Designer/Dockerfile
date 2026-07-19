@@ -129,6 +129,17 @@ apt-get install -y --no-install-recommends libwebkit2gtk-4.1-0
 apt-get install -y --no-install-recommends /tmp/visicut.deb /tmp/opencode-desktop.deb
 rm /tmp/visicut.deb
 rm /tmp/opencode-desktop.deb
+# Normalizar el lanzador que instala el .deb de OpenCode Desktop.
+set -e; \
+    if [ -x /opt/OpenCode/ai.opencode.desktop ]; then \
+      mv /opt/OpenCode/ai.opencode.desktop /opt/OpenCode/ai.opencode.desktop.real; \
+      printf "%s\n" "#!/bin/sh" "exec /opt/OpenCode/ai.opencode.desktop.real --no-sandbox --disable-gpu-sandbox --disable-setuid-sandbox --disable-seccomp-filter-sandbox --no-zygote --disable-gpu \"\$@\"" > /opt/OpenCode/ai.opencode.desktop; \
+      chmod +x /opt/OpenCode/ai.opencode.desktop; \
+    fi; \
+    if [ -f /usr/share/applications/ai.opencode.desktop.desktop ]; then \
+      ln -sf /usr/share/applications/ai.opencode.desktop.desktop /usr/share/applications/OpenCode.desktop; \
+    fi
+
 rm -rf /var/lib/apt/lists/*
 EOSH
 

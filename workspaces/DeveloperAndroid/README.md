@@ -19,6 +19,7 @@ Workspace gráfico KDE/KasmVNC con toolchain Android preinstalado. Usa la imagen
 - Google Chrome, Firefox y OpenCode Desktop preinstalados.
 - Módulos Coder: KasmVNC (KDE), code-server, Filebrowser, OpenCode, git-config, tmux.
 - Autoprovisiona una key de IA MakeSpace (30 días) si dejas activa la casilla `[AI/OpenCode] Provisionar API key MakeSpace automáticamente` y el endpoint está configurado por entorno.
+- `OpenCode Web` se inicia automáticamente y aparece como app privada del propietario en Coder.
 - Antigravity auto-updater (`antigravity`) preinstalado.
 
 ## Creación rápida en Coder

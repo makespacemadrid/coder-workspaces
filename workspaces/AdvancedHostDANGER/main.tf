@@ -435,6 +435,9 @@ JSONCFG
 
     # Refrescar accesos directos en el escritorio (si faltan)
     mkdir -p ~/Desktop
+    if [ -f /usr/share/applications/ai.opencode.desktop.desktop ]; then
+      ln -sfn /usr/share/applications/ai.opencode.desktop.desktop "$HOME/Desktop/OpenCode.desktop"
+    fi
     for f in code.desktop github-desktop.desktop claude-desktop.desktop OpenCode.desktop firefox.desktop google-chrome.desktop geany.desktop appimagepool.desktop; do
       src="/usr/share/applications/$f"
       if [ -f "$src" ] && [ ! -e "$HOME/Desktop/$f" ]; then
@@ -1148,6 +1151,62 @@ module "opencode" {
   version  = "~> 0.1"
   agent_id = coder_agent.main.id
   workdir  = "/home/coder/"
+}
+
+# UI web nativa de OpenCode, además de la integración AgentAPI del módulo.
+resource "coder_script" "opencode_web" {
+  count              = local.install_claude ? 0 : 1
+  agent_id           = coder_agent.main.id
+  display_name       = "Start OpenCode Web"
+  icon               = "/icon/opencode.svg"
+  run_on_start       = true
+  start_blocks_login = false
+  script             = <<-EOT
+    #!/usr/bin/env bash
+    set -euo pipefail
+    port=4096
+    health_url="http://127.0.0.1:$port/global/health"
+    log_dir="$HOME/.opencode"
+    log_file="$log_dir/opencode-web.log"
+    export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
+    for _ in $(seq 1 120); do
+      if command -v opencode >/dev/null 2>&1; then break; fi
+      sleep 1
+    done
+    opencode_bin="$(command -v opencode || true)"
+    if [ -z "$opencode_bin" ]; then
+      echo "OpenCode no se instaló en dos minutos; consulta ~/.opencode-module" >&2
+      exit 1
+    fi
+    if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
+    mkdir -p "$log_dir"
+    nohup "$opencode_bin" web --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
+    for _ in $(seq 1 30); do
+      if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
+      sleep 1
+    done
+    echo "OpenCode Web no respondió en $health_url; consulta $log_file" >&2
+    exit 1
+  EOT
+  depends_on = [module.opencode]
+}
+
+resource "coder_app" "opencode_web" {
+  count        = local.install_claude ? 0 : 1
+  agent_id     = coder_agent.main.id
+  slug         = "opencode-web"
+  display_name = "OpenCode Web"
+  icon         = "/icon/opencode.svg"
+  url          = "http://127.0.0.1:4096"
+  share        = "owner"
+  subdomain    = false
+  open_in      = "tab"
+  healthcheck {
+    url       = "http://127.0.0.1:4096/global/health"
+    interval  = 5
+    threshold = 6
+  }
+  depends_on = [coder_script.opencode_web]
 }
 
 module "claude-code" {

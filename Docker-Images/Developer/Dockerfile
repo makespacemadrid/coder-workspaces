@@ -193,6 +193,18 @@ RUN set -e; \
     apt-get install -y --no-install-recommends /tmp/github-desktop.deb /tmp/opencode-desktop.deb; \
     rm -rf /var/lib/apt/lists/* /tmp/github-desktop.deb /tmp/opencode-desktop.deb
 
+# Normalizar el lanzador que instala el .deb de OpenCode Desktop.
+RUN set -e; \
+    if [ -x /opt/OpenCode/ai.opencode.desktop ]; then \
+      mv /opt/OpenCode/ai.opencode.desktop /opt/OpenCode/ai.opencode.desktop.real; \
+      printf "%s\n" "#!/bin/sh" "exec /opt/OpenCode/ai.opencode.desktop.real --no-sandbox --disable-gpu-sandbox --disable-setuid-sandbox --disable-seccomp-filter-sandbox --no-zygote --disable-gpu \"\$@\"" > /opt/OpenCode/ai.opencode.desktop; \
+      chmod +x /opt/OpenCode/ai.opencode.desktop; \
+    fi; \
+    if [ -f /usr/share/applications/ai.opencode.desktop.desktop ]; then \
+      ln -sf /usr/share/applications/ai.opencode.desktop.desktop /usr/share/applications/OpenCode.desktop; \
+    fi
+
+
 # Claude Desktop desde el repo APT oficial de Anthropic (downloads.claude.ai).
 # Se mantiene el source list para recibir actualizaciones vía `apt upgrade`.
 # No hace falta wrapper --no-sandbox: ELECTRON_DISABLE_SANDBOX / OZONE / COWORK_VM_BACKEND

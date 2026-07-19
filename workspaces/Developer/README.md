@@ -40,6 +40,7 @@ Workspace de desarrollo general, con **Docker in Docker (DinD)**, escritorio XFC
 - Code-server abre por defecto la carpeta clonada en `~/Projects/<repo>`.
 - [AI/OpenCode] Provisionar API_KEY de MakeSpace automáticamente: viene activo por defecto, genera la key MakeSpace (30 días), configura OpenCode (base URL por entorno si no pones URL) y exporta `MKS_BASE_URL`/`MKS_API_KEY`.
 - [AI/OpenAI] Base URL / API key (opcionales): rellénalas para usar tu proveedor o desactiva la casilla anterior si no quieres la llave preprovisionada. La autoprovisión requiere `TF_VAR_opencode_default_base_url` y `TF_VAR_mks_key_endpoint`.
+- `OpenCode Web`: app web nativa de OpenCode, arrancada automáticamente y accesible solo por el propietario desde las apps de Coder.
 - [AI/Claude] Token: si lo rellenas se instalará Claude Code (subdomain=false) y las tareas de Coder usarán Claude; OpenCode no instala módulo (solo CLI via script) para evitar conflictos.
 
 ## Notas de uso

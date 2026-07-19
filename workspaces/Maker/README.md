@@ -21,6 +21,7 @@ Template con escritorio KDE/KasmVNC y herramientas de diseño 2D/3D + electróni
 - Docs/tipografía: Pandoc, FontForge
 - Módulos Coder: KasmVNC, Filebrowser, OpenCode. RDP aplica solo a workspaces Windows según [las docs de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops); esta imagen Linux usa KasmVNC.
 
+- `OpenCode Web` se inicia automáticamente y aparece como app privada del propietario en Coder.
 ## Creación rápida en Coder
 - `Habilitar GPUs`: actívalo si lo necesitas.
 - `Persistir home en el host`: monta `/home/coder` en `TF_VAR_users_storage/<usuario>/<workspace>`.

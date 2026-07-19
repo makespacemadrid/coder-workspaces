@@ -20,6 +20,7 @@ Workspace ligero basado en la imagen oficial `codercom/enterprise-base:ubuntu`, 
 - Docker instalado al iniciar y ejecutando DinD (dockerd dentro del contenedor).
 - OpenCode/Claude opcionales para asistentes de IA (con autoprovision de key MakeSpace si se activa).
 - Home persistente en `/home/coder` (volumen o bind mount según parámetros) y datos de Docker en `/var/lib/docker`.
+- `OpenCode Web`: interfaz web nativa arrancada automáticamente y expuesta como app privada del propietario en Coder.
 - Labels `com.centurylinklabs.watchtower.*` para actualizaciones con Watchtower.
 
 ## Creación rápida en Coder

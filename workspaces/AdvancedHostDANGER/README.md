@@ -18,6 +18,7 @@ tags: [docker, workspace, host, danger, makespace]
 - Python listo para venvs (`python3-venv`) + venv base en `~/.venvs/base`.
 - Accesos directos precreados en el escritorio y módulos KasmVNC, Filebrowser, OpenCode. RDP es solo para workspaces Windows según [la guía de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops); esta imagen Linux usa KasmVNC.
 - Antigravity auto-updater (`antigravity`) preinstalado.
+- `OpenCode Web` se inicia automáticamente y aparece como app privada del propietario en Coder.
 
 ## Uso recomendado
 - Pruebas que requieran Docker/Network del host, diagnósticos de red, acceso a GPUs del host.
