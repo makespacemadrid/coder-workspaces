@@ -3,7 +3,7 @@ display_name: AdvancedHostDANGER
 description: "DANGER DANGER: acceso Docker host + network host. Usa Developer si no necesitas esto."
 icon: icon.svg
 maintainer_github: makespacemadrid
-tags: [docker, workspace, host, danger, makespace]
+tags: [docker, workspace, host, danger, ocabra]
 ---
 
 # Developer Advanced Host
@@ -31,7 +31,7 @@ tags: [docker, workspace, host, danger, makespace]
 - `Montar ruta host en ~/host`: monta una ruta del host en `/home/coder/host`.
 - `Especificar UID para montar la ruta host`: UID para ejecutar el contenedor cuando montas `/home/coder/host` (por defecto 1000).
 - `Repositorio Git`: clona en `~/Projects` al primer arranque.
-- `OpenCode`: si dejas URL/API key vacíos y hay endpoint por entorno, se autoprovisiona; requiere `TF_VAR_opencode_default_base_url` y `TF_VAR_mks_key_endpoint`.
+- `OpenCode`: si dejas URL/API key vacíos y hay endpoint por entorno, se autoprovisiona; requiere `TF_VAR_ocabra_endpoint_base_url` y `TF_VAR_ocabra_key`.
 
 ## Parámetros
 - `Persistir home en el host`: monta `/home/coder` en `TF_VAR_users_storage/<usuario>/<workspace>`.

@@ -1,9 +1,9 @@
 ---
 display_name: Developer
-description: "Workspace de desarrollo general con Docker in Docker y GPU opcional (autoprovisiona key MakeSpace de IA por defecto, configurable)"
+description: "Workspace de desarrollo general con Docker in Docker y GPU opcional (autoprovisiona key Ocabra de IA por defecto, configurable)"
 icon: icon.svg
 maintainer_github: makespacemadrid
-tags: [docker, dind, gpu, workspace, makespace]
+tags: [docker, dind, gpu, workspace, ocabra]
 ---
 
 # Developer (Docker in Docker)
@@ -38,8 +38,8 @@ Workspace de desarrollo general, con **Docker in Docker (DinD)**, escritorio XFC
 - [Storage] Docker data persistente: `/var/lib/docker` se guarda en un volumen interno automático.
 - [Code] Repositorio Git (opcional): pre-rellenado con `TF_VAR_default_repo_url`, clona en `~/Projects` al primer arranque.
 - Code-server abre por defecto la carpeta clonada en `~/Projects/<repo>`.
-- [AI/OpenCode] Provisionar API_KEY de MakeSpace automáticamente: viene activo por defecto, genera la key MakeSpace (30 días), configura OpenCode (base URL por entorno si no pones URL) y exporta `MKS_BASE_URL`/`MKS_API_KEY`.
-- [AI/OpenAI] Base URL / API key (opcionales): rellénalas para usar tu proveedor o desactiva la casilla anterior si no quieres la llave preprovisionada. La autoprovisión requiere `TF_VAR_opencode_default_base_url` y `TF_VAR_mks_key_endpoint`.
+- [AI/OpenCode] Provisionar API_KEY de Ocabra automáticamente: viene activo por defecto, genera la key Ocabra (30 días), configura OpenCode (base URL por entorno si no pones URL) y exporta `OCABRA_BASE_URL`/`OCABRA_API_KEY`.
+- [AI/OpenAI] Base URL / API key (opcionales): rellénalas para usar tu proveedor o desactiva la casilla anterior si no quieres la llave preprovisionada. La autoprovisión requiere `TF_VAR_ocabra_endpoint_base_url` y `TF_VAR_ocabra_key`.
 - `OpenCode Web`: app web nativa de OpenCode, arrancada automáticamente y accesible solo por el propietario desde las apps de Coder.
 - [AI/Claude] Token: si lo rellenas se instalará Claude Code (subdomain=false) y las tareas de Coder usarán Claude; OpenCode no instala módulo (solo CLI via script) para evitar conflictos.
 

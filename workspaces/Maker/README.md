@@ -1,12 +1,12 @@
 ---
-display_name: MakeSpace Maker
-description: Entorno gráfico para diseño 2D/3D y electrónica (autoprovisiona key IA MakeSpace si activas OpenCode)
+display_name: Ocabra Maker
+description: Entorno gráfico para diseño 2D/3D y electrónica (autoprovisiona key IA Ocabra si activas OpenCode)
 icon: icon.svg
 maintainer_github: makespacemadrid
-tags: [design, cad, 3d, electronics, makespace]
+tags: [design, cad, 3d, electronics, ocabra]
 ---
 
-# MakeSpace Maker
+# Ocabra Maker
 
 Template con escritorio KDE/KasmVNC y herramientas de diseño 2D/3D + electrónica usando la imagen `ghcr.io/makespacemadrid/coder-mks-design:latest`.
 
@@ -29,7 +29,7 @@ Template con escritorio KDE/KasmVNC y herramientas de diseño 2D/3D + electróni
 - `Montar ruta host en ~/host`: monta una ruta del host en `/home/coder/host`.
 - `Especificar UID para montar la ruta host`: UID para ejecutar el contenedor cuando montas `/home/coder/host` (por defecto 1000).
 - `Repositorio Git`: clona en `~/Projects` al primer arranque.
-- `OpenCode`: deja activo el checkbox `OpenCode: provisionar API key MakeSpace automáticamente` para generar una key MakeSpace de 30 días y configurar Continue; requiere `TF_VAR_opencode_default_base_url` y `TF_VAR_mks_key_endpoint`.
+- `OpenCode`: deja activo el checkbox `OpenCode: provisionar API key Ocabra automáticamente` para generar una key Ocabra de 30 días y configurar Continue; requiere `TF_VAR_ocabra_endpoint_base_url` y `TF_VAR_ocabra_key`.
 
 ## Notas
 - Home persistente en `/home/coder` (volumen o bind mount según parámetros). Escritorio con accesos directos a las apps clave.

@@ -3,7 +3,7 @@ display_name: Minimal
 description: "Workspace básico sin escritorio, con code-server y Docker in Docker"
 icon: icon.svg
 maintainer_github: makespacemadrid
-tags: [docker, dind, workspace, makespace]
+tags: [docker, dind, workspace, ocabra]
 ---
 
 # Minimal (code-server + DinD)
@@ -18,7 +18,7 @@ Workspace ligero basado en la imagen oficial `codercom/enterprise-base:ubuntu`, 
 - Imagen oficial `codercom/enterprise-base:ubuntu` con tooling base y sudo.
 - code-server integrado.
 - Docker instalado al iniciar y ejecutando DinD (dockerd dentro del contenedor).
-- OpenCode/Claude opcionales para asistentes de IA (con autoprovision de key MakeSpace si se activa).
+- OpenCode/Claude opcionales para asistentes de IA (con autoprovision de key Ocabra si se activa).
 - Home persistente en `/home/coder` (volumen o bind mount según parámetros) y datos de Docker en `/var/lib/docker`.
 - `OpenCode Web`: interfaz web nativa arrancada automáticamente y expuesta como app privada del propietario en Coder.
 - Labels `com.centurylinklabs.watchtower.*` para actualizaciones con Watchtower.
@@ -32,7 +32,7 @@ Workspace ligero basado en la imagen oficial `codercom/enterprise-base:ubuntu`, 
 - `Especificar UID para montar la ruta host`: UID para ejecutar el contenedor cuando montas `/home/coder/host` (por defecto 1000).
 - `Repositorio Git`: clona en `~/Projects` al primer arranque.
 - `OpenCode Base URL` + `OpenCode API key`: configura proveedor OpenAI-compatible.
-- `Provisionar API key MakeSpace automáticamente`: genera una key de 30 días si no aportas una.
+- `Provisionar API key Ocabra automáticamente`: genera una key de 30 días si no aportas una.
 - `Claude Token`: usa Claude y omite OpenCode (genera el token con `claude setup-token`).
 
 ## Notas

@@ -3,7 +3,7 @@ display_name: Developer Android
 description: "Workspace KDE con toolchain Android (SDK/CLI), Node 24 y VS Code"
 icon: icon.svg
 maintainer_github: makespacemadrid
-tags: [android, mobile, kde, workspace, makespace]
+tags: [android, mobile, kde, workspace, ocabra]
 ---
 
 # Developer Android
@@ -18,7 +18,7 @@ Workspace gráfico KDE/KasmVNC con toolchain Android preinstalado. Usa la imagen
 - JetBrains Toolbox + módulo JetBrains de Coder para lanzar IntelliJ IDEA remoto (instala el plugin Android) vía JetBrains Gateway/Coder Desktop.
 - Google Chrome, Firefox y OpenCode Desktop preinstalados.
 - Módulos Coder: KasmVNC (KDE), code-server, Filebrowser, OpenCode, git-config, tmux.
-- Autoprovisiona una key de IA MakeSpace (30 días) si dejas activa la casilla `[AI/OpenCode] Provisionar API key MakeSpace automáticamente` y el endpoint está configurado por entorno.
+- Autoprovisiona una key de IA Ocabra (30 días) si dejas activa la casilla `[AI/OpenCode] Provisionar API key Ocabra automáticamente` y el endpoint está configurado por entorno.
 - `OpenCode Web` se inicia automáticamente y aparece como app privada del propietario en Coder.
 - Antigravity auto-updater (`antigravity`) preinstalado.
 
@@ -30,7 +30,7 @@ Workspace gráfico KDE/KasmVNC con toolchain Android preinstalado. Usa la imagen
 - `Montar ruta host en ~/host`: monta una ruta del host en `/home/coder/host`.
 - `Especificar UID para montar la ruta host`: UID para ejecutar el contenedor cuando montas `/home/coder/host` (por defecto 1000).
 - `Repositorio Git`: clona en `~/Projects` al primer arranque.
-- `OpenCode`: deja activa la casilla `[AI/OpenCode] Provisionar API key MakeSpace automáticamente` para generar una key MakeSpace de 30 días; requiere `TF_VAR_opencode_default_base_url` y `TF_VAR_mks_key_endpoint`.
+- `OpenCode`: deja activa la casilla `[AI/OpenCode] Provisionar API key Ocabra automáticamente` para generar una key Ocabra de 30 días; requiere `TF_VAR_ocabra_endpoint_base_url` y `TF_VAR_ocabra_key`.
 
 ## Utilidades extra
 - Android: `adb` y `scrcpy`.
@@ -43,4 +43,4 @@ Workspace gráfico KDE/KasmVNC con toolchain Android preinstalado. Usa la imagen
 - Bloqueo de pantalla/ahorro de energía deshabilitado para no interrumpir builds largos.
 - Botones JetBrains disponibles en el dashboard (IntelliJ IDEA remoto); instala el plugin de Android para emular Android Studio y requiere JetBrains Gateway/Coder Desktop.
 - Home persistente en `/home/coder` (volumen o bind mount según parámetros); labels de Watchtower habilitadas.
-- Script `gen_mks_litellm_key` disponible en el workspace para regenerar/aplicar una nueva key de IA.
+- Script `gen_ocabra_key` disponible en el workspace para regenerar/aplicar una nueva key de IA.

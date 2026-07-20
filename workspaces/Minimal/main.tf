@@ -24,15 +24,15 @@ variable "users_storage" {
   type        = string
 }
 
-variable "opencode_default_base_url" {
+variable "ocabra_endpoint_base_url" {
   default     = ""
-  description = "Base URL OpenAI-compatible por defecto (ej. $TF_VAR_opencode_default_base_url)."
+  description = "Base URL OpenAI-compatible por defecto (ej. $TF_VAR_ocabra_endpoint_base_url)."
   type        = string
 }
 
-variable "mks_key_endpoint" {
+variable "ocabra_key" {
   default     = ""
-  description = "Endpoint para solicitar keys MakeSpace (autoprovision)."
+  description = "Endpoint para solicitar keys Ocabra (autoprovision)."
   type        = string
 }
 
@@ -98,10 +98,10 @@ data "coder_parameter" "persist_projects_storage" {
   mutable      = true
 }
 
-data "coder_parameter" "autoprovision_mks_key" {
-  name         = "04_autoprovision_mks_key"
-  display_name = "[AI/MakeSpace] Provisionar API key MakeSpace automáticamente"
-  description  = "Genera y precarga una API key MakeSpace. La API de MakeSpace es privada en los servidores de MakeSpace."
+data "coder_parameter" "autoprovision_ocabra_key" {
+  name         = "04_autoprovision_ocabra_key"
+  display_name = "[AI/Ocabra] Provisionar API key Ocabra automáticamente"
+  description  = "Genera y precarga una API key Ocabra. La API de Ocabra es privada en los servidores de Ocabra."
   type         = "bool"
   default      = true
   mutable      = true
@@ -139,13 +139,13 @@ locals {
   workspace_storage_projects     = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}/Projects" : ""
   home_mount_host_path           = local.persist_home_storage && local.workspace_storage_root != "" ? local.workspace_storage_home : ""
   projects_mount_host_path       = local.persist_projects_storage && local.workspace_storage_root != "" ? local.workspace_storage_projects : ""
-  opencode_default_base_url      = trimspace(var.opencode_default_base_url)
-  mks_key_endpoint               = trimspace(var.mks_key_endpoint)
+  ocabra_endpoint_base_url      = trimspace(var.ocabra_endpoint_base_url)
+  ocabra_key               = trimspace(var.ocabra_key)
   freeapi_base_url               = trimspace(var.freeapi_base_url)
   freeapi_key_endpoint           = trimspace(var.freeapi_key_endpoint)
   openai_base_url         = ""
   openai_api_key          = ""
-  auto_provision_mks_key  = data.coder_parameter.autoprovision_mks_key.value
+  auto_provision_ocabra_key  = data.coder_parameter.autoprovision_ocabra_key.value
   auto_provision_freeapi_key = data.coder_parameter.autoprovision_freeapi_key.value
   claude_token            = trimspace(data.coder_parameter.claude_token.value)
   install_claude          = local.claude_token != ""
@@ -262,44 +262,46 @@ JSONCFG
       touch ~/.init_done
     fi
 
-    # Autoprovisionar clave OpenCode MakeSpace si está habilitado
-    auto_flag="$${AUTO_PROVISION_MKS_API_KEY:-true}"
-    if [ -z "$${OPENCODE_PROVIDER_URL:-}" ] && [ -n "$${OPENCODE_DEFAULT_BASE_URL:-}" ]; then
-      OPENCODE_PROVIDER_URL="$${OPENCODE_DEFAULT_BASE_URL}"
+    # Autoprovisionar clave OpenCode Ocabra si está habilitado
+    auto_flag="$${AUTO_PROVISION_OCABRA_API_KEY:-true}"
+    if [ -z "$${OPENCODE_PROVIDER_URL:-}" ] && [ -n "$${OCABRA_ENDPOINT_BASE_URL:-}" ]; then
+      OCABRA_OPENAI_BASE_URL="$${OCABRA_ENDPOINT_BASE_URL%/}"
+      case "$OCABRA_OPENAI_BASE_URL" in */v1) ;; *) OCABRA_OPENAI_BASE_URL="$OCABRA_OPENAI_BASE_URL/v1" ;; esac
+      OPENCODE_PROVIDER_URL="$OCABRA_OPENAI_BASE_URL"
       export OPENCODE_PROVIDER_URL
     fi
     if printf '%s' "$auto_flag" | grep -Eq '^(1|true|TRUE|yes|on)$'; then
-      MKS_BASE_URL="$${MKS_BASE_URL:-$OPENCODE_PROVIDER_URL}"
-      export MKS_BASE_URL
+      OCABRA_BASE_URL="$${OCABRA_BASE_URL:-$OPENCODE_PROVIDER_URL}"
+      export OCABRA_BASE_URL
       payload=""
       if [ -z "$${OPENCODE_API_KEY:-}" ]; then
-        KEY_ENDPOINT="$${MKS_KEY_ENDPOINT:-}"
-        if [ -z "$KEY_ENDPOINT" ]; then
-          echo "MKS_KEY_ENDPOINT no configurado; omitiendo autoprovision de key" >&2
+        KEY_ENDPOINT="$${OCABRA_ENDPOINT_BASE_URL%/}/ocabra/auth/keys"
+        if [ -z "$${OCABRA_KEY:-}" ] || [ -z "$${OCABRA_ENDPOINT_BASE_URL:-}" ]; then
+          echo "OCABRA_KEY no configurado; omitiendo autoprovision de key" >&2
         else
-          alias="coder-$(tr -dc 0-9 </dev/urandom 2>/dev/null | head -c 8 | sed 's/^$/00000000/')"
-          payload=$(printf '{"email":"%s","alias":"%s"}' "$${CODER_USER_EMAIL:-}" "$alias")
-          resp=$(curl -fsSL -X POST "$KEY_ENDPOINT" -H "Content-Type: application/json" -d "$payload" 2>/dev/null || true)
+          workspace_slug="$(printf '%s' "$${CODER_WORKSPACE_NAME:-workspace}" | tr -cs '[:alnum:]._-' '-')"; email_slug="$(printf '%s' "$${CODER_USER_EMAIL:-unknown}" | tr -cs '[:alnum:]._-' '-')"; alias="coder-$${workspace_slug}-$${email_slug}-$(tr -dc 0-9 </dev/urandom 2>/dev/null | head -c 8 | sed 's/^$/00000000/')"
+          payload=$(printf '{"name":"%s","expires_in_days":30}' "$alias")
+          resp=$(curl -fsSL -X POST "$KEY_ENDPOINT" -H "Authorization: Bearer $${OCABRA_KEY:-}" -H "Content-Type: application/json" -d "$payload" 2>/dev/null || true)
           key=$(printf '%s' "$resp" | python3 -c 'import sys,json;x=json.load(sys.stdin);d=x if isinstance(x,dict) else {};dd=d.get("data") if isinstance(d.get("data"),dict) else {};print(d.get("key") or d.get("api_key") or d.get("apiKey") or dd.get("key") or dd.get("api_key") or dd.get("apiKey") or "")' 2>/dev/null || true)
           if [ -n "$key" ]; then
             OPENCODE_API_KEY="$key"
             export OPENCODE_API_KEY
-            MKS_API_KEY="$key"
-            export MKS_API_KEY
+            OCABRA_API_KEY="$key"
+            export OCABRA_API_KEY
             mkdir -p /home/coder/.opencode
-            printf "%s" "$key" > /home/coder/.opencode/.latest_mks_key || true
-            printf "%s" "$payload" > /home/coder/.opencode/.latest_mks_request || true
+            printf "%s" "$key" > /home/coder/.opencode/.latest_ocabra_key || true
+            printf "%s" "$payload" > /home/coder/.opencode/.latest_ocabra_request || true
           fi
         fi
       fi
       if [ -n "$${OPENCODE_API_KEY:-}" ]; then
         export OPENCODE_API_KEY
-        MKS_API_KEY="$${MKS_API_KEY:-$OPENCODE_API_KEY}"
-        export MKS_API_KEY
+        OCABRA_API_KEY="$${OCABRA_API_KEY:-$OPENCODE_API_KEY}"
+        export OCABRA_API_KEY
         mkdir -p /home/coder/.opencode
         if [ -n "$payload" ] && [ -n "$${OPENCODE_API_KEY:-}" ]; then
-          printf "%s" "$${OPENCODE_API_KEY:-}" > /home/coder/.opencode/.latest_mks_key || true
-          printf "%s" "$payload" > /home/coder/.opencode/.latest_mks_request || true
+          printf "%s" "$${OPENCODE_API_KEY:-}" > /home/coder/.opencode/.latest_ocabra_key || true
+          printf "%s" "$payload" > /home/coder/.opencode/.latest_ocabra_request || true
         fi
       fi
     fi
@@ -331,12 +333,12 @@ JSONCFG
     fi
 
     # Aplicar providers de OpenCode (custom + freeapi) en opencode.json
-    if [ -n "$${OPENCODE_PROVIDER_URL:-$${OPENCODE_DEFAULT_BASE_URL:-}}" ] || [ -n "$${MKS_KEY_ENDPOINT:-}" ] || [ -n "$${FREEAPI_BASE_URL:-}" ] || [ -n "$${FREEAPI_KEY_ENDPOINT:-}" ] || [ -n "$${OPENCODE_API_KEY:-}" ] || [ -n "$${FREEAPI_API_KEY:-}" ]; then
+    if [ -n "$${OPENCODE_PROVIDER_URL:-$${OCABRA_ENDPOINT_BASE_URL:-}}" ] || [ -n "$${OCABRA_KEY:-}" ] || [ -n "$${FREEAPI_BASE_URL:-}" ] || [ -n "$${FREEAPI_KEY_ENDPOINT:-}" ] || [ -n "$${OPENCODE_API_KEY:-}" ] || [ -n "$${FREEAPI_API_KEY:-}" ]; then
       mkdir -p /home/coder/.opencode
       if [ ! -f /home/coder/.opencode/opencode.json ]; then
         printf '{}' > /home/coder/.opencode/opencode.json
       fi
-      OPENCODE_PROVIDER_URL="$${OPENCODE_PROVIDER_URL:-$${OPENCODE_DEFAULT_BASE_URL:-}}" \
+      OPENCODE_PROVIDER_URL="$${OPENCODE_PROVIDER_URL:-$${OCABRA_ENDPOINT_BASE_URL:-}}" \
       OPENCODE_API_KEY="$${OPENCODE_API_KEY:-}" \
       FREEAPI_BASE_URL="$${FREEAPI_BASE_URL:-}" \
       FREEAPI_API_KEY="$${FREEAPI_API_KEY:-}" \
@@ -355,19 +357,18 @@ key=(os.environ.get("OPENCODE_API_KEY") or "").strip()
 if key and base:
     provider["litellm"]={
         "npm":"@ai-sdk/openai-compatible",
-        "name":"MakeSpace IA",
+        "name":"Ocabra",
         "options":{"baseURL":base,"apiKey":key},
         "models":{
             "devstral-small-2:24b":{"name":"Devstral Small 2 24b"},
-            "opencoder-8b-base":{"name":"OpenCoder 8b Base"},
-            "qwen2.5-coder:7b-base":{"name":"Qwen2.5 Coder 7b Base"},
+            "qwen3.6:latest": {"name": "Qwen3.6"},
+            "gemma4:26b": {"name": "Gemma 4 26b"},
             "qwen3-coder:30b":{"name":"Qwen3 Coder 30b"},
             "qwen3.5:27b":{"name":"Qwen3.5 27b"},
             "qwen3:32b":{"name":"Qwen3 32b"},
             "qwen3:14b":{"name":"Qwen3 14b"},
             "qwen3:8b":{"name":"Qwen3 8b"},
-            "gpt-oss:20b":{"name":"GPT-OSS 20b"},
-            "gpt-oss-safeguard:latest":{"name":"GPT-OSS Safeguard"}
+            "qwen3-embedding:8b": {"name": "Qwen3 Embedding 8b"}
         }
     }
 free_base=(os.environ.get("FREEAPI_BASE_URL") or "").strip().rstrip("/")
@@ -419,20 +420,20 @@ PY
 
     # Propagar variables a nuevas shells interactivas
     if [ -n "$${OPENCODE_PROVIDER_URL:-}" ]; then
-      MKS_BASE_URL="$${MKS_BASE_URL:-$OPENCODE_PROVIDER_URL}"
-      export MKS_BASE_URL
-      if ! grep -q "MKS_BASE_URL=" ~/.bashrc 2>/dev/null; then
-        echo "export MKS_BASE_URL=\"$MKS_BASE_URL\"" >> ~/.bashrc
+      OCABRA_BASE_URL="$${OCABRA_BASE_URL:-$OPENCODE_PROVIDER_URL}"
+      export OCABRA_BASE_URL
+      if ! grep -q "OCABRA_BASE_URL=" ~/.bashrc 2>/dev/null; then
+        echo "export OCABRA_BASE_URL=\"$OCABRA_BASE_URL\"" >> ~/.bashrc
       fi
       if ! grep -q "OPENCODE_PROVIDER_URL=" ~/.bashrc 2>/dev/null; then
         echo "export OPENCODE_PROVIDER_URL=\"$OPENCODE_PROVIDER_URL\"" >> ~/.bashrc
       fi
     fi
     if [ -n "$${OPENCODE_API_KEY:-}" ]; then
-      MKS_API_KEY="$${MKS_API_KEY:-$OPENCODE_API_KEY}"
-      export MKS_API_KEY
-      if ! grep -q "MKS_API_KEY=" ~/.bashrc 2>/dev/null; then
-        echo "export MKS_API_KEY=\"$MKS_API_KEY\"" >> ~/.bashrc
+      OCABRA_API_KEY="$${OCABRA_API_KEY:-$OPENCODE_API_KEY}"
+      export OCABRA_API_KEY
+      if ! grep -q "OCABRA_API_KEY=" ~/.bashrc 2>/dev/null; then
+        echo "export OCABRA_API_KEY=\"$OCABRA_API_KEY\"" >> ~/.bashrc
       fi
       if ! grep -q "OPENCODE_API_KEY=" ~/.bashrc 2>/dev/null; then
         echo "export OPENCODE_API_KEY=\"$OPENCODE_API_KEY\"" >> ~/.bashrc
@@ -450,15 +451,15 @@ PY
     fi
 
     # Configuración de Continue solo cuando la key OpenAI se autoprovisiona
-    if printf '%s' "$${AUTO_PROVISION_MKS_API_KEY:-false}" | grep -Eq '^(1|true|TRUE|yes|on)$' \
-      && [ -n "$${MKS_API_KEY:-}" ] && [ -n "$${MKS_BASE_URL:-}" ]; then
+    if printf '%s' "$${AUTO_PROVISION_OCABRA_API_KEY:-false}" | grep -Eq '^(1|true|TRUE|yes|on)$' \
+      && [ -n "$${OCABRA_API_KEY:-}" ] && [ -n "$${OCABRA_BASE_URL:-}" ]; then
       if [ ! -f ~/.continue/config.yaml ]; then
         mkdir -p ~/.continue
         cat > ~/.continue/config.yaml <<'CONTINUECFG'
 ${local.continue_default_config}
 CONTINUECFG
-        sed -i "s|MKS_BASE_PLACEHOLDER|$${MKS_BASE_URL}|g" ~/.continue/config.yaml
-        sed -i "s|MKS_API_KEY_PLACEHOLDER|$${MKS_API_KEY}|g" ~/.continue/config.yaml
+        sed -i "s|OCABRA_BASE_PLACEHOLDER|$${OCABRA_BASE_URL}|g" ~/.continue/config.yaml
+        sed -i "s|OCABRA_API_KEY_PLACEHOLDER|$${OCABRA_API_KEY}|g" ~/.continue/config.yaml
       fi
     fi
 
@@ -538,16 +539,17 @@ CONTINUECFG
     HOME                  = "/home/coder"
     OPENCODE_PROVIDER_URL     = local.openai_base_url
     OPENCODE_API_KEY          = local.openai_api_key
-    OPENCODE_DEFAULT_BASE_URL = local.opencode_default_base_url
-    MKS_KEY_ENDPOINT          = local.mks_key_endpoint
+    OCABRA_ENDPOINT_BASE_URL = local.ocabra_endpoint_base_url
+    OCABRA_KEY          = local.ocabra_key
     FREEAPI_BASE_URL          = local.freeapi_base_url
     FREEAPI_KEY_ENDPOINT      = local.freeapi_key_endpoint
-    MKS_BASE_URL              = local.openai_base_url
-    MKS_API_KEY               = local.openai_api_key
-    AUTO_PROVISION_MKS_API_KEY = tostring(local.auto_provision_mks_key)
+    OCABRA_BASE_URL              = local.openai_base_url
+    OCABRA_API_KEY               = local.openai_api_key
+    AUTO_PROVISION_OCABRA_API_KEY = tostring(local.auto_provision_ocabra_key)
     AUTO_PROVISION_FREEAPI_API_KEY = tostring(local.auto_provision_freeapi_key)
     INSTALL_CLAUDE        = tostring(local.install_claude)
     CODER_USER_EMAIL      = data.coder_workspace_owner.me.email
+    CODER_WORKSPACE_NAME       = data.coder_workspace.me.name
   }
 }
 
@@ -613,6 +615,7 @@ resource "coder_script" "opencode_web" {
     fi
     if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
     mkdir -p "$log_dir"
+    cd /home/coder
     nohup "$opencode_bin" web --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
     for _ in $(seq 1 30); do
       if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
@@ -632,7 +635,7 @@ resource "coder_app" "opencode_web" {
   icon         = "/icon/opencode.svg"
   url          = "http://127.0.0.1:4096"
   share        = "owner"
-  subdomain    = false
+  subdomain    = true
   open_in      = "tab"
   healthcheck {
     url       = "http://127.0.0.1:4096/global/health"

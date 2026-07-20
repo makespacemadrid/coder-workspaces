@@ -3,8 +3,8 @@ models:
   - name: qwen3-coder:30b
     provider: openai
     model: qwen3-coder:30b
-    apiBase: MKS_BASE_PLACEHOLDER
-    apiKey: MKS_API_KEY_PLACEHOLDER
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
       - chat
       - edit
@@ -14,8 +14,8 @@ models:
   - name: devstral:24b
     provider: openai
     model: devstral:24b
-    apiBase: MKS_BASE_PLACEHOLDER
-    apiKey: MKS_API_KEY_PLACEHOLDER
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
       - chat
       - edit
@@ -24,8 +24,8 @@ models:
   - name: mistral-small3.2:24b
     provider: openai
     model: mistral-small3.2:24b
-    apiBase: MKS_BASE_PLACEHOLDER
-    apiKey: MKS_API_KEY_PLACEHOLDER
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
       - chat
       - edit
@@ -35,8 +35,8 @@ models:
   - name: deepseek-r1:14b
     provider: openai
     model: deepseek-r1:14b
-    apiBase: MKS_BASE_PLACEHOLDER
-    apiKey: MKS_API_KEY_PLACEHOLDER
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
       - chat
       - edit
@@ -46,8 +46,8 @@ models:
   - name: gpt-oss:20b
     provider: openai
     model: gpt-oss:20b
-    apiBase: MKS_BASE_PLACEHOLDER
-    apiKey: MKS_API_KEY_PLACEHOLDER
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
       - chat
       - edit
@@ -57,8 +57,8 @@ models:
   - name: opencoder-8b-base
     provider: openai
     model: opencoder-8b-base
-    apiBase: MKS_BASE_PLACEHOLDER
-    apiKey: MKS_API_KEY_PLACEHOLDER
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
       - chat
       - autocomplete
@@ -69,8 +69,8 @@ models:
   - name: qwen2.5-coder:7b
     provider: openai
     model: qwen2.5-coder:7b
-    apiBase: MKS_BASE_PLACEHOLDER
-    apiKey: MKS_API_KEY_PLACEHOLDER
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
       - chat
       - autocomplete
@@ -83,8 +83,8 @@ models:
   - name: qwen2.5-coder:1.5b
     provider: openai
     model: qwen2.5-coder:1.5b
-    apiBase: MKS_BASE_PLACEHOLDER
-    apiKey: MKS_API_KEY_PLACEHOLDER
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
       - chat
       - autocomplete
@@ -98,8 +98,8 @@ models:
   - name: bge-m3:latest
     provider: openai
     model: bge-m3:latest
-    apiBase: MKS_BASE_PLACEHOLDER
-    apiKey: MKS_API_KEY_PLACEHOLDER
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
       - embed
 
@@ -107,8 +107,8 @@ models:
   - name: nomic-embed-text:latest
     provider: openai
     model: nomic-embed-text:latest
-    apiBase: MKS_BASE_PLACEHOLDER
-    apiKey: MKS_API_KEY_PLACEHOLDER
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
       - embed
 

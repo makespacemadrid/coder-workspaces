@@ -3,7 +3,7 @@ display_name: OpenClaw
 description: "Workspace OpenClaw con escritorio básico (KasmVNC), Chrome y Docker in Docker"
 icon: icon.svg
 maintainer_github: makespacemadrid
-tags: [openclaw, agents, docker, dind, workspace, makespace]
+tags: [openclaw, agents, docker, dind, workspace, ocabra]
 ---
 
 # OpenClaw (Inicial)
@@ -32,10 +32,10 @@ Template inicial para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid
 - Puedes entrar por KasmVNC (escritorio) o terminal.
 - `[OpenClaw] Auto-iniciar servicio`: arranca OpenClaw al iniciar.
 - `[OpenClaw] Directorio de trabajo`: directorio desde el que se ejecuta OpenClaw.
-- `[OpenClaw] Modelo por defecto`: modelo por defecto para OpenClaw (por defecto `makespace/qwen3:14b`).
-- `Provisionar API key MakeSpace automáticamente`: genera una key de 30 días si no aportas una.
+- `[OpenClaw] Modelo por defecto`: modelo por defecto para OpenClaw (por defecto `ocabra/qwen3:14b`).
+- `Provisionar API key Ocabra automáticamente`: genera una key de 30 días si no aportas una.
 - `Provisionar API key FreeAPI automáticamente`: genera y precarga una key de FreeAPI al crear el workspace.
-- `TF_VAR_opencode_default_base_url`: base URL OpenAI-compatible de MakeSpace por defecto.
+- `TF_VAR_ocabra_endpoint_base_url`: base URL OpenAI-compatible de Ocabra por defecto.
 - `TF_VAR_freeapi_base_url` + `TF_VAR_freeapi_key_endpoint`: endpoint OpenAI-compatible y endpoint de provisionado para FreeAPI.
 
 ## Notas
@@ -55,14 +55,14 @@ Template inicial para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid
 - El template activa `gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true` para compatibilidad con subdominios dinámicos de Coder.
 - El template configura `gateway.trustedProxies` para aceptar headers de proxy de Coder y evitar rechazos por origen detrás del reverse proxy.
 - El template desactiva el pairing de dispositivos (`gateway.controlUi.dangerouslyDisableDeviceAuth=true`) para entrar directamente con token.
-- El template puede autoprovisionar 2 credenciales API (si hay endpoints): MakeSpace (`MKS_KEY_ENDPOINT`) y FreeAPI (`FREEAPI_KEY_ENDPOINT`), cada una con su propio toggle en el formulario.
-- El template crea `auth-profiles.json` con perfiles `makespace:manual` y/o `freeapi:manual`.
-- El template define `models.providers.makespace` con `qwen3:14b`, `qwen3:32b`, `qwen3-coder:30b`, `gpt-oss:20b`.
+- El template puede autoprovisionar 2 credenciales API (si hay endpoints): Ocabra (`OCABRA_KEY`) y FreeAPI (`FREEAPI_KEY_ENDPOINT`), cada una con su propio toggle en el formulario.
+- El template crea `auth-profiles.json` con perfiles `ocabra:manual` y/o `freeapi:manual`.
+- El template define `models.providers.ocabra` con `qwen3:14b`, `qwen3:32b`, `qwen3-coder:30b`, `gpt-oss:20b`.
 - El template detecta modelos FreeAPI acabados en `-ha` y, cuando está disponible `/model/info` (LiteLLM), enriquece automáticamente capacidades, tokens y costes por modelo.
 - El template rellena `agents.defaults.models` con esos modelos para que aparezcan en el selector de agentes.
 - El template asegura `agents.list` con entrada `id: "main"` para que los cambios de modelo en la UI de agentes se marquen como modificados y el botón `Save` se habilite.
 - Para los modelos de familia `qwen3*`, el template marca `reasoning=true`.
-- Si `[OpenClaw] Modelo por defecto` no incluye prefijo de provider, el template asume `makespace/<modelo>`.
+- Si `[OpenClaw] Modelo por defecto` no incluye prefijo de provider, el template asume `ocabra/<modelo>`.
 - Si el provider del modelo por defecto no está configurado (falta base URL), el template no fuerza ese modelo para evitar `Unknown model`.
 - El template persiste `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `FREEAPI_API_KEY` y `FREEAPI_BASE_URL` en `~/.openclaw/.env`.
 - El template deja Homebrew inicializado en `~/.profile` y `~/.bashrc` usando `eval "$($HOME/.linuxbrew/bin/brew shellenv)"`.
