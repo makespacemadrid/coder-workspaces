@@ -96,12 +96,10 @@ RUN apt-get update && \
 # OrcaSlicer (AppImage), LaserGRBL (Wine), OpenCode Desktop y VisiCut (.deb)
 RUN <<'EOSH'
 set -e
-ORCA_VERSION="2.4.2"
+ORCA_VERSION="2.3.2"
 OPENCODE_DESKTOP_URL="https://opencode.ai/es/download/stable/linux-x64-deb"
-# Prefer the Ubuntu 22.04 build to avoid newer WebKit (libwebkit2gtk-4.1) requirement,
-# but keep fallbacks so future tags still resolve.
+# OrcaSlicer publica AppImage para Ubuntu 24.04; libwebkit2gtk-4.1 se instala arriba.
 ORCA_URLS=" \
-  https://github.com/OrcaSlicer/OrcaSlicer/releases/download/v${ORCA_VERSION}/OrcaSlicer_Linux_AppImage_Ubuntu2204_V${ORCA_VERSION}.AppImage \
   https://github.com/OrcaSlicer/OrcaSlicer/releases/download/v${ORCA_VERSION}/OrcaSlicer_Linux_AppImage_Ubuntu2404_V${ORCA_VERSION}.AppImage \
   https://github.com/OrcaSlicer/OrcaSlicer/releases/download/v${ORCA_VERSION}/OrcaSlicer_Linux_AppImage_V${ORCA_VERSION}.AppImage \
   https://github.com/OrcaSlicer/OrcaSlicer/releases/download/v${ORCA_VERSION}/OrcaSlicer_Linux.AppImage \

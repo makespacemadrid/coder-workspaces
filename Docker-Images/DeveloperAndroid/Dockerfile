@@ -189,10 +189,10 @@ RUN mkdir -p /home/coder/Android/Sdk/cmdline-tools && \
     install -d -o coder -g coder /home/coder/.android
 
 # Android Studio
-ARG ANDROID_STUDIO_VERSION=2026.1.1
-ARG ANDROID_STUDIO_BUILD=2026.1.1.8
-ARG ANDROID_STUDIO_PACKAGE=android-studio-quail1-linux.tar.gz
-RUN curl -fsSL "https://redirector.gvt1.com/edgedl/android/studio/ide-zips/${ANDROID_STUDIO_BUILD}/${ANDROID_STUDIO_PACKAGE}" -o /tmp/android-studio.tar.gz && \
+ARG ANDROID_STUDIO_VERSION=2026.1.2
+ARG ANDROID_STUDIO_BUILD=2026.1.2.10
+ARG ANDROID_STUDIO_PACKAGE=android-studio-quail2-linux.tar.gz
+RUN curl -fsSL "https://edgedl.me.gvt1.com/android/studio/ide-zips/${ANDROID_STUDIO_BUILD}/${ANDROID_STUDIO_PACKAGE}" -o /tmp/android-studio.tar.gz && \
     tar -xzf /tmp/android-studio.tar.gz -C /opt && \
     rm /tmp/android-studio.tar.gz && \
     chown -R coder:coder /opt/android-studio && \
