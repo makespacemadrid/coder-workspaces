@@ -361,14 +361,30 @@ env = { DISPLAY=":1", XAUTHORITY="/home/coder/.Xauthority" }
 enabled = true
 CODEXCFG
     fi
-    if ! grep -q '^\[mcp_servers\.docker\]' "$HOME/.codex/config.toml" 2>/dev/null; then
-      cat >> "$HOME/.codex/config.toml" <<'CODEXCFG'
-
-[mcp_servers.docker]
-command = "npx"
-args = ["-y", "@quantgeekdev/docker-mcp"]
-enabled = true
-CODEXCFG
+    # MCP docker retirado: si quedó de una versión anterior, se elimina del config.toml
+    if grep -q '^\[mcp_servers\.docker\]' "$HOME/.codex/config.toml" 2>/dev/null; then
+      python3 - <<'PY'
+import os
+path = os.path.expanduser("~/.codex/config.toml")
+try:
+    with open(path, encoding="utf-8") as f:
+        lines = f.read().splitlines()
+except FileNotFoundError:
+    lines = []
+out, i, removed = [], 0, False
+while i < len(lines):
+    if lines[i].strip() == "[mcp_servers.docker]":
+        i += 1
+        while i < len(lines) and not lines[i].lstrip().startswith("["):
+            i += 1
+        removed = True
+        continue
+    out.append(lines[i]); i += 1
+if removed:
+    content = "\n".join(out).rstrip("\n")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write((content + "\n") if content else "")
+PY
     fi
     mkdir -p ~/.opencode ~/.config/opencode
     if [ ! -f ~/.opencode/opencode.json ]; then

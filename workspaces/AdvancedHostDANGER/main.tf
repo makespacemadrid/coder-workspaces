@@ -409,14 +409,30 @@ env = { DISPLAY=":1", XAUTHORITY="/home/coder/.Xauthority" }
 enabled = true
 CODEXCFG
     fi
-    if ! grep -q '^\[mcp_servers\.docker\]' "$HOME/.codex/config.toml" 2>/dev/null; then
-      cat >> "$HOME/.codex/config.toml" <<'CODEXCFG'
-
-[mcp_servers.docker]
-command = "npx"
-args = ["-y", "@quantgeekdev/docker-mcp"]
-enabled = true
-CODEXCFG
+    # MCP docker retirado: si quedó de una versión anterior, se elimina del config.toml
+    if grep -q '^\[mcp_servers\.docker\]' "$HOME/.codex/config.toml" 2>/dev/null; then
+      python3 - <<'PY'
+import os
+path = os.path.expanduser("~/.codex/config.toml")
+try:
+    with open(path, encoding="utf-8") as f:
+        lines = f.read().splitlines()
+except FileNotFoundError:
+    lines = []
+out, i, removed = [], 0, False
+while i < len(lines):
+    if lines[i].strip() == "[mcp_servers.docker]":
+        i += 1
+        while i < len(lines) and not lines[i].lstrip().startswith("["):
+            i += 1
+        removed = True
+        continue
+    out.append(lines[i]); i += 1
+if removed:
+    content = "\n".join(out).rstrip("\n")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write((content + "\n") if content else "")
+PY
     fi
     mkdir -p ~/.opencode ~/.config/opencode
     if [ ! -f ~/.opencode/opencode.json ]; then
@@ -581,15 +597,15 @@ prov=prov_block.setdefault("options",{})
 prov["baseURL"]=os.environ.get("OPENCODE_PROVIDER_URL") or os.environ.get("OCABRA_ENDPOINT_BASE_URL","")
 prov["apiKey"]=os.environ.get("OPENCODE_API_KEY","")
 prov_block.setdefault("models",{
-  "devstral-small-2:24b":{"name":"Devstral Small 2 24b"},
-  "qwen3.6:latest": {"name": "Qwen3.6"},
-  "gemma4:26b": {"name": "Gemma 4 26b"},
-  "qwen3-coder:30b":{"name":"Qwen3 Coder 30b"},
-  "qwen3.5:27b":{"name":"Qwen3.5 27b"},
-  "qwen3:32b":{"name":"Qwen3 32b"},
-  "qwen3:14b":{"name":"Qwen3 14b"},
-  "qwen3:8b":{"name":"Qwen3 8b"},
-  "qwen3-embedding:8b": {"name": "Qwen3 Embedding 8b"}
+  "nemotron-3-nano:30b": { "name": "Nemotron 3 Nano 30b", "limit": { "context": 262144 } },
+  "gemma4:12b": { "name": "Gemma 4 12b", "limit": { "context": 262144 } },
+  "qwen3.6:latest": { "name": "Qwen3.6", "limit": { "context": 262144 } },
+  "gemma4:26b": { "name": "Gemma 4 26b", "limit": { "context": 262144 } },
+  "qwen3.5:27b": { "name": "Qwen3.5 27b", "limit": { "context": 262144 } },
+  "qwen3-coder:30b": { "name": "Qwen3 Coder 30b", "limit": { "context": 262144 } },
+  "ravenx-cyberagent-v6.2": { "name": "RavenX CyberAgent 30b", "limit": { "context": 262144 } },
+  "nemotron3:33b": { "name": "Nemotron3 33b", "limit": { "context": 131072 } },
+  "ministral-3:14b": { "name": "Ministral 3 14b", "limit": { "context": 196608 } }
 })
 os.makedirs(os.path.dirname(path),exist_ok=True)
 with open(path,"w") as f:
@@ -845,15 +861,15 @@ GENMKS
         "apiKey": "OPENCODE_API_KEY_VALUE"
       },
       "models": {
-        "devstral-small-2:24b": { "name": "Devstral Small 2 24b" },
-        "qwen3.6:latest": {"name": "Qwen3.6"},
-        "gemma4:26b": {"name": "Gemma 4 26b"},
-        "qwen3-coder:30b": { "name": "Qwen3 Coder 30b" },
-        "qwen3.5:27b": { "name": "Qwen3.5 27b" },
-        "qwen3:32b": { "name": "Qwen3 32b" },
-        "qwen3:14b": { "name": "Qwen3 14b" },
-        "qwen3:8b": { "name": "Qwen3 8b" },
-        "qwen3-embedding:8b": {"name": "Qwen3 Embedding 8b"}
+        "nemotron-3-nano:30b": { "name": "Nemotron 3 Nano 30b", "limit": { "context": 262144 } },
+        "gemma4:12b": { "name": "Gemma 4 12b", "limit": { "context": 262144 } },
+        "qwen3.6:latest": { "name": "Qwen3.6", "limit": { "context": 262144 } },
+        "gemma4:26b": { "name": "Gemma 4 26b", "limit": { "context": 262144 } },
+        "qwen3.5:27b": { "name": "Qwen3.5 27b", "limit": { "context": 262144 } },
+        "qwen3-coder:30b": { "name": "Qwen3 Coder 30b", "limit": { "context": 262144 } },
+        "ravenx-cyberagent-v6.2": { "name": "RavenX CyberAgent 30b", "limit": { "context": 262144 } },
+        "nemotron3:33b": { "name": "Nemotron3 33b", "limit": { "context": 131072 } },
+        "ministral-3:14b": { "name": "Ministral 3 14b", "limit": { "context": 196608 } }
       }
     },
     "google": {
