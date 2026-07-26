@@ -590,22 +590,22 @@ if os.path.exists(path):
       data=json.load(f)
   except Exception:
     data={}
-prov_block=data.setdefault("provider",{}).setdefault("litellm",{})
+prov_block=data.setdefault("provider",{}).setdefault("ocabra",{})
 prov_block.setdefault("npm","@ai-sdk/openai-compatible")
 prov_block.setdefault("name","Ocabra")
 prov=prov_block.setdefault("options",{})
 prov["baseURL"]=os.environ.get("OPENCODE_PROVIDER_URL") or os.environ.get("OCABRA_ENDPOINT_BASE_URL","")
 prov["apiKey"]=os.environ.get("OPENCODE_API_KEY","")
 prov_block.setdefault("models",{
-  "nemotron-3-nano:30b": { "name": "Nemotron 3 Nano 30b", "limit": { "context": 262144 } },
-  "gemma4:12b": { "name": "Gemma 4 12b", "limit": { "context": 262144 } },
-  "qwen3.6:latest": { "name": "Qwen3.6", "limit": { "context": 262144 } },
-  "gemma4:26b": { "name": "Gemma 4 26b", "limit": { "context": 262144 } },
-  "qwen3.5:27b": { "name": "Qwen3.5 27b", "limit": { "context": 262144 } },
-  "qwen3-coder:30b": { "name": "Qwen3 Coder 30b", "limit": { "context": 262144 } },
-  "ravenx-cyberagent-v6.2": { "name": "RavenX CyberAgent 30b", "limit": { "context": 262144 } },
-  "nemotron3:33b": { "name": "Nemotron3 33b", "limit": { "context": 131072 } },
-  "ministral-3:14b": { "name": "Ministral 3 14b", "limit": { "context": 196608 } }
+  "nemotron-3-nano:30b": { "name": "Nemotron 3 Nano 30b", "limit": { "context": 262144, "output": 8192 } },
+  "gemma4:12b": { "name": "Gemma 4 12b", "limit": { "context": 262144, "output": 8192 } },
+  "qwen3.6:latest": { "name": "Qwen3.6", "limit": { "context": 262144, "output": 8192 } },
+  "gemma4:26b": { "name": "Gemma 4 26b", "limit": { "context": 262144, "output": 8192 } },
+  "qwen3.5:27b": { "name": "Qwen3.5 27b", "limit": { "context": 262144, "output": 8192 } },
+  "qwen3-coder:30b": { "name": "Qwen3 Coder 30b", "limit": { "context": 262144, "output": 8192 } },
+  "ravenx-cyberagent-v6.2": { "name": "RavenX CyberAgent 30b", "limit": { "context": 262144, "output": 8192 } },
+  "nemotron3:33b": { "name": "Nemotron3 33b", "limit": { "context": 131072, "output": 8192 } },
+  "ministral-3:14b": { "name": "Ministral 3 14b", "limit": { "context": 196608, "output": 8192 } }
 })
 os.makedirs(os.path.dirname(path),exist_ok=True)
 with open(path,"w") as f:
@@ -853,7 +853,7 @@ GENMKS
         }
       }
     },
-    "litellm": {
+    "ocabra": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Ocabra",
       "options": {
@@ -861,15 +861,15 @@ GENMKS
         "apiKey": "OPENCODE_API_KEY_VALUE"
       },
       "models": {
-        "nemotron-3-nano:30b": { "name": "Nemotron 3 Nano 30b", "limit": { "context": 262144 } },
-        "gemma4:12b": { "name": "Gemma 4 12b", "limit": { "context": 262144 } },
-        "qwen3.6:latest": { "name": "Qwen3.6", "limit": { "context": 262144 } },
-        "gemma4:26b": { "name": "Gemma 4 26b", "limit": { "context": 262144 } },
-        "qwen3.5:27b": { "name": "Qwen3.5 27b", "limit": { "context": 262144 } },
-        "qwen3-coder:30b": { "name": "Qwen3 Coder 30b", "limit": { "context": 262144 } },
-        "ravenx-cyberagent-v6.2": { "name": "RavenX CyberAgent 30b", "limit": { "context": 262144 } },
-        "nemotron3:33b": { "name": "Nemotron3 33b", "limit": { "context": 131072 } },
-        "ministral-3:14b": { "name": "Ministral 3 14b", "limit": { "context": 196608 } }
+        "nemotron-3-nano:30b": { "name": "Nemotron 3 Nano 30b", "limit": { "context": 262144, "output": 8192 } },
+        "gemma4:12b": { "name": "Gemma 4 12b", "limit": { "context": 262144, "output": 8192 } },
+        "qwen3.6:latest": { "name": "Qwen3.6", "limit": { "context": 262144, "output": 8192 } },
+        "gemma4:26b": { "name": "Gemma 4 26b", "limit": { "context": 262144, "output": 8192 } },
+        "qwen3.5:27b": { "name": "Qwen3.5 27b", "limit": { "context": 262144, "output": 8192 } },
+        "qwen3-coder:30b": { "name": "Qwen3 Coder 30b", "limit": { "context": 262144, "output": 8192 } },
+        "ravenx-cyberagent-v6.2": { "name": "RavenX CyberAgent 30b", "limit": { "context": 262144, "output": 8192 } },
+        "nemotron3:33b": { "name": "Nemotron3 33b", "limit": { "context": 131072, "output": 8192 } },
+        "ministral-3:14b": { "name": "Ministral 3 14b", "limit": { "context": 196608, "output": 8192 } }
       }
     },
     "google": {

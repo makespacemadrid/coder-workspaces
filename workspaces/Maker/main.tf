@@ -120,7 +120,7 @@ data "coder_parameter" "autoprovision_freeapi_key" {
 data "coder_parameter" "opencode_default_model" {
   name         = "04_opencode_default_model"
   display_name = "[AI/OpenCode] Modelo por defecto"
-  description  = "Modelo por defecto de OpenCode. En Auto: si hay FreeAPI se usa freeapi/glm-5-ha; si no, litellm/qwen3.5:27b."
+  description  = "Modelo por defecto de OpenCode. En Auto: si hay FreeAPI se usa freeapi/glm-5-ha; si no, ocabra/qwen3.5:27b."
   type         = "string"
   form_type    = "dropdown"
   default      = "auto"
@@ -131,7 +131,7 @@ data "coder_parameter" "opencode_default_model" {
   }
   option {
     name  = "Ocabra: qwen3.5:27b"
-    value = "litellm/qwen3.5:27b"
+    value = "ocabra/qwen3.5:27b"
   }
   option {
     name  = "FreeAPI: glm-5-ha"
@@ -791,22 +791,22 @@ if os.path.exists(path):
       data=json.load(f)
   except Exception:
     data={}
-prov_block=data.setdefault("provider",{}).setdefault("litellm",{})
+prov_block=data.setdefault("provider",{}).setdefault("ocabra",{})
 prov_block.setdefault("npm","@ai-sdk/openai-compatible")
 prov_block.setdefault("name","Ocabra")
 prov=prov_block.setdefault("options",{})
 prov["baseURL"]=os.environ.get("OPENCODE_PROVIDER_URL") or os.environ.get("OCABRA_ENDPOINT_BASE_URL","")
 prov["apiKey"]=os.environ.get("OPENCODE_API_KEY","")
 prov_block.setdefault("models",{
-  "nemotron-3-nano:30b": { "name": "Nemotron 3 Nano 30b", "limit": { "context": 262144 } },
-  "gemma4:12b": { "name": "Gemma 4 12b", "limit": { "context": 262144 } },
-  "qwen3.6:latest": { "name": "Qwen3.6", "limit": { "context": 262144 } },
-  "gemma4:26b": { "name": "Gemma 4 26b", "limit": { "context": 262144 } },
-  "qwen3.5:27b": { "name": "Qwen3.5 27b", "limit": { "context": 262144 } },
-  "qwen3-coder:30b": { "name": "Qwen3 Coder 30b", "limit": { "context": 262144 } },
-  "ravenx-cyberagent-v6.2": { "name": "RavenX CyberAgent 30b", "limit": { "context": 262144 } },
-  "nemotron3:33b": { "name": "Nemotron3 33b", "limit": { "context": 131072 } },
-  "ministral-3:14b": { "name": "Ministral 3 14b", "limit": { "context": 196608 } }
+  "nemotron-3-nano:30b": { "name": "Nemotron 3 Nano 30b", "limit": { "context": 262144, "output": 8192 } },
+  "gemma4:12b": { "name": "Gemma 4 12b", "limit": { "context": 262144, "output": 8192 } },
+  "qwen3.6:latest": { "name": "Qwen3.6", "limit": { "context": 262144, "output": 8192 } },
+  "gemma4:26b": { "name": "Gemma 4 26b", "limit": { "context": 262144, "output": 8192 } },
+  "qwen3.5:27b": { "name": "Qwen3.5 27b", "limit": { "context": 262144, "output": 8192 } },
+  "qwen3-coder:30b": { "name": "Qwen3 Coder 30b", "limit": { "context": 262144, "output": 8192 } },
+  "ravenx-cyberagent-v6.2": { "name": "RavenX CyberAgent 30b", "limit": { "context": 262144, "output": 8192 } },
+  "nemotron3:33b": { "name": "Nemotron3 33b", "limit": { "context": 131072, "output": 8192 } },
+  "ministral-3:14b": { "name": "Ministral 3 14b", "limit": { "context": 196608, "output": 8192 } }
 })
 os.makedirs(os.path.dirname(path),exist_ok=True)
 with open(path,"w") as f:
@@ -1056,7 +1056,7 @@ GENMKS
         }
       }
     },
-    "litellm": {
+    "ocabra": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Ocabra",
       "options": {
@@ -1064,15 +1064,15 @@ GENMKS
         "apiKey": "OPENCODE_API_KEY_VALUE"
       },
       "models": {
-        "nemotron-3-nano:30b": { "name": "Nemotron 3 Nano 30b", "limit": { "context": 262144 } },
-        "gemma4:12b": { "name": "Gemma 4 12b", "limit": { "context": 262144 } },
-        "qwen3.6:latest": { "name": "Qwen3.6", "limit": { "context": 262144 } },
-        "gemma4:26b": { "name": "Gemma 4 26b", "limit": { "context": 262144 } },
-        "qwen3.5:27b": { "name": "Qwen3.5 27b", "limit": { "context": 262144 } },
-        "qwen3-coder:30b": { "name": "Qwen3 Coder 30b", "limit": { "context": 262144 } },
-        "ravenx-cyberagent-v6.2": { "name": "RavenX CyberAgent 30b", "limit": { "context": 262144 } },
-        "nemotron3:33b": { "name": "Nemotron3 33b", "limit": { "context": 131072 } },
-        "ministral-3:14b": { "name": "Ministral 3 14b", "limit": { "context": 196608 } }
+        "nemotron-3-nano:30b": { "name": "Nemotron 3 Nano 30b", "limit": { "context": 262144, "output": 8192 } },
+        "gemma4:12b": { "name": "Gemma 4 12b", "limit": { "context": 262144, "output": 8192 } },
+        "qwen3.6:latest": { "name": "Qwen3.6", "limit": { "context": 262144, "output": 8192 } },
+        "gemma4:26b": { "name": "Gemma 4 26b", "limit": { "context": 262144, "output": 8192 } },
+        "qwen3.5:27b": { "name": "Qwen3.5 27b", "limit": { "context": 262144, "output": 8192 } },
+        "qwen3-coder:30b": { "name": "Qwen3 Coder 30b", "limit": { "context": 262144, "output": 8192 } },
+        "ravenx-cyberagent-v6.2": { "name": "RavenX CyberAgent 30b", "limit": { "context": 262144, "output": 8192 } },
+        "nemotron3:33b": { "name": "Nemotron3 33b", "limit": { "context": 131072, "output": 8192 } },
+        "ministral-3:14b": { "name": "Ministral 3 14b", "limit": { "context": 196608, "output": 8192 } }
       }
     },
     "google": {
@@ -1182,7 +1182,7 @@ with open(path, "r", encoding="utf-8") as f:
         data = {}
 
 providers = data.get("provider", {}) if isinstance(data.get("provider"), dict) else {}
-litellm_models = (providers.get("litellm", {}) or {}).get("models", {}) if isinstance(providers.get("litellm", {}), dict) else {}
+ocabra_models = (providers.get("ocabra", {}) or {}).get("models", {}) if isinstance(providers.get("ocabra", {}), dict) else {}
 freeapi_models = (providers.get("freeapi", {}) or {}).get("models", {}) if isinstance(providers.get("freeapi", {}), dict) else {}
 
 def first_model_key(models_obj):
@@ -1196,9 +1196,9 @@ else:
     if isinstance(freeapi_models, dict) and freeapi_models:
         freeapi_default = "glm-5-ha" if "glm-5-ha" in freeapi_models else first_model_key(freeapi_models)
         selected_model = f"freeapi/{freeapi_default}" if freeapi_default else ""
-    elif isinstance(litellm_models, dict) and litellm_models:
-        mks_default = "qwen3.5:27b" if "qwen3.5:27b" in litellm_models else first_model_key(litellm_models)
-        selected_model = f"litellm/{mks_default}" if mks_default else ""
+    elif isinstance(ocabra_models, dict) and ocabra_models:
+        mks_default = "qwen3.5:27b" if "qwen3.5:27b" in ocabra_models else first_model_key(ocabra_models)
+        selected_model = f"ocabra/{mks_default}" if mks_default else ""
     else:
         selected_model = ""
 
