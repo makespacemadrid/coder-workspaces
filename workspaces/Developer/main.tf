@@ -949,15 +949,15 @@ GENMKS
       },
       "models": {
         "gemma4:12b-ctx256k": { "name": "Gemma 4 12b (256K)", "limit": { "context": 262144, "output": 16384 } },
-        "gemma4:26b-ctx256k": { "name": "Gemma 4 26b (256K)", "limit": { "context": 262144, "output": 16384 } },
-        "qwen3.6:ctx256k": { "name": "Qwen3.6 (256K)", "limit": { "context": 262144, "output": 16384 } },
-        "qwen3.5:27b-ctx256k": { "name": "Qwen3.5 27b (256K)", "limit": { "context": 262144, "output": 16384 } },
         "qwen3-coder:30b-ctx256k": { "name": "Qwen3 Coder 30b (256K)", "limit": { "context": 262144, "output": 32768 } },
+        "nemotron-3-nano:30b-ctx384k": { "name": "Nemotron 3 Nano 30b (384K)", "limit": { "context": 393216, "output": 16384 } },
         "nemotron-3-nano:30b-ctx256k": { "name": "Nemotron 3 Nano 30b (256K)", "limit": { "context": 262144, "output": 16384 } },
-        "nemotron-3-nano:30b-ctx512k": { "name": "Nemotron 3 Nano 30b (512K)", "limit": { "context": 524288, "output": 16384 } },
-        "nemotron3:33b-ctx128k": { "name": "Nemotron3 33b (128K)", "limit": { "context": 131072, "output": 8192 } },
+        "qwen3.6:ctx128k": { "name": "Qwen3.6 (128K)", "limit": { "context": 131072, "output": 16384 } },
+        "gemma4:26b-ctx160k": { "name": "Gemma 4 26b (160K)", "limit": { "context": 163840, "output": 16384 } },
         "ministral-3:14b-ctx128k": { "name": "Ministral 3 14b (128K)", "limit": { "context": 131072, "output": 8192 } },
-        "ravenx-256k": { "name": "RavenX CyberAgent 30b (256K)", "limit": { "context": 262144, "output": 32768 } }
+        "qwen3.5:27b-ctx96k": { "name": "Qwen3.5 27b (96K)", "limit": { "context": 98304, "output": 16384 } },
+        "nemotron3:33b-ctx64k": { "name": "Nemotron3 33b (64K)", "limit": { "context": 65536, "output": 8192 } },
+        "ravenx-256k": { "name": "RavenX CyberAgent (256K)", "limit": { "context": 262144, "output": 32768 } }
       }
     },
     "google": {

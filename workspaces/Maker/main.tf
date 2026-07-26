@@ -120,7 +120,7 @@ data "coder_parameter" "autoprovision_freeapi_key" {
 data "coder_parameter" "opencode_default_model" {
   name         = "04_opencode_default_model"
   display_name = "[AI/OpenCode] Modelo por defecto"
-  description  = "Modelo por defecto de OpenCode. En Auto: si hay FreeAPI se usa freeapi/glm-5-ha; si no, ocabra/qwen3.5:27b-ctx256k."
+  description  = "Modelo por defecto de OpenCode. En Auto: si hay FreeAPI se usa freeapi/glm-5-ha; si no, ocabra/qwen3.5:27b-ctx96k."
   type         = "string"
   form_type    = "dropdown"
   default      = "auto"
@@ -130,8 +130,8 @@ data "coder_parameter" "opencode_default_model" {
     value = "auto"
   }
   option {
-    name  = "Ocabra: qwen3.5:27b-ctx256k"
-    value = "ocabra/qwen3.5:27b-ctx256k"
+    name  = "Ocabra: qwen3.5:27b-ctx96k"
+    value = "ocabra/qwen3.5:27b-ctx96k"
   }
   option {
     name  = "FreeAPI: glm-5-ha"
@@ -799,15 +799,15 @@ prov["baseURL"]=os.environ.get("OPENCODE_PROVIDER_URL") or os.environ.get("OCABR
 prov["apiKey"]=os.environ.get("OPENCODE_API_KEY","")
 prov_block.setdefault("models",{
   "gemma4:12b-ctx256k": { "name": "Gemma 4 12b (256K)", "limit": { "context": 262144, "output": 16384 } },
-  "gemma4:26b-ctx256k": { "name": "Gemma 4 26b (256K)", "limit": { "context": 262144, "output": 16384 } },
-  "qwen3.6:ctx256k": { "name": "Qwen3.6 (256K)", "limit": { "context": 262144, "output": 16384 } },
-  "qwen3.5:27b-ctx256k": { "name": "Qwen3.5 27b (256K)", "limit": { "context": 262144, "output": 16384 } },
   "qwen3-coder:30b-ctx256k": { "name": "Qwen3 Coder 30b (256K)", "limit": { "context": 262144, "output": 32768 } },
+  "nemotron-3-nano:30b-ctx384k": { "name": "Nemotron 3 Nano 30b (384K)", "limit": { "context": 393216, "output": 16384 } },
   "nemotron-3-nano:30b-ctx256k": { "name": "Nemotron 3 Nano 30b (256K)", "limit": { "context": 262144, "output": 16384 } },
-  "nemotron-3-nano:30b-ctx512k": { "name": "Nemotron 3 Nano 30b (512K)", "limit": { "context": 524288, "output": 16384 } },
-  "nemotron3:33b-ctx128k": { "name": "Nemotron3 33b (128K)", "limit": { "context": 131072, "output": 8192 } },
+  "qwen3.6:ctx128k": { "name": "Qwen3.6 (128K)", "limit": { "context": 131072, "output": 16384 } },
+  "gemma4:26b-ctx160k": { "name": "Gemma 4 26b (160K)", "limit": { "context": 163840, "output": 16384 } },
   "ministral-3:14b-ctx128k": { "name": "Ministral 3 14b (128K)", "limit": { "context": 131072, "output": 8192 } },
-  "ravenx-256k": { "name": "RavenX CyberAgent 30b (256K)", "limit": { "context": 262144, "output": 32768 } }
+  "qwen3.5:27b-ctx96k": { "name": "Qwen3.5 27b (96K)", "limit": { "context": 98304, "output": 16384 } },
+  "nemotron3:33b-ctx64k": { "name": "Nemotron3 33b (64K)", "limit": { "context": 65536, "output": 8192 } },
+  "ravenx-256k": { "name": "RavenX CyberAgent (256K)", "limit": { "context": 262144, "output": 32768 } }
 })
 os.makedirs(os.path.dirname(path),exist_ok=True)
 with open(path,"w") as f:
@@ -1066,15 +1066,15 @@ GENMKS
       },
       "models": {
         "gemma4:12b-ctx256k": { "name": "Gemma 4 12b (256K)", "limit": { "context": 262144, "output": 16384 } },
-        "gemma4:26b-ctx256k": { "name": "Gemma 4 26b (256K)", "limit": { "context": 262144, "output": 16384 } },
-        "qwen3.6:ctx256k": { "name": "Qwen3.6 (256K)", "limit": { "context": 262144, "output": 16384 } },
-        "qwen3.5:27b-ctx256k": { "name": "Qwen3.5 27b (256K)", "limit": { "context": 262144, "output": 16384 } },
         "qwen3-coder:30b-ctx256k": { "name": "Qwen3 Coder 30b (256K)", "limit": { "context": 262144, "output": 32768 } },
+        "nemotron-3-nano:30b-ctx384k": { "name": "Nemotron 3 Nano 30b (384K)", "limit": { "context": 393216, "output": 16384 } },
         "nemotron-3-nano:30b-ctx256k": { "name": "Nemotron 3 Nano 30b (256K)", "limit": { "context": 262144, "output": 16384 } },
-        "nemotron-3-nano:30b-ctx512k": { "name": "Nemotron 3 Nano 30b (512K)", "limit": { "context": 524288, "output": 16384 } },
-        "nemotron3:33b-ctx128k": { "name": "Nemotron3 33b (128K)", "limit": { "context": 131072, "output": 8192 } },
+        "qwen3.6:ctx128k": { "name": "Qwen3.6 (128K)", "limit": { "context": 131072, "output": 16384 } },
+        "gemma4:26b-ctx160k": { "name": "Gemma 4 26b (160K)", "limit": { "context": 163840, "output": 16384 } },
         "ministral-3:14b-ctx128k": { "name": "Ministral 3 14b (128K)", "limit": { "context": 131072, "output": 8192 } },
-        "ravenx-256k": { "name": "RavenX CyberAgent 30b (256K)", "limit": { "context": 262144, "output": 32768 } }
+        "qwen3.5:27b-ctx96k": { "name": "Qwen3.5 27b (96K)", "limit": { "context": 98304, "output": 16384 } },
+        "nemotron3:33b-ctx64k": { "name": "Nemotron3 33b (64K)", "limit": { "context": 65536, "output": 8192 } },
+        "ravenx-256k": { "name": "RavenX CyberAgent (256K)", "limit": { "context": 262144, "output": 32768 } }
       }
     },
     "google": {
@@ -1199,7 +1199,7 @@ else:
         freeapi_default = "glm-5-ha" if "glm-5-ha" in freeapi_models else first_model_key(freeapi_models)
         selected_model = f"freeapi/{freeapi_default}" if freeapi_default else ""
     elif isinstance(ocabra_models, dict) and ocabra_models:
-        mks_default = "qwen3.5:27b-ctx256k" if "qwen3.5:27b-ctx256k" in ocabra_models else first_model_key(ocabra_models)
+        mks_default = "qwen3.5:27b-ctx96k" if "qwen3.5:27b-ctx96k" in ocabra_models else first_model_key(ocabra_models)
         selected_model = f"ocabra/{mks_default}" if mks_default else ""
     else:
         selected_model = ""
