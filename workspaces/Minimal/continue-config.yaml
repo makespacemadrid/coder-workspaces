@@ -1,11 +1,11 @@
 name: mks-config
-version: 1.0.5
+version: 1.0.6
 schema: v1
 models:
-  # Refactors grandes y apply (maxima precision)
-  - name: qwen3-coder:30b
+  # === Chat / edit / apply: roster Ocabra ctx-tagged ===
+  - name: Qwen3 Coder 30b (256K)
     provider: openai
-    model: qwen3-coder:30b
+    model: qwen3-coder:30b-ctx256k
     apiBase: OCABRA_BASE_PLACEHOLDER
     apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
@@ -13,20 +13,9 @@ models:
       - edit
       - apply
 
-  # Chat de desarrollo principal
-  - name: devstral:24b
+  - name: RavenX CyberAgent (256K)
     provider: openai
-    model: devstral:24b
-    apiBase: OCABRA_BASE_PLACEHOLDER
-    apiKey: OCABRA_API_KEY_PLACEHOLDER
-    roles:
-      - chat
-      - edit
-      - apply
-  # Chat alternativo mas rapido
-  - name: mistral-small3.2:24b
-    provider: openai
-    model: mistral-small3.2:24b
+    model: ravenx-256k
     apiBase: OCABRA_BASE_PLACEHOLDER
     apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
@@ -34,10 +23,9 @@ models:
       - edit
       - apply
 
-  # Razonamiento profundo / debugging
-  - name: deepseek-r1:14b
+  - name: Nemotron 3 Nano 30b (384K)
     provider: openai
-    model: deepseek-r1:14b
+    model: nemotron-3-nano:30b-ctx384k
     apiBase: OCABRA_BASE_PLACEHOLDER
     apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
@@ -45,10 +33,9 @@ models:
       - edit
       - apply
 
-  # Generalista alternativo
-  - name: gpt-oss:20b
+  - name: Nemotron 3 Nano 30b (256K)
     provider: openai
-    model: gpt-oss:20b
+    model: nemotron-3-nano:30b-ctx256k
     apiBase: OCABRA_BASE_PLACEHOLDER
     apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
@@ -56,29 +43,74 @@ models:
       - edit
       - apply
 
-  # Coder clasico, muy fiable con instrucciones y diffs
-  - name: opencoder-8b-base
+  - name: Gemma 4 12b (256K)
     provider: openai
-    model: opencoder-8b-base
+    model: gemma4:12b-ctx256k
     apiBase: OCABRA_BASE_PLACEHOLDER
     apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
       - chat
-      - autocomplete
       - edit
       - apply
 
-  # Autocomplete rapido
+  - name: Gemma 4 26b (160K)
+    provider: openai
+    model: gemma4:26b-ctx160k
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
+    roles:
+      - chat
+      - edit
+      - apply
+
+  - name: Qwen3.6 (128K)
+    provider: openai
+    model: qwen3.6:ctx128k
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
+    roles:
+      - chat
+      - edit
+      - apply
+
+  - name: Qwen3.5 27b (96K)
+    provider: openai
+    model: qwen3.5:27b-ctx96k
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
+    roles:
+      - chat
+      - edit
+      - apply
+
+  - name: Ministral 3 14b (128K)
+    provider: openai
+    model: ministral-3:14b-ctx128k
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
+    roles:
+      - chat
+      - edit
+      - apply
+
+  - name: Nemotron3 33b (64K)
+    provider: openai
+    model: nemotron3:33b-ctx64k
+    apiBase: OCABRA_BASE_PLACEHOLDER
+    apiKey: OCABRA_API_KEY_PLACEHOLDER
+    roles:
+      - chat
+      - edit
+      - apply
+
+  # === Autocomplete (FIM, modelos ligeros) ===
   - name: qwen2.5-coder:7b
     provider: openai
     model: qwen2.5-coder:7b
     apiBase: OCABRA_BASE_PLACEHOLDER
     apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
-      - chat
       - autocomplete
-      - edit
-      - apply
     autocompleteOptions:
       debounceDelay: 200
       maxPromptTokens: 600
@@ -89,15 +121,12 @@ models:
     apiBase: OCABRA_BASE_PLACEHOLDER
     apiKey: OCABRA_API_KEY_PLACEHOLDER
     roles:
-      - chat
       - autocomplete
-      - edit
-      - apply
     autocompleteOptions:
       debounceDelay: 200
       maxPromptTokens: 600
 
-  # Embeddings principal (codebase grande)
+  # === Embeddings ===
   - name: bge-m3:latest
     provider: openai
     model: bge-m3:latest
@@ -106,7 +135,6 @@ models:
     roles:
       - embed
 
-  # Embeddings alternativo (mas ligero)
   - name: nomic-embed-text:latest
     provider: openai
     model: nomic-embed-text:latest
