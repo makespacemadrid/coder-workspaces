@@ -32,7 +32,7 @@ Template inicial para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid
 - Puedes entrar por KasmVNC (escritorio) o terminal.
 - `[OpenClaw] Auto-iniciar servicio`: arranca OpenClaw al iniciar.
 - `[OpenClaw] Directorio de trabajo`: directorio desde el que se ejecuta OpenClaw.
-- `[OpenClaw] Modelo por defecto`: modelo por defecto para OpenClaw (por defecto `ocabra/qwen3:14b`).
+- `[OpenClaw] Modelo por defecto`: modelo por defecto para OpenClaw (por defecto `ocabra/gemma4:12b-ctx256k`).
 - `Provisionar API key Ocabra automáticamente`: genera una key de 30 días si no aportas una.
 - `Provisionar API key FreeAPI automáticamente`: genera y precarga una key de FreeAPI al crear el workspace.
 - `TF_VAR_ocabra_endpoint_base_url`: base URL OpenAI-compatible de Ocabra por defecto.
@@ -57,7 +57,7 @@ Template inicial para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid
 - El template desactiva el pairing de dispositivos (`gateway.controlUi.dangerouslyDisableDeviceAuth=true`) para entrar directamente con token.
 - El template puede autoprovisionar 2 credenciales API (si hay endpoints): Ocabra (`OCABRA_KEY`) y FreeAPI (`FREEAPI_KEY_ENDPOINT`), cada una con su propio toggle en el formulario.
 - El template crea `auth-profiles.json` con perfiles `ocabra:manual` y/o `freeapi:manual`.
-- El template define `models.providers.ocabra` con `qwen3:14b`, `qwen3:32b`, `qwen3-coder:30b`, `gpt-oss:20b`.
+- El template define `models.providers.ocabra` con el roster ctx-tagged: `gemma4:12b-ctx256k`, `qwen3-coder:30b-ctx256k`, `nemotron-3-nano:30b-ctx384k`, `nemotron-3-nano:30b-ctx256k`, `qwen3.6:ctx128k`, `gemma4:26b-ctx160k`, `ministral-3:14b-ctx128k`, `qwen3.5:27b-ctx96k`, `nemotron3:33b-ctx64k`, `ravenx-256k`.
 - El template detecta modelos FreeAPI acabados en `-ha` y, cuando está disponible `/model/info` (LiteLLM), enriquece automáticamente capacidades, tokens y costes por modelo.
 - El template rellena `agents.defaults.models` con esos modelos para que aparezcan en el selector de agentes.
 - El template asegura `agents.list` con entrada `id: "main"` para que los cambios de modelo en la UI de agentes se marquen como modificados y el botón `Save` se habilite.

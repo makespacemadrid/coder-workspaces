@@ -84,9 +84,9 @@ data "coder_parameter" "openclaw_workdir" {
 data "coder_parameter" "openclaw_default_model" {
   name         = "05_openclaw_default_model"
   display_name = "[OpenClaw] Modelo por defecto"
-  description  = "Modelo por defecto de OpenClaw (ej. ocabra/qwen3:14b). Si se deja vacío, no se fuerza."
+  description  = "Modelo por defecto de OpenClaw (ej. ocabra/gemma4:12b-ctx256k). Si se deja vacío, no se fuerza."
   type         = "string"
-  default      = "ocabra/qwen3:14b"
+  default      = "ocabra/gemma4:12b-ctx256k"
   mutable      = true
 }
 
@@ -756,12 +756,16 @@ cfg = {
     "auth": "api-key",
     "api": "openai-completions",
     "models": [
-        {"id": "qwen3-coder:30b", "name": "Qwen3 Coder 30b", "reasoning": false, "input": ["text"], "contextWindow": 262144, "maxTokens": 8192},
-        {"id": "devstral-small-2:24b", "name": "Devstral Small 2 24b", "reasoning": false, "input": ["text"], "contextWindow": 393216, "maxTokens": 8192},
-        {"id": "qwen3.5:27b", "name": "Qwen3.5 27b", "reasoning": true, "input": ["text"], "contextWindow": 262144, "maxTokens": 8192},
-        {"id": "qwen3.6:latest", "name": "Qwen3.6", "reasoning": true, "input": ["text"], "contextWindow": 262144, "maxTokens": 8192},
-        {"id": "gemma4:26b", "name": "Gemma 4 26b", "reasoning": true, "input": ["text"], "contextWindow": 262144, "maxTokens": 8192},
-        {"id": "qwen3:8b", "name": "Qwen3 8b", "reasoning": true, "input": ["text"], "contextWindow": 40960, "maxTokens": 8192},
+        {"id": "gemma4:12b-ctx256k", "name": "Gemma 4 12b (256K)", "reasoning": True, "input": ["text"], "contextWindow": 262144, "maxTokens": 16384},
+        {"id": "qwen3-coder:30b-ctx256k", "name": "Qwen3 Coder 30b (256K)", "reasoning": False, "input": ["text"], "contextWindow": 262144, "maxTokens": 32768},
+        {"id": "nemotron-3-nano:30b-ctx384k", "name": "Nemotron 3 Nano 30b (384K)", "reasoning": True, "input": ["text"], "contextWindow": 393216, "maxTokens": 16384},
+        {"id": "nemotron-3-nano:30b-ctx256k", "name": "Nemotron 3 Nano 30b (256K)", "reasoning": True, "input": ["text"], "contextWindow": 262144, "maxTokens": 16384},
+        {"id": "qwen3.6:ctx128k", "name": "Qwen3.6 (128K)", "reasoning": True, "input": ["text"], "contextWindow": 131072, "maxTokens": 16384},
+        {"id": "gemma4:26b-ctx160k", "name": "Gemma 4 26b (160K)", "reasoning": True, "input": ["text"], "contextWindow": 163840, "maxTokens": 16384},
+        {"id": "ministral-3:14b-ctx128k", "name": "Ministral 3 14b (128K)", "reasoning": True, "input": ["text"], "contextWindow": 131072, "maxTokens": 8192},
+        {"id": "qwen3.5:27b-ctx96k", "name": "Qwen3.5 27b (96K)", "reasoning": True, "input": ["text"], "contextWindow": 98304, "maxTokens": 16384},
+        {"id": "nemotron3:33b-ctx64k", "name": "Nemotron3 33b (64K)", "reasoning": True, "input": ["text"], "contextWindow": 65536, "maxTokens": 8192},
+        {"id": "ravenx-256k", "name": "RavenX CyberAgent (256K)", "reasoning": False, "input": ["text"], "contextWindow": 262144, "maxTokens": 32768},
     ],
 }
 print(json.dumps(cfg, separators=(",", ":")))
@@ -948,7 +952,7 @@ PY
 import json, os
 allowed = {}
 if os.environ.get("HAS_OCABRA") == "1":
-    for model in ("qwen3-coder:30b", "devstral-small-2:24b", "qwen3.5:27b", "qwen3.6:latest", "gemma4:26b", "qwen3:8b"):
+    for model in ("gemma4:12b-ctx256k", "qwen3-coder:30b-ctx256k", "nemotron-3-nano:30b-ctx384k", "nemotron-3-nano:30b-ctx256k", "qwen3.6:ctx128k", "gemma4:26b-ctx160k", "ministral-3:14b-ctx128k", "qwen3.5:27b-ctx96k", "nemotron3:33b-ctx64k", "ravenx-256k"):
         allowed[f"ocabra/{model}"] = {}
 if os.environ.get("HAS_FREEAPI") == "1":
     try:
@@ -1002,7 +1006,7 @@ PY
 OPENCLAW_PORT="$${OPENCLAW_PORT:-3333}"
 OPENCLAW_GATEWAY_TOKEN="$${OPENCLAW_GATEWAY_TOKEN:-}"
 OPENCLAW_WORKDIR="$${OPENCLAW_WORKDIR:-$HOME/Projects}"
-OPENCLAW_DEFAULT_MODEL="$${OPENCLAW_DEFAULT_MODEL:-ocabra/qwen3:14b}"
+OPENCLAW_DEFAULT_MODEL="$${OPENCLAW_DEFAULT_MODEL:-ocabra/gemma4:12b-ctx256k}"
 EOF
     chmod 600 "$HOME/.local/state/openclaw/runtime.env"
 
