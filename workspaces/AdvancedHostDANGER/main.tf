@@ -597,15 +597,16 @@ prov=prov_block.setdefault("options",{})
 prov["baseURL"]=os.environ.get("OPENCODE_PROVIDER_URL") or os.environ.get("OCABRA_ENDPOINT_BASE_URL","")
 prov["apiKey"]=os.environ.get("OPENCODE_API_KEY","")
 prov_block.setdefault("models",{
-  "nemotron-3-nano:30b": { "name": "Nemotron 3 Nano 30b", "limit": { "context": 262144, "output": 16384 } },
-  "gemma4:12b": { "name": "Gemma 4 12b", "limit": { "context": 262144, "output": 16384 } },
-  "qwen3.6:latest": { "name": "Qwen3.6", "limit": { "context": 262144, "output": 16384 } },
-  "gemma4:26b": { "name": "Gemma 4 26b", "limit": { "context": 262144, "output": 16384 } },
-  "qwen3.5:27b": { "name": "Qwen3.5 27b", "limit": { "context": 262144, "output": 16384 } },
-  "qwen3-coder:30b": { "name": "Qwen3 Coder 30b", "limit": { "context": 262144, "output": 32768 } },
-  "ravenx-cyberagent-v6.2": { "name": "RavenX CyberAgent 30b", "limit": { "context": 262144, "output": 32768 } },
-  "nemotron3:33b": { "name": "Nemotron3 33b", "limit": { "context": 131072, "output": 8192 } },
-  "ministral-3:14b": { "name": "Ministral 3 14b", "limit": { "context": 196608, "output": 8192 } }
+  "gemma4:12b-ctx256k": { "name": "Gemma 4 12b (256K)", "limit": { "context": 262144, "output": 16384 } },
+  "gemma4:26b-ctx256k": { "name": "Gemma 4 26b (256K)", "limit": { "context": 262144, "output": 16384 } },
+  "qwen3.6:ctx256k": { "name": "Qwen3.6 (256K)", "limit": { "context": 262144, "output": 16384 } },
+  "qwen3.5:27b-ctx256k": { "name": "Qwen3.5 27b (256K)", "limit": { "context": 262144, "output": 16384 } },
+  "qwen3-coder:30b-ctx256k": { "name": "Qwen3 Coder 30b (256K)", "limit": { "context": 262144, "output": 32768 } },
+  "nemotron-3-nano:30b-ctx256k": { "name": "Nemotron 3 Nano 30b (256K)", "limit": { "context": 262144, "output": 16384 } },
+  "nemotron-3-nano:30b-ctx512k": { "name": "Nemotron 3 Nano 30b (512K)", "limit": { "context": 524288, "output": 16384 } },
+  "nemotron3:33b-ctx128k": { "name": "Nemotron3 33b (128K)", "limit": { "context": 131072, "output": 8192 } },
+  "ministral-3:14b-ctx128k": { "name": "Ministral 3 14b (128K)", "limit": { "context": 131072, "output": 8192 } },
+  "ravenx-256k": { "name": "RavenX CyberAgent 30b (256K)", "limit": { "context": 262144, "output": 32768 } }
 })
 os.makedirs(os.path.dirname(path),exist_ok=True)
 with open(path,"w") as f:
@@ -861,15 +862,16 @@ GENMKS
         "apiKey": "OPENCODE_API_KEY_VALUE"
       },
       "models": {
-        "nemotron-3-nano:30b": { "name": "Nemotron 3 Nano 30b", "limit": { "context": 262144, "output": 16384 } },
-        "gemma4:12b": { "name": "Gemma 4 12b", "limit": { "context": 262144, "output": 16384 } },
-        "qwen3.6:latest": { "name": "Qwen3.6", "limit": { "context": 262144, "output": 16384 } },
-        "gemma4:26b": { "name": "Gemma 4 26b", "limit": { "context": 262144, "output": 16384 } },
-        "qwen3.5:27b": { "name": "Qwen3.5 27b", "limit": { "context": 262144, "output": 16384 } },
-        "qwen3-coder:30b": { "name": "Qwen3 Coder 30b", "limit": { "context": 262144, "output": 32768 } },
-        "ravenx-cyberagent-v6.2": { "name": "RavenX CyberAgent 30b", "limit": { "context": 262144, "output": 32768 } },
-        "nemotron3:33b": { "name": "Nemotron3 33b", "limit": { "context": 131072, "output": 8192 } },
-        "ministral-3:14b": { "name": "Ministral 3 14b", "limit": { "context": 196608, "output": 8192 } }
+        "gemma4:12b-ctx256k": { "name": "Gemma 4 12b (256K)", "limit": { "context": 262144, "output": 16384 } },
+        "gemma4:26b-ctx256k": { "name": "Gemma 4 26b (256K)", "limit": { "context": 262144, "output": 16384 } },
+        "qwen3.6:ctx256k": { "name": "Qwen3.6 (256K)", "limit": { "context": 262144, "output": 16384 } },
+        "qwen3.5:27b-ctx256k": { "name": "Qwen3.5 27b (256K)", "limit": { "context": 262144, "output": 16384 } },
+        "qwen3-coder:30b-ctx256k": { "name": "Qwen3 Coder 30b (256K)", "limit": { "context": 262144, "output": 32768 } },
+        "nemotron-3-nano:30b-ctx256k": { "name": "Nemotron 3 Nano 30b (256K)", "limit": { "context": 262144, "output": 16384 } },
+        "nemotron-3-nano:30b-ctx512k": { "name": "Nemotron 3 Nano 30b (512K)", "limit": { "context": 524288, "output": 16384 } },
+        "nemotron3:33b-ctx128k": { "name": "Nemotron3 33b (128K)", "limit": { "context": 131072, "output": 8192 } },
+        "ministral-3:14b-ctx128k": { "name": "Ministral 3 14b (128K)", "limit": { "context": 131072, "output": 8192 } },
+        "ravenx-256k": { "name": "RavenX CyberAgent 30b (256K)", "limit": { "context": 262144, "output": 32768 } }
       }
     },
     "google": {
