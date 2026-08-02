@@ -96,7 +96,7 @@ RUN apt-get update && \
 # OrcaSlicer (AppImage), LaserGRBL (Wine), OpenCode Desktop y VisiCut (.deb)
 RUN <<'EOSH'
 set -e
-ORCA_VERSION="2.3.2"
+ORCA_VERSION="2.4.2"
 OPENCODE_DESKTOP_URL="https://opencode.ai/es/download/stable/linux-x64-deb"
 # OrcaSlicer publica AppImage para Ubuntu 24.04; libwebkit2gtk-4.1 se instala arriba.
 ORCA_URLS=" \
@@ -161,7 +161,7 @@ rm -rf /var/lib/apt/lists/*
 EOSH
 
 # Blender 4.5 LTS (binario oficial)
-ARG BLENDER_VERSION=4.5.11
+ARG BLENDER_VERSION=4.5.12
 RUN <<'EOSH'
 set -e
 BLENDER_DIR="/opt/blender"

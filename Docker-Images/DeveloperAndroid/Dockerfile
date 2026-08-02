@@ -159,9 +159,9 @@ ENV ANDROID_HOME=/home/coder/Android/Sdk \
     ANDROID_SDK_ROOT=/home/coder/Android/Sdk \
     ANDROID_EMULATOR_DEFAULT_GPU=swiftshader \
     ANDROID_USER_HOME=/home/coder/.android \
-    PATH=$PATH:/home/coder/Android/Sdk/platform-tools:/home/coder/Android/Sdk/cmdline-tools/latest/bin:/home/coder/Android/Sdk/emulator:/opt/gradle/gradle-9.6.1/bin
+    PATH=$PATH:/home/coder/Android/Sdk/platform-tools:/home/coder/Android/Sdk/cmdline-tools/latest/bin:/home/coder/Android/Sdk/emulator:/opt/gradle/latest/bin
 
-ARG ANDROID_SDK_VERSION=14742923
+ARG ANDROID_SDK_VERSION=15859902
 RUN mkdir -p /home/coder/Android/Sdk/cmdline-tools && \
     curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_VERSION}_latest.zip" -o /tmp/cmdline-tools.zip && \
     unzip -q /tmp/cmdline-tools.zip -d /home/coder/Android/Sdk/cmdline-tools && \
@@ -189,9 +189,9 @@ RUN mkdir -p /home/coder/Android/Sdk/cmdline-tools && \
     install -d -o coder -g coder /home/coder/.android
 
 # Android Studio
-ARG ANDROID_STUDIO_VERSION=2026.1.2
-ARG ANDROID_STUDIO_BUILD=2026.1.2.10
-ARG ANDROID_STUDIO_PACKAGE=android-studio-quail2-linux.tar.gz
+ARG ANDROID_STUDIO_VERSION=2026.1.3
+ARG ANDROID_STUDIO_BUILD=2026.1.3.7
+ARG ANDROID_STUDIO_PACKAGE=android-studio-quail3-linux.tar.gz
 RUN curl -fsSL "https://edgedl.me.gvt1.com/android/studio/ide-zips/${ANDROID_STUDIO_BUILD}/${ANDROID_STUDIO_PACKAGE}" -o /tmp/android-studio.tar.gz && \
     tar -xzf /tmp/android-studio.tar.gz -C /opt && \
     rm /tmp/android-studio.tar.gz && \
@@ -200,7 +200,7 @@ RUN curl -fsSL "https://edgedl.me.gvt1.com/android/studio/ide-zips/${ANDROID_STU
     ln -sf /opt/android-studio/bin/studio /usr/local/bin/studio
 
 # JetBrains Toolbox (para JetBrains Gateway/IDE remotos)
-ARG JETBRAINS_TOOLBOX_VERSION=3.6.1.85592
+ARG JETBRAINS_TOOLBOX_VERSION=3.6.3.86383
 RUN curl -fsSL "https://download.jetbrains.com/toolbox/jetbrains-toolbox-${JETBRAINS_TOOLBOX_VERSION}.tar.gz" -o /tmp/jetbrains-toolbox.tar.gz && \
     mkdir -p /opt/jetbrains-toolbox && \
     tar -xzf /tmp/jetbrains-toolbox.tar.gz -C /opt/jetbrains-toolbox --strip-components=1 && \
@@ -228,8 +228,10 @@ RUN chmod +x /usr/share/applications/android-studio.desktop && \
     done
 
 # Gradle
-RUN curl -fsSL "https://services.gradle.org/distributions/gradle-9.6.1-bin.zip" -o /tmp/gradle.zip && \
+ARG GRADLE_VERSION=9.6.1
+RUN curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o /tmp/gradle.zip && \
     unzip -q /tmp/gradle.zip -d /opt/gradle && \
+    ln -sfn "/opt/gradle/gradle-${GRADLE_VERSION}" /opt/gradle/latest && \
     rm /tmp/gradle.zip
 
 # Electron sandbox workaround for VS Code

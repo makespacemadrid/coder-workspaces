@@ -310,20 +310,20 @@ resource "proxmox_virtual_environment_vm" "workspace" {
 module "code-server" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/code-server/coder"
-  version  = "1.3.1"
+  version  = "~> 1.5"
   agent_id = coder_agent.dev.id
 }
 
 module "cursor" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/cursor/coder"
-  version  = "1.3.0"
+  version  = "~> 1.4"
   agent_id = coder_agent.dev.id
 }
 
 module "filebrowser" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/filebrowser/coder"
-  version  = "1.0.8"
+  version  = "~> 1.1"
   agent_id = coder_agent.dev.id
 }

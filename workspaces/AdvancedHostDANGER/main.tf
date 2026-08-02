@@ -1118,7 +1118,7 @@ module "git-config" {
 module "git-clone" {
   count    = data.coder_parameter.git_repo_url.value != "" ? data.coder_workspace.me.start_count : 0
   source   = "registry.coder.com/coder/git-clone/coder"
-  version  = "~> 1.2"
+  version  = "~> 2.0"
   agent_id = coder_agent.main.id
   url      = data.coder_parameter.git_repo_url.value
   base_dir = "~/Projects"
