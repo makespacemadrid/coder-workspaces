@@ -756,16 +756,16 @@ cfg = {
     "auth": "api-key",
     "api": "openai-completions",
     "models": [
-        {"id": "gemma4:12b-ctx256k", "name": "Gemma 4 12b (256K)", "reasoning": True, "input": ["text"], "contextWindow": 262144, "maxTokens": 16384},
-        {"id": "qwen3-coder:30b-ctx256k", "name": "Qwen3 Coder 30b (256K)", "reasoning": False, "input": ["text"], "contextWindow": 262144, "maxTokens": 32768},
-        {"id": "nemotron-3-nano:30b-ctx384k", "name": "Nemotron 3 Nano 30b (384K)", "reasoning": True, "input": ["text"], "contextWindow": 393216, "maxTokens": 16384},
-        {"id": "nemotron-3-nano:30b-ctx256k", "name": "Nemotron 3 Nano 30b (256K)", "reasoning": True, "input": ["text"], "contextWindow": 262144, "maxTokens": 16384},
+        {"id": "gemma4:12b-ctx256k", "name": "Gemma 4 12b (256K)", "reasoning": True, "input": ["text"], "contextWindow": 196608, "maxTokens": 16384},
+        {"id": "qwen3-coder:30b-ctx256k", "name": "Qwen3 Coder 30b (256K)", "reasoning": False, "input": ["text"], "contextWindow": 196608, "maxTokens": 32768},
+        {"id": "nemotron-3-nano:30b-ctx384k", "name": "Nemotron 3 Nano 30b (384K)", "reasoning": True, "input": ["text"], "contextWindow": 196608, "maxTokens": 16384},
+        {"id": "nemotron-3-nano:30b-ctx256k", "name": "Nemotron 3 Nano 30b (256K)", "reasoning": True, "input": ["text"], "contextWindow": 196608, "maxTokens": 16384},
         {"id": "qwen3.6:ctx128k", "name": "Qwen3.6 (128K)", "reasoning": True, "input": ["text"], "contextWindow": 131072, "maxTokens": 16384},
         {"id": "gemma4:26b-ctx160k", "name": "Gemma 4 26b (160K)", "reasoning": True, "input": ["text"], "contextWindow": 163840, "maxTokens": 16384},
         {"id": "ministral-3:14b-ctx128k", "name": "Ministral 3 14b (128K)", "reasoning": True, "input": ["text"], "contextWindow": 131072, "maxTokens": 8192},
         {"id": "qwen3.5:27b-ctx96k", "name": "Qwen3.5 27b (96K)", "reasoning": True, "input": ["text"], "contextWindow": 98304, "maxTokens": 16384},
         {"id": "nemotron3:33b-ctx64k", "name": "Nemotron3 33b (64K)", "reasoning": True, "input": ["text"], "contextWindow": 65536, "maxTokens": 8192},
-        {"id": "ravenx-256k", "name": "RavenX CyberAgent (256K)", "reasoning": False, "input": ["text"], "contextWindow": 262144, "maxTokens": 32768},
+        {"id": "ravenx-256k", "name": "RavenX CyberAgent (256K)", "reasoning": False, "input": ["text"], "contextWindow": 196608, "maxTokens": 32768},
     ],
 }
 print(json.dumps(cfg, separators=(",", ":")))

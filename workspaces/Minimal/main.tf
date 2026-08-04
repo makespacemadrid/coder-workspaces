@@ -351,6 +351,7 @@ try:
 except Exception:
     data={}
 data["disabled_providers"]=["openai","google"]
+data["compaction"]={"auto":True,"prune":True,"tail_turns":8,"preserve_recent_tokens":32000,"reserved":40000}
 provider=data.setdefault("provider",{})
 base=(os.environ.get("OPENCODE_PROVIDER_URL") or "").strip().rstrip("/")
 key=(os.environ.get("OPENCODE_API_KEY") or "").strip()
@@ -360,22 +361,22 @@ if key and base:
         "name":"Ocabra",
         "options":{"baseURL":base,"apiKey":key},
         "models":{
-            "gemma4:12b-vllm-ctx256k": { "name": "Gemma 4 12b vLLM (256K)", "limit": { "context": 262144, "output": 16384 } },
+            "gemma4:12b-vllm-ctx256k": { "name": "Gemma 4 12b vLLM (256K)", "limit": { "context": 196608, "output": 16384 } },
             "gemma4:26b-vllm-ctx64k": { "name": "Gemma 4 26b vLLM (64K)", "limit": { "context": 65536, "output": 16384 } },
-            "nemotron-3-nano:30b-vllm-ctx256k": { "name": "Nemotron 3 Nano 30b vLLM (256K)", "limit": { "context": 262144, "output": 16384 } },
+            "nemotron-3-nano:30b-vllm-ctx256k": { "name": "Nemotron 3 Nano 30b vLLM (256K)", "limit": { "context": 196608, "output": 16384 } },
             "qwen3-coder:30b-vllm-ctx56k": { "name": "Qwen3 Coder 30b vLLM (56K)", "limit": { "context": 57344, "output": 32768 } },
             "qwen3.5:27b-vllm-ctx64k": { "name": "Qwen3.5 27b vLLM (64K)", "limit": { "context": 65536, "output": 16384 } },
             "qwen3.6:35b-vllm-ctx64k": { "name": "Qwen3.6 35b vLLM (64K)", "limit": { "context": 65536, "output": 16384 } },
-            "gemma4:12b-ctx256k": { "name": "Gemma 4 12b (256K)", "limit": { "context": 262144, "output": 16384 } },
+            "gemma4:12b-ctx256k": { "name": "Gemma 4 12b (256K)", "limit": { "context": 196608, "output": 16384 } },
             "gemma4:26b-ctx160k": { "name": "Gemma 4 26b (160K)", "limit": { "context": 163840, "output": 16384 } },
             "ministral-3:14b-ctx128k": { "name": "Ministral 3 14b (128K)", "limit": { "context": 131072, "output": 8192 } },
-            "nemotron-3-nano:30b-ctx256k": { "name": "Nemotron 3 Nano 30b (256K)", "limit": { "context": 262144, "output": 16384 } },
-            "nemotron-3-nano:30b-ctx384k": { "name": "Nemotron 3 Nano 30b (384K)", "limit": { "context": 393216, "output": 16384 } },
+            "nemotron-3-nano:30b-ctx256k": { "name": "Nemotron 3 Nano 30b (256K)", "limit": { "context": 196608, "output": 16384 } },
+            "nemotron-3-nano:30b-ctx384k": { "name": "Nemotron 3 Nano 30b (384K)", "limit": { "context": 196608, "output": 16384 } },
             "nemotron3:33b-ctx64k": { "name": "Nemotron3 33b (64K)", "limit": { "context": 65536, "output": 8192 } },
-            "qwen3-coder:30b-ctx256k": { "name": "Qwen3 Coder 30b (256K)", "limit": { "context": 262144, "output": 32768 } },
+            "qwen3-coder:30b-ctx256k": { "name": "Qwen3 Coder 30b (256K)", "limit": { "context": 196608, "output": 32768 } },
             "qwen3.5:27b-ctx96k": { "name": "Qwen3.5 27b (96K)", "limit": { "context": 98304, "output": 16384 } },
             "qwen3.6:ctx128k": { "name": "Qwen3.6 (128K)", "limit": { "context": 131072, "output": 16384 } },
-            "ravenx-256k": { "name": "RavenX CyberAgent (256K)", "limit": { "context": 262144, "output": 32768 } }
+            "ravenx-256k": { "name": "RavenX CyberAgent (256K)", "limit": { "context": 196608, "output": 32768 } }
         }
     }
 free_base=(os.environ.get("FREEAPI_BASE_URL") or "").strip().rstrip("/")
