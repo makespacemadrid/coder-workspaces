@@ -20,6 +20,7 @@ RUN dpkg --add-architecture i386 && \
     add-apt-repository -y universe && \
     add-apt-repository -y ppa:mozillateam/ppa && \
     add-apt-repository -y ppa:freecad-maintainers/freecad-stable && \
+    add-apt-repository -y ppa:kicad/kicad-9.0-releases && \
     printf 'Package: firefox*\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001\n' > /etc/apt/preferences.d/mozillateam-firefox && \
     apt-get update && \
     apt-get install -y --no-install-recommends \

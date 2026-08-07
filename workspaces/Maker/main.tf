@@ -371,7 +371,7 @@ JSONCFG
     ln -sf ~/.opencode/opencode.json ~/.config/opencode/opencode.json || true
 
     # MCP setup para herramientas Maker (Blender, FreeCAD, KiCad, Inkscape, GIMP)
-    mkdir -p "$HOME/.local/bin" "$HOME/.local/share/mcp-servers" "$HOME/.config/inkscape/extensions"
+    mkdir -p "$HOME/.local/bin" "$HOME/.local/share/mcp-servers" "$HOME/.config/inkscape/extensions" "$HOME/.cache/mcp-slicer"
     clone_or_update() {
       repo_url="$1"
       target_dir="$2"
@@ -382,7 +382,8 @@ JSONCFG
         git clone --depth 1 "$repo_url" "$target_dir" >/dev/null 2>&1 || true
       fi
     }
-    clone_or_update "https://github.com/lamaalrajih/kicad-mcp.git" "$HOME/.local/share/mcp-servers/kicad-mcp"
+    clone_or_update "https://github.com/mixelpixx/KiCAD-MCP-Server.git" "$HOME/.local/share/mcp-servers/kicad-mcp-server"
+    clone_or_update "https://github.com/quellant/openscad-mcp.git" "$HOME/.local/share/mcp-servers/openscad-mcp"
     clone_or_update "https://github.com/maorcc/gimp-mcp.git" "$HOME/.local/share/mcp-servers/gimp-mcp"
     clone_or_update "https://github.com/Shriinivas/inkmcp.git" "$HOME/.config/inkscape/extensions/inkmcp"
     clone_or_update "https://github.com/neka-nat/freecad-mcp.git" "$HOME/.local/share/mcp-servers/freecad-mcp"
@@ -432,8 +433,17 @@ INKWRAP
     chmod +x "$HOME/.config/inkscape/extensions/inkmcp/inkmcp/inkmcpcli.py" "$HOME/.config/inkscape/extensions/inkmcp/inkmcp/inkscape_mcp_server.py" "$HOME/.config/inkscape/extensions/inkmcp/inkmcp/main.py" 2>/dev/null || true
 
     if command -v uv >/dev/null 2>&1; then
-      [ -d "$HOME/.local/share/mcp-servers/kicad-mcp" ] && uv sync --directory "$HOME/.local/share/mcp-servers/kicad-mcp" >/dev/null 2>&1 || true
+      [ -d "$HOME/.local/share/mcp-servers/openscad-mcp" ] && uv sync --directory "$HOME/.local/share/mcp-servers/openscad-mcp" >/dev/null 2>&1 || true
       [ -d "$HOME/.local/share/mcp-servers/gimp-mcp" ] && uv sync --directory "$HOME/.local/share/mcp-servers/gimp-mcp" >/dev/null 2>&1 || true
+    fi
+    # KiCad MCP (mixelpixx): build Node + deps Python. pcbnew lo aporta KiCad del sistema.
+    # Solo se compila si falta dist/index.js (evita rebuild en cada arranque).
+    KICAD_MCP_DIR="$HOME/.local/share/mcp-servers/kicad-mcp-server"
+    if [ -d "$KICAD_MCP_DIR" ] && [ ! -f "$KICAD_MCP_DIR/dist/index.js" ] && command -v npm >/dev/null 2>&1; then
+      ( cd "$KICAD_MCP_DIR" \
+        && npm install --no-fund --no-audit >/dev/null 2>&1 \
+        && { [ -f requirements.txt ] && python3 -m pip install --user --quiet --break-system-packages -r requirements.txt >/dev/null 2>&1 || true; } \
+        && npm run build >/dev/null 2>&1 ) || true
     fi
     if [ -f "$HOME/.config/inkscape/extensions/inkmcp/inkmcp/requirements.txt" ]; then
       python3 -m pip install --user --quiet --break-system-packages -r "$HOME/.config/inkscape/extensions/inkmcp/inkmcp/requirements.txt" >/dev/null 2>&1 || true
@@ -470,12 +480,23 @@ command = "uvx"
 args = ["freecad-mcp"]
 
 [mcp_servers.kicad]
+command = "node"
+args = ["/home/coder/.local/share/mcp-servers/kicad-mcp-server/dist/index.js"]
+env = { NODE_ENV = "production", LOG_LEVEL = "info", KICAD_AUTO_LAUNCH = "false", PYTHONPATH = "/usr/lib/python3/dist-packages:/usr/share/kicad/scripting/plugins:/usr/lib/kicad/lib/python3/dist-packages" }
+
+[mcp_servers.openscad]
 command = "uv"
-args = ["run", "--directory", "/home/coder/.local/share/mcp-servers/kicad-mcp", "main.py"]
+args = ["run", "--directory", "/home/coder/.local/share/mcp-servers/openscad-mcp", "openscad-mcp"]
+env = { OPENSCAD_PATH = "/usr/bin/openscad" }
 
 [mcp_servers.gimp]
 command = "uv"
 args = ["run", "--directory", "/home/coder/.local/share/mcp-servers/gimp-mcp", "gimp_mcp_server.py"]
+
+[mcp_servers.slicer]
+command = "npx"
+args = ["-y", "mcp-3d-printer-server"]
+env = { SLICER_TYPE = "prusaslicer", SLICER_PATH = "/usr/bin/prusa-slicer", TEMP_DIR = "/home/coder/.cache/mcp-slicer" }
 
 [mcp_servers.inkscape]
 command = "/home/coder/.local/bin/inkscape-mcp-launcher"
@@ -488,23 +509,42 @@ import os
 import shutil
 
 home = os.path.expanduser("~")
-kicad_dir = os.path.join(home, ".local", "share", "mcp-servers", "kicad-mcp")
-gimp_dir = os.path.join(home, ".local", "share", "mcp-servers", "gimp-mcp")
+mcp_root = os.path.join(home, ".local", "share", "mcp-servers")
+kicad_entry = os.path.join(mcp_root, "kicad-mcp-server", "dist", "index.js")
+openscad_dir = os.path.join(mcp_root, "openscad-mcp")
+gimp_dir = os.path.join(mcp_root, "gimp-mcp")
 ink_launcher = os.path.join(home, ".local", "bin", "inkscape-mcp-launcher")
+
+kicad_env = {
+    "NODE_ENV": "production",
+    "LOG_LEVEL": "info",
+    "KICAD_AUTO_LAUNCH": "false",
+    "PYTHONPATH": "/usr/lib/python3/dist-packages:/usr/share/kicad/scripting/plugins:/usr/lib/kicad/lib/python3/dist-packages",
+}
+openscad_env = {"OPENSCAD_PATH": "/usr/bin/openscad"}
+slicer_env = {
+    "SLICER_TYPE": "prusaslicer",
+    "SLICER_PATH": "/usr/bin/prusa-slicer",
+    "TEMP_DIR": os.path.join(home, ".cache", "mcp-slicer"),
+}
 
 claude_servers = {
     "blender": {"command": "uvx", "args": ["blender-mcp"]},
     "freecad": {"command": "uvx", "args": ["freecad-mcp"]},
-    "kicad": {"command": "uv", "args": ["run", "--directory", kicad_dir, "main.py"]},
+    "kicad": {"command": "node", "args": [kicad_entry], "env": kicad_env},
+    "openscad": {"command": "uv", "args": ["run", "--directory", openscad_dir, "openscad-mcp"], "env": openscad_env},
     "gimp": {"command": "uv", "args": ["run", "--directory", gimp_dir, "gimp_mcp_server.py"]},
+    "slicer": {"command": "npx", "args": ["-y", "mcp-3d-printer-server"], "env": slicer_env},
     "inkscape": {"command": ink_launcher},
 }
 
 opencode_servers = {
     "blender": {"type": "local", "enabled": True, "command": ["uvx", "blender-mcp"]},
     "freecad": {"type": "local", "enabled": True, "command": ["uvx", "freecad-mcp"]},
-    "kicad": {"type": "local", "enabled": True, "command": ["uv", "run", "--directory", kicad_dir, "main.py"]},
+    "kicad": {"type": "local", "enabled": True, "command": ["node", kicad_entry], "environment": kicad_env},
+    "openscad": {"type": "local", "enabled": True, "command": ["uv", "run", "--directory", openscad_dir, "openscad-mcp"], "environment": openscad_env},
     "gimp": {"type": "local", "enabled": True, "command": ["uv", "run", "--directory", gimp_dir, "gimp_mcp_server.py"]},
+    "slicer": {"type": "local", "enabled": True, "command": ["npx", "-y", "mcp-3d-printer-server"], "environment": slicer_env},
     "inkscape": {"type": "local", "enabled": True, "command": [ink_launcher]},
 }
 
@@ -575,9 +615,11 @@ PY
 Este workspace trae MCPs de:
 - Blender
 - FreeCAD
-- KiCad
+- KiCad (mixelpixx, edición de PCB — requiere KiCad 9)
+- OpenSCAD
 - Inkscape
 - GIMP
+- Slicer (PrusaSlicer/OrcaSlicer, vía mcp-3d-printer-server)
 
 ## Comprobar estado
 
