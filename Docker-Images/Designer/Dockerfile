@@ -20,7 +20,7 @@ RUN dpkg --add-architecture i386 && \
     add-apt-repository -y universe && \
     add-apt-repository -y ppa:mozillateam/ppa && \
     add-apt-repository -y ppa:freecad-maintainers/freecad-stable && \
-    add-apt-repository -y ppa:kicad/kicad-9.0-releases && \
+    add-apt-repository -y ppa:kicad/kicad-10.0-releases && \
     printf 'Package: firefox*\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001\n' > /etc/apt/preferences.d/mozillateam-firefox && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -93,6 +93,18 @@ RUN apt-get update && \
         libvulkan1 \
         mesa-vulkan-drivers \
     && rm -rf /var/lib/apt/lists/*
+
+# KiCad autorouter: Freerouting requiere Java 21 (el sistema trae 11). El jar se
+# hornea en /opt; el template de Maker lo enlaza a ~/.kicad-mcp/freerouting.jar,
+# que es donde lo busca el MCP (check_freerouting/autoroute).
+ARG FREEROUTING_VERSION=2.1.0
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends openjdk-21-jre-headless && \
+    update-alternatives --set java /usr/lib/jvm/java-21-openjdk-amd64/bin/java && \
+    mkdir -p /opt/freerouting && \
+    curl -fsSL -o /opt/freerouting/freerouting.jar \
+      "https://github.com/freerouting/freerouting/releases/download/v${FREEROUTING_VERSION}/freerouting-${FREEROUTING_VERSION}.jar" && \
+    rm -rf /var/lib/apt/lists/*
 
 # OrcaSlicer (AppImage), LaserGRBL (Wine), OpenCode Desktop y VisiCut (.deb)
 RUN <<'EOSH'

@@ -446,6 +446,22 @@ INKWRAP
         && { [ -f requirements.txt ] && python3 -m pip install --user --quiet --break-system-packages -r requirements.txt >/dev/null 2>&1 || true; } \
         && npm run build >/dev/null 2>&1 ) || true
     fi
+    # KiCad: sembrar tablas de librerías de usuario. sym-lib-table solo la crea
+    # eeschema en su primer arranque gráfico (que en headless no ocurre), así que
+    # sin esto todo ERC avisa lib_symbol_issues por componente. Copiadas de las
+    # plantillas del sistema. Y enlazar el jar de Freerouting donde lo busca el MCP.
+    KICAD_USER_CFG="$HOME/.config/kicad/10.0"
+    mkdir -p "$KICAD_USER_CFG"
+    for _kt in sym-lib-table fp-lib-table; do
+      if [ ! -f "$KICAD_USER_CFG/$_kt" ] && [ -f "/usr/share/kicad/template/$_kt" ]; then
+        cp "/usr/share/kicad/template/$_kt" "$KICAD_USER_CFG/$_kt" || true
+      fi
+    done
+    unset _kt
+    mkdir -p "$HOME/.kicad-mcp"
+    if [ ! -e "$HOME/.kicad-mcp/freerouting.jar" ] && [ -f /opt/freerouting/freerouting.jar ]; then
+      ln -sf /opt/freerouting/freerouting.jar "$HOME/.kicad-mcp/freerouting.jar"
+    fi
     if [ -f "$HOME/.config/inkscape/extensions/inkmcp/inkmcp/requirements.txt" ]; then
       python3 -m pip install --user --quiet --break-system-packages -r "$HOME/.config/inkscape/extensions/inkmcp/inkmcp/requirements.txt" >/dev/null 2>&1 || true
     fi
