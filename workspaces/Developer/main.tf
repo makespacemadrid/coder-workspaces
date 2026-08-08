@@ -742,9 +742,8 @@ GENMKS
   "$schema": "https://opencode.ai/config.json",
   "compaction": { "auto": true, "prune": true, "tail_turns": 8, "preserve_recent_tokens": 32000, "reserved": 40000 },
   "plugin": [
-    "opencode-openai-codex-auth@4.0.2",
     "opencode-gemini-auth@latest",
-    "opencode-antigravity-auth@beta",
+    "opencode-antigravity-auth@1.6.0",
     "opencode-agent-memory",
     "opencode-mystatus",
     "opencode-handoff"
