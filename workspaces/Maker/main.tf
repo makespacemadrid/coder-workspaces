@@ -1429,7 +1429,7 @@ module "filebrowser" {
   source   = "registry.coder.com/coder/filebrowser/coder"
   version  = "~> 1.1"
   agent_id = coder_agent.main.id
-  folder   = "/home/coder/project"
+  folder   = "/home/coder/Projects"
 }
 
 module "opencode" {
