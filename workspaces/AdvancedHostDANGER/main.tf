@@ -209,18 +209,22 @@ $${COWORK_TAG}
 COWORK_VM_BACKEND=host
 EOF
     CLAUDE_WRAP_TAG="# managed-by-danger-template: claude-desktop-wrapper"
-    # claude-desktop: envolver para inyectar env ejecutando el binario REAL en su
-    # dir (/usr/lib/claude-desktop): su RPATH=$ORIGIN busca libffmpeg.so ahi. Antes
-    # se copiaba el binario a /usr/bin y $ORIGIN dejaba de encontrar libffmpeg.so.
-    if [ -x /usr/lib/claude-desktop/claude-desktop ]; then
-      sudo tee /usr/bin/claude-desktop >/dev/null <<EOF
+    # claude-desktop: /usr/bin/claude-desktop es un symlink al binario Electron en
+    # /usr/lib. Escribir el wrapper con 'tee' sobre el symlink machacaria el binario
+    # real (RPATH=$ORIGIN), dejando un self-exec en bucle. Por eso: (1) solo actuar si
+    # el binario real esta intacto, (2) borrar el symlink antes de escribir, (3) crear
+    # un fichero regular que ejecuta el binario real con flags de render por software
+    # (KasmVNC no tiene GPU).
+    if [ -x /usr/lib/claude-desktop/claude-desktop ] && [ "$(stat -c%s /usr/lib/claude-desktop/claude-desktop 2>/dev/null || echo 0)" -gt 1000000 ]; then
+      sudo rm -f /usr/bin/claude-desktop /usr/bin/claude-desktop.real
+      sudo tee /usr/bin/claude-desktop >/dev/null <<'CLAUDEWRAP'
 #!/bin/sh
-$${CLAUDE_WRAP_TAG}
-exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="$${ELECTRON_OZONE_PLATFORM_HINT:-auto}" COWORK_VM_BACKEND="$${COWORK_VM_BACKEND:-host}" \
-  /usr/lib/claude-desktop/claude-desktop --no-sandbox --disable-gpu-sandbox --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist --disable-dev-shm-usage "$$@"
-EOF
+exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT=auto COWORK_VM_BACKEND=host \
+  /usr/lib/claude-desktop/claude-desktop \
+  --no-sandbox --disable-gpu-sandbox --use-gl=angle --use-angle=swiftshader \
+  --enable-unsafe-swiftshader --ignore-gpu-blocklist --disable-dev-shm-usage "$@"
+CLAUDEWRAP
       sudo chmod 0755 /usr/bin/claude-desktop
-      sudo rm -f /usr/bin/claude-desktop.real
     fi
 
     # Asegurar /home/coder como HOME efectivo incluso si se ejecuta como root
