@@ -227,17 +227,18 @@ $${COWORK_TAG}
 COWORK_VM_BACKEND=host
 EOF
     CLAUDE_WRAP_TAG="# managed-by-android-template: claude-desktop-wrapper"
-    if [ -x /usr/bin/claude-desktop ] && ! grep -qF "$CLAUDE_WRAP_TAG" /usr/bin/claude-desktop 2>/dev/null; then
-      if [ ! -x /usr/bin/claude-desktop.real ]; then
-        sudo cp /usr/bin/claude-desktop /usr/bin/claude-desktop.real
-      fi
+    # claude-desktop: envolver para inyectar env ejecutando el binario REAL en su
+    # dir (/usr/lib/claude-desktop): su RPATH=$ORIGIN busca libffmpeg.so ahi. Antes
+    # se copiaba el binario a /usr/bin y $ORIGIN dejaba de encontrar libffmpeg.so.
+    if [ -x /usr/lib/claude-desktop/claude-desktop ]; then
       sudo tee /usr/bin/claude-desktop >/dev/null <<EOF
 #!/bin/sh
 $${CLAUDE_WRAP_TAG}
 exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="$${ELECTRON_OZONE_PLATFORM_HINT:-auto}" COWORK_VM_BACKEND="$${COWORK_VM_BACKEND:-host}" \
-  /usr/bin/claude-desktop.real "$$@"
+  /usr/lib/claude-desktop/claude-desktop "$$@"
 EOF
       sudo chmod 0755 /usr/bin/claude-desktop
+      sudo rm -f /usr/bin/claude-desktop.real
     fi
 
     # Alinear grupos para /dev/kvm sin tocar permisos del host
