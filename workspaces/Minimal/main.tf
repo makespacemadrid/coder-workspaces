@@ -350,7 +350,8 @@ try:
         data=json.load(f)
 except Exception:
     data={}
-data["disabled_providers"]=["openai","google"]
+data["enabled_providers"]=["opencode","ocabra","freeapi"]
+data.setdefault("provider",{}).setdefault("opencode",{})["whitelist"]=['big-pickle', 'deepseek-v4-flash-free', 'nemotron-3-ultra-free', 'longcat-2.0-free', 'mimo-v2.5-free', 'laguna-s-2.1-free', 'ling-3.0-tiny-free']
 data["compaction"]={"auto":True,"prune":True,"tail_turns":8,"preserve_recent_tokens":32000,"reserved":40000}
 provider=data.setdefault("provider",{})
 base=(os.environ.get("OPENCODE_PROVIDER_URL") or "").strip().rstrip("/")

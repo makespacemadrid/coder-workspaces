@@ -487,6 +487,31 @@ JSONCFG
       fi
     done
     chmod +x ~/Desktop/*.desktop 2>/dev/null || true
+    # Guia en el escritorio: modelos disponibles y como activar los de login.
+    cat > "$HOME/Desktop/MODELOS-IA.md" <<'IAREADME'
+# Modelos de IA en este workspace
+
+## Gratis y listos (SIN login) - ya aparecen en el selector
+- Ocabra y FreeAPI (infraestructura propia)
+- OpenCode Zen (free): big-pickle (por defecto), deepseek-v4-flash-free,
+  nemotron-3-ultra-free, longcat-2.0-free, mimo-v2.5-free, laguna-s-2.1-free,
+  ling-3.0-tiny-free
+
+## Gratis PERO requieren login: Antigravity y Gemini
+Abre una terminal y ejecuta:
+
+    opencode auth login
+
+Elige "Antigravity" (Claude Opus/Sonnet y Gemini 3 gratis) y/o "Google"
+(Gemini free tier), y completa el login de Google en el navegador. Al terminar,
+sus modelos salen en el selector (CLI y OpenCode Desktop):
+  - Antigravity: Claude Opus 4.5, Claude Sonnet 4.5, Gemini 3 Pro/Flash
+  - Gemini free: Gemini 2.5 Pro/Flash, Gemini 3 Pro/Flash (preview)
+
+Se ha ocultado el resto del catalogo (modelos de pago) para reducir ruido.
+Para ver todos: edita ~/.config/opencode/opencode.json y quita
+"enabled_providers" y los "whitelist".
+IAREADME
 
     # Forzar launcher nativo de Android Studio para evitar studio.sh
     if [ -f /usr/share/applications/android-studio.desktop ]; then
@@ -648,8 +673,11 @@ GENMKS
     "opencode-mystatus",
     "opencode-handoff"
   ],
-  "disabled_providers": ["openai", "google"],
+  "enabled_providers": ["opencode", "ocabra", "freeapi", "google"],
   "provider": {
+    "opencode": {
+      "whitelist": ["big-pickle", "deepseek-v4-flash-free", "nemotron-3-ultra-free", "longcat-2.0-free", "mimo-v2.5-free", "laguna-s-2.1-free", "ling-3.0-tiny-free"]
+    },
     "openai": {
       "options": {
         "reasoningEffort": "medium",
@@ -898,6 +926,7 @@ GENMKS
       }
     },
     "google": {
+      "whitelist": ["antigravity-claude-opus-4-5-thinking", "antigravity-claude-sonnet-4-5-thinking", "antigravity-gemini-3-pro", "antigravity-gemini-3-flash", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-3-pro-preview", "gemini-3-flash-preview"],
       "models": {
         "antigravity-claude-opus-4-5-thinking": {
           "name": "Claude Opus 4.5 Thinking (Antigravity)",
