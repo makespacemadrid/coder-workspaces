@@ -217,7 +217,7 @@ EOF
 #!/bin/sh
 $${CLAUDE_WRAP_TAG}
 exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="$${ELECTRON_OZONE_PLATFORM_HINT:-auto}" COWORK_VM_BACKEND="$${COWORK_VM_BACKEND:-host}" \
-  /usr/lib/claude-desktop/claude-desktop "$$@"
+  /usr/lib/claude-desktop/claude-desktop --no-sandbox --disable-gpu-sandbox --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist --disable-dev-shm-usage "$$@"
 EOF
       sudo chmod 0755 /usr/bin/claude-desktop
       sudo rm -f /usr/bin/claude-desktop.real
