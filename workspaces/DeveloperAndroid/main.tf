@@ -502,11 +502,12 @@ Abre una terminal y ejecuta:
 
     opencode auth login
 
-Elige "Antigravity" (Claude Opus/Sonnet y Gemini 3 gratis) y/o "Google"
-(Gemini free tier), y completa el login de Google en el navegador. Al terminar,
-sus modelos salen en el selector (CLI y OpenCode Desktop):
-  - Antigravity: Claude Opus 4.5, Claude Sonnet 4.5, Gemini 3 Pro/Flash
-  - Gemini free: Gemini 2.5 Pro/Flash, Gemini 3 Pro/Flash (preview)
+Hay DOS logins distintos (puedes hacer ambos):
+  - "Google"      -> desbloquea: gemini-2.5-flash
+  - "Antigravity" -> desbloquea: Claude Opus 4.5, Claude Sonnet 4.5,
+                     Gemini 3 Pro/Flash, gemini-2.5-pro, gemini-3-flash-preview
+Completa el login en el navegador. Si eliges un modelo y da
+"No Antigravity accounts configured", es que te falta el login de Antigravity.
 
 Se ha ocultado el resto del catalogo (modelos de pago) para reducir ruido.
 Para ver todos: edita ~/.config/opencode/opencode.json y quita
@@ -926,7 +927,7 @@ GENMKS
       }
     },
     "google": {
-      "whitelist": ["antigravity-claude-opus-4-5-thinking", "antigravity-claude-sonnet-4-5-thinking", "antigravity-gemini-3-pro", "antigravity-gemini-3-flash", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-3-pro-preview", "gemini-3-flash-preview"],
+      "whitelist": ["antigravity-claude-opus-4-5-thinking", "antigravity-claude-sonnet-4-5-thinking", "antigravity-gemini-3-pro", "antigravity-gemini-3-flash", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-3-flash-preview"],
       "models": {
         "antigravity-claude-opus-4-5-thinking": {
           "name": "Claude Opus 4.5 Thinking (Antigravity)",
