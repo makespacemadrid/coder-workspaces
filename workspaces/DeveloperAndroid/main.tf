@@ -1275,7 +1275,8 @@ resource "null_resource" "ensure_host_paths" {
 # CONTENEDOR PRINCIPAL
 resource "docker_container" "workspace" {
   depends_on = [null_resource.ensure_host_paths]
-  image = local.workspace_image
+  image      = local.workspace_image
+  restart    = "unless-stopped"
 
   name     = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
   hostname = data.coder_workspace.me.name

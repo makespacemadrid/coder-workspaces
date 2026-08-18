@@ -1190,7 +1190,8 @@ resource "docker_volume" "docker_data" {
 }
 
 resource "docker_container" "workspace" {
-  image      = local.workspace_image
+  image   = local.workspace_image
+  restart = "unless-stopped"
 
   name     = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
   hostname = data.coder_workspace.me.name
