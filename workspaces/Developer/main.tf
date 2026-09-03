@@ -405,6 +405,67 @@ for path in paths:
 PY
     mkdir -p "$HOME/.codex"
     touch "$HOME/.codex/config.toml"
+    codex_config="$HOME/.codex/config.toml"
+    codex_config_previous="$HOME/.codex/config.toml.template-prev"
+    cp -p "$codex_config" "$codex_config_previous" 2>/dev/null || true
+
+    # Reparar el residuo exacto dejado por la migracion antigua de chrome-devtools:
+    # un array ["-lc", "...chrome-devtools-mcp..."] sin clave ni cabecera TOML.
+    python3 - "$codex_config" <<'PY' || echo "WARN: fallo la reparacion preventiva de config.toml; se conserva el archivo anterior" >&2
+import os
+import stat
+import sys
+import tempfile
+import tomllib
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as f:
+    content = f.read()
+lines = content.splitlines()
+out = []
+i = 0
+repaired = False
+while i < len(lines):
+    if lines[i].strip() == "[":
+        j = i + 1
+        while j < len(lines) and lines[j].strip() != "]":
+            j += 1
+        if j < len(lines):
+            fragment = "\n".join(lines[i:j + 1])
+            if '"-lc"' in fragment and "chrome-devtools-mcp" in fragment:
+                end = j + 1
+                if end < len(lines) and lines[end].strip() in ("enabled = true", "enabled = false"):
+                    end += 1
+                if end < len(lines) and not lines[end].strip():
+                    end += 1
+                repaired = True
+                i = end
+                continue
+    out.append(lines[i])
+    i += 1
+
+if repaired:
+    candidate = "\n".join(out).rstrip("\n")
+    candidate = (candidate + "\n") if candidate else ""
+    try:
+        tomllib.loads(candidate)
+    except tomllib.TOMLDecodeError as exc:
+        print(f"WARN: no se pudo reparar config.toml de Codex de forma segura: {exc}", file=sys.stderr)
+    else:
+        mode = stat.S_IMODE(os.stat(path).st_mode)
+        fd, tmp = tempfile.mkstemp(prefix=".config.toml.", dir=os.path.dirname(path), text=True)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(candidate)
+            os.chmod(tmp, mode)
+            os.replace(tmp, path)
+            print("Reparado config.toml de Codex dañado por la migracion antigua")
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+PY
+
+    if python3 -c 'import sys,tomllib; tomllib.load(open(sys.argv[1], "rb"))' "$codex_config" 2>/dev/null; then
     # Migrar config antigua de chrome-devtools (formato bash -lc) si existe
     python3 - <<'PY'
 import os
@@ -481,6 +542,15 @@ if removed:
     with open(path, "w", encoding="utf-8") as f:
         f.write((content + "\n") if content else "")
 PY
+    fi
+    else
+      echo "WARN: $codex_config contiene TOML invalido; se omiten cambios automaticos de MCP" >&2
+    fi
+
+    # Nunca dejar un config.toml peor que el que habia al iniciar el script.
+    if ! python3 -c 'import sys,tomllib; tomllib.load(open(sys.argv[1], "rb"))' "$codex_config" 2>/dev/null; then
+      cp -p "$codex_config_previous" "$codex_config" 2>/dev/null || true
+      echo "WARN: cambios de MCP revertidos porque config.toml no supero la validacion TOML" >&2
     fi
     mkdir -p ~/.opencode ~/.config/opencode
     if [ ! -f ~/.opencode/opencode.json ]; then

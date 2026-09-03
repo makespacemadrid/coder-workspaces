@@ -489,39 +489,105 @@ INKLAUNCH
 
     mkdir -p "$HOME/.codex"
     touch "$HOME/.codex/config.toml"
-    if ! grep -q '^\[mcp_servers\.blender\]' "$HOME/.codex/config.toml" 2>/dev/null; then
-      cat >> "$HOME/.codex/config.toml" <<'CODEXMCP'
+    codex_config="$HOME/.codex/config.toml"
+    codex_config_previous="$HOME/.codex/config.toml.template-prev"
+    cp -p "$codex_config" "$codex_config_previous" 2>/dev/null || true
+    python3 - "$codex_config" <<'PY' || echo "WARN: fallo la configuracion segura de MCP; se conserva el archivo anterior" >&2
+import os
+import stat
+import sys
+import tempfile
+import tomllib
 
-[mcp_servers.blender]
+path = sys.argv[1]
+with open(path, encoding="utf-8") as f:
+    original = f.read()
+
+# Reparar solo la firma inequívoca dejada por la migracion antigua de Chrome MCP.
+lines = original.splitlines()
+out = []
+i = 0
+repaired = False
+while i < len(lines):
+    if lines[i].strip() == "[":
+        j = i + 1
+        while j < len(lines) and lines[j].strip() != "]":
+            j += 1
+        if j < len(lines):
+            fragment = "\n".join(lines[i:j + 1])
+            if '"-lc"' in fragment and "chrome-devtools-mcp" in fragment:
+                end = j + 1
+                if end < len(lines) and lines[end].strip() in ("enabled = true", "enabled = false"):
+                    end += 1
+                if end < len(lines) and not lines[end].strip():
+                    end += 1
+                repaired = True
+                i = end
+                continue
+    out.append(lines[i])
+    i += 1
+
+content = "\n".join(out).rstrip("\n") if repaired else original.rstrip("\n")
+content = (content + "\n") if content else ""
+try:
+    parsed = tomllib.loads(content)
+except tomllib.TOMLDecodeError as exc:
+    print(f"WARN: config.toml de Codex contiene un error desconocido; no se modifica: {exc}", file=sys.stderr)
+    raise SystemExit(0)
+
+fragments = {
+    "blender": '''[mcp_servers.blender]
 command = "uvx"
-args = ["blender-mcp"]
-
-[mcp_servers.freecad]
+args = ["blender-mcp"]''',
+    "freecad": '''[mcp_servers.freecad]
 command = "uvx"
-args = ["freecad-mcp"]
-
-[mcp_servers.kicad]
+args = ["freecad-mcp"]''',
+    "kicad": '''[mcp_servers.kicad]
 command = "node"
 args = ["/home/coder/.local/share/mcp-servers/kicad-mcp-server/dist/index.js"]
-env = { NODE_ENV = "production", LOG_LEVEL = "info", KICAD_AUTO_LAUNCH = "false", PYTHONPATH = "/usr/lib/python3/dist-packages:/usr/share/kicad/scripting/plugins:/usr/lib/kicad/lib/python3/dist-packages" }
-
-[mcp_servers.openscad]
+env = { NODE_ENV = "production", LOG_LEVEL = "info", KICAD_AUTO_LAUNCH = "false", PYTHONPATH = "/usr/lib/python3/dist-packages:/usr/share/kicad/scripting/plugins:/usr/lib/kicad/lib/python3/dist-packages" }''',
+    "openscad": '''[mcp_servers.openscad]
 command = "uv"
 args = ["run", "--directory", "/home/coder/.local/share/mcp-servers/openscad-mcp", "openscad-mcp"]
-env = { OPENSCAD_PATH = "/usr/bin/openscad" }
-
-[mcp_servers.gimp]
+env = { OPENSCAD_PATH = "/usr/bin/openscad" }''',
+    "gimp": '''[mcp_servers.gimp]
 command = "uv"
-args = ["run", "--directory", "/home/coder/.local/share/mcp-servers/gimp-mcp", "gimp_mcp_server.py"]
-
-[mcp_servers.slicer]
+args = ["run", "--directory", "/home/coder/.local/share/mcp-servers/gimp-mcp", "gimp_mcp_server.py"]''',
+    "slicer": '''[mcp_servers.slicer]
 command = "npx"
 args = ["-y", "mcp-3d-printer-server"]
-env = { SLICER_TYPE = "prusaslicer", SLICER_PATH = "/usr/bin/prusa-slicer", TEMP_DIR = "/home/coder/.cache/mcp-slicer" }
+env = { SLICER_TYPE = "prusaslicer", SLICER_PATH = "/usr/bin/prusa-slicer", TEMP_DIR = "/home/coder/.cache/mcp-slicer" }''',
+    "inkscape": '''[mcp_servers.inkscape]
+command = "/home/coder/.local/bin/inkscape-mcp-launcher"''',
+}
 
-[mcp_servers.inkscape]
-command = "/home/coder/.local/bin/inkscape-mcp-launcher"
-CODEXMCP
+existing = parsed.get("mcp_servers", {})
+missing = [fragment for name, fragment in fragments.items() if name not in existing]
+candidate = content.rstrip("\n")
+if missing:
+    candidate = ((candidate + "\n\n") if candidate else "") + "\n\n".join(missing) + "\n"
+elif candidate:
+    candidate += "\n"
+tomllib.loads(candidate)
+
+if candidate != original:
+    mode = stat.S_IMODE(os.stat(path).st_mode)
+    fd, tmp = tempfile.mkstemp(prefix=".config.toml.", dir=os.path.dirname(path), text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(candidate)
+        os.chmod(tmp, mode)
+        os.replace(tmp, path)
+        if repaired:
+            print("Reparado config.toml de Codex dañado por la migracion antigua")
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+PY
+
+    if ! python3 -c 'import sys,tomllib; tomllib.load(open(sys.argv[1], "rb"))' "$codex_config" 2>/dev/null; then
+      cp -p "$codex_config_previous" "$codex_config" 2>/dev/null || true
+      echo "WARN: cambios de MCP revertidos porque config.toml no supero la validacion TOML" >&2
     fi
 
     python3 - <<'PY'
