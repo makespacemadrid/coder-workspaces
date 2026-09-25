@@ -1,6 +1,6 @@
-# Terraform state/lock files for templates
+# Terraform state and local caches. Los lockfiles de cada plantilla sí se
+# versionan para que Coder use exactamente los proveedores validados.
 .terraform/
-.terraform.lock.hcl
 terraform.tfstate
 terraform.tfstate.backup
 *.tfstate

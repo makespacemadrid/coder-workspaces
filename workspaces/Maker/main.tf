@@ -1,13 +1,16 @@
 terraform {
   required_providers {
     coder = {
-      source = "coder/coder"
+      source  = "coder/coder"
+      version = "~> 2.18.0"
     }
     docker = {
-      source = "kreuzwerker/docker"
+      source  = "kreuzwerker/docker"
+      version = "~> 4.6.0"
     }
     null = {
-      source = "hashicorp/null"
+      source  = "hashicorp/null"
+      version = "~> 3.3.0"
     }
   }
 }
@@ -140,31 +143,31 @@ data "coder_parameter" "opencode_default_model" {
 }
 
 locals {
-  username             = data.coder_workspace_owner.me.name
-  workspace_image      = "ghcr.io/makespacemadrid/coder-mks-design:latest"
-  enable_gpu           = data.coder_parameter.enable_gpu.value
-  enable_dri           = data.coder_parameter.enable_dri.value
-  persist_home_storage           = data.coder_parameter.persist_home_storage.value
-  persist_projects_storage       = data.coder_parameter.persist_projects_storage.value
-  host_mount_path                = ""
-  host_mount_uid                 = "1000"
-  workspace_storage_root         = trimspace(var.users_storage)
-  workspace_storage_home         = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}" : ""
-  workspace_storage_projects     = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}/Projects" : ""
-  home_mount_host_path           = local.persist_home_storage && local.workspace_storage_root != "" ? local.workspace_storage_home : ""
-  projects_mount_host_path       = local.persist_projects_storage && local.workspace_storage_root != "" ? local.workspace_storage_projects : ""
-  home_volume_resolved = "coder-${data.coder_workspace.me.id}-home"
-  repo_url          = trimspace(data.coder_parameter.git_repo_url.value)
-  repo_name         = local.repo_url != "" ? trimsuffix(basename(local.repo_url), ".git") : ""
-  default_repo_path = local.repo_name != "" ? "/home/coder/Projects/${local.repo_name}" : "/home/coder/Projects"
+  username                   = data.coder_workspace_owner.me.name
+  workspace_image            = "ghcr.io/makespacemadrid/coder-mks-design:latest"
+  enable_gpu                 = data.coder_parameter.enable_gpu.value
+  enable_dri                 = data.coder_parameter.enable_dri.value
+  persist_home_storage       = data.coder_parameter.persist_home_storage.value
+  persist_projects_storage   = data.coder_parameter.persist_projects_storage.value
+  host_mount_path            = ""
+  host_mount_uid             = "1000"
+  workspace_storage_root     = trimspace(var.users_storage)
+  workspace_storage_home     = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}" : ""
+  workspace_storage_projects = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}/Projects" : ""
+  home_mount_host_path       = local.persist_home_storage && local.workspace_storage_root != "" ? local.workspace_storage_home : ""
+  projects_mount_host_path   = local.persist_projects_storage && local.workspace_storage_root != "" ? local.workspace_storage_projects : ""
+  home_volume_resolved       = "coder-${data.coder_workspace.me.id}-home"
+  repo_url                   = trimspace(data.coder_parameter.git_repo_url.value)
+  repo_name                  = local.repo_url != "" ? trimsuffix(basename(local.repo_url), ".git") : ""
+  default_repo_path          = local.repo_name != "" ? "/home/coder/Projects/${local.repo_name}" : "/home/coder/Projects"
   auto_provision_ocabra_key  = data.coder_parameter.autoprovision_ocabra_key.value
   auto_provision_freeapi_key = data.coder_parameter.autoprovision_freeapi_key.value
-  opencode_default_model      = trimspace(data.coder_parameter.opencode_default_model.value)
-  ocabra_endpoint_base_url      = trimspace(var.ocabra_endpoint_base_url)
-  ocabra_key               = trimspace(var.ocabra_key)
-  freeapi_base_url               = trimspace(var.freeapi_base_url)
-  freeapi_key_endpoint           = trimspace(var.freeapi_key_endpoint)
-  continue_default_config = file("${path.module}/continue-config.yaml")
+  opencode_default_model     = trimspace(data.coder_parameter.opencode_default_model.value)
+  ocabra_endpoint_base_url   = trimspace(var.ocabra_endpoint_base_url)
+  ocabra_key                 = trimspace(var.ocabra_key)
+  freeapi_base_url           = trimspace(var.freeapi_base_url)
+  freeapi_key_endpoint       = trimspace(var.freeapi_key_endpoint)
+  continue_default_config    = file("${path.module}/continue-config.yaml")
 }
 
 provider "docker" {
@@ -392,15 +395,19 @@ JSONCFG
     clone_or_update "https://github.com/maorcc/gimp-mcp.git" "$HOME/.local/share/mcp-servers/gimp-mcp"
     clone_or_update "https://github.com/Shriinivas/inkmcp.git" "$HOME/.config/inkscape/extensions/inkmcp"
     clone_or_update "https://github.com/neka-nat/freecad-mcp.git" "$HOME/.local/share/mcp-servers/freecad-mcp"
-    clone_or_update "https://github.com/ahujasid/blender-mcp.git" "$HOME/.local/share/mcp-servers/blender-mcp"
-
-    # Blender MCP addon preinstalado y habilitado en el perfil del usuario.
-    BLENDER_MM="$(blender --version 2>/dev/null | awk 'NR==1 { split($2, v, "."); print v[1] "." v[2] }')"
-    if [ -n "$BLENDER_MM" ] && [ -f "$HOME/.local/share/mcp-servers/blender-mcp/addon.py" ]; then
-      BLENDER_ADDONS_DIR="$HOME/.config/blender/$BLENDER_MM/scripts/addons"
-      mkdir -p "$BLENDER_ADDONS_DIR"
-      cp -f "$HOME/.local/share/mcp-servers/blender-mcp/addon.py" "$BLENDER_ADDONS_DIR/blender_mcp.py"
-      blender --background --factory-startup --python-expr "import bpy; bpy.ops.preferences.addon_enable(module='blender_mcp'); bpy.ops.wm.save_userpref()" >/dev/null 2>&1 || true
+    # Instalar y habilitar el add-on oficial de Blender Lab horneado en la imagen.
+    # El marcador fuerza la migración desde el antiguo add-on comunitario cuando
+    # cambie la revisión oficial incluida en la imagen.
+    BLENDER_MCP_REVISION="$(cat /opt/blender-mcp-revision 2>/dev/null || true)"
+    BLENDER_MCP_MARKER="$HOME/.config/blender/.mks-blender-mcp-revision"
+    if [ -n "$BLENDER_MCP_REVISION" ] && \
+       [ "$(cat "$BLENDER_MCP_MARKER" 2>/dev/null || true)" != "$BLENDER_MCP_REVISION" ]; then
+      if blender --command extension install-file --repo=user_default --enable /opt/blender-mcp-addon.zip >/dev/null 2>&1; then
+        mkdir -p "$(dirname "$BLENDER_MCP_MARKER")"
+        printf '%s\n' "$BLENDER_MCP_REVISION" > "$BLENDER_MCP_MARKER"
+      else
+        echo "WARN: no se pudo instalar el add-on oficial Blender MCP" >&2
+      fi
     fi
 
     mkdir -p "$HOME/.local/share/FreeCAD/Mod" "$HOME/.FreeCAD/Mod"
@@ -494,6 +501,7 @@ INKLAUNCH
     cp -p "$codex_config" "$codex_config_previous" 2>/dev/null || true
     python3 - "$codex_config" <<'PY' || echo "WARN: fallo la configuracion segura de MCP; se conserva el archivo anterior" >&2
 import os
+import re
 import stat
 import sys
 import tempfile
@@ -537,8 +545,7 @@ except tomllib.TOMLDecodeError as exc:
 
 fragments = {
     "blender": '''[mcp_servers.blender]
-command = "uvx"
-args = ["blender-mcp"]''',
+command = "/usr/local/bin/blender-mcp"''',
     "freecad": '''[mcp_servers.freecad]
 command = "uvx"
 args = ["freecad-mcp"]''',
@@ -560,6 +567,16 @@ env = { SLICER_TYPE = "prusaslicer", SLICER_PATH = "/usr/bin/prusa-slicer", TEMP
     "inkscape": '''[mcp_servers.inkscape]
 command = "/home/coder/.local/bin/inkscape-mcp-launcher"''',
 }
+
+# Migrar la sección que administraba la plantilla desde el servidor comunitario
+# al servidor oficial horneado en la imagen, conservando el resto del fichero.
+if "blender" in parsed.get("mcp_servers", {}):
+    content = re.sub(
+        r"(?ms)^\[mcp_servers\.blender\]\n.*?(?=^\[|\Z)",
+        fragments["blender"] + "\n\n",
+        content,
+    )
+    parsed = tomllib.loads(content)
 
 existing = parsed.get("mcp_servers", {})
 missing = [fragment for name, fragment in fragments.items() if name not in existing]
@@ -616,7 +633,7 @@ slicer_env = {
 }
 
 claude_servers = {
-    "blender": {"command": "uvx", "args": ["blender-mcp"]},
+    "blender": {"command": "/usr/local/bin/blender-mcp", "args": []},
     "freecad": {"command": "uvx", "args": ["freecad-mcp"]},
     "kicad": {"command": "node", "args": [kicad_entry], "env": kicad_env},
     "openscad": {"command": "uv", "args": ["run", "--directory", openscad_dir, "openscad-mcp"], "env": openscad_env},
@@ -626,7 +643,7 @@ claude_servers = {
 }
 
 opencode_servers = {
-    "blender": {"type": "local", "enabled": True, "command": ["uvx", "blender-mcp"]},
+    "blender": {"type": "local", "enabled": True, "command": ["/usr/local/bin/blender-mcp"]},
     "freecad": {"type": "local", "enabled": True, "command": ["uvx", "freecad-mcp"]},
     "kicad": {"type": "local", "enabled": True, "command": ["node", kicad_entry], "environment": kicad_env},
     "openscad": {"type": "local", "enabled": True, "command": ["uv", "run", "--directory", openscad_dir, "openscad-mcp"], "environment": openscad_env},
@@ -745,9 +762,8 @@ opencode mcp list
 ## Blender (paso obligatorio)
 
 1. Abre Blender.
-2. Confirma addon activo: `Blender MCP` (`blender_mcp`).
-3. En la vista 3D pulsa `N` y abre la pestaña `BlenderMCP`.
-4. Pulsa `Connect to MCP server` / `Start Server`.
+2. En `Edit > Preferences > Add-ons` confirma que está activo `MCP`, mantenido por Blender Lab.
+3. En las preferencias del add-on activa el servidor local (y, si quieres, su autoarranque).
 
 Si no haces este paso, verás: "Blender no está conectado".
 
@@ -1390,7 +1406,7 @@ kicad_dir = os.path.join(home, ".local", "share", "mcp-servers", "kicad-mcp")
 gimp_dir = os.path.join(home, ".local", "share", "mcp-servers", "gimp-mcp")
 ink_launcher = os.path.join(home, ".local", "bin", "inkscape-mcp-launcher")
 mcp_servers = {
-  "blender": {"type": "local", "enabled": True, "command": ["uvx", "blender-mcp"]},
+  "blender": {"type": "local", "enabled": True, "command": ["/usr/local/bin/blender-mcp"]},
   "freecad": {"type": "local", "enabled": True, "command": ["uvx", "freecad-mcp"]},
   "kicad": {"type": "local", "enabled": True, "command": ["uv", "run", "--directory", kicad_dir, "main.py"]},
   "gimp": {"type": "local", "enabled": True, "command": ["uv", "run", "--directory", gimp_dir, "gimp_mcp_server.py"]},
@@ -1418,25 +1434,25 @@ PY
 EOT
 
   env = {
-    GIT_AUTHOR_NAME       = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
-    GIT_AUTHOR_EMAIL      = data.coder_workspace_owner.me.email
-    GIT_COMMITTER_NAME    = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
-    GIT_COMMITTER_EMAIL   = data.coder_workspace_owner.me.email
-    HOME                  = "/home/coder"
-    OPENCODE_PROVIDER_URL     = ""
-    OPENCODE_API_KEY          = ""
-    OPENCODE_DEFAULT_MODEL    = local.opencode_default_model
-    OCABRA_ENDPOINT_BASE_URL = local.ocabra_endpoint_base_url
-    OCABRA_KEY          = local.ocabra_key
-    FREEAPI_BASE_URL          = local.freeapi_base_url
-    FREEAPI_KEY_ENDPOINT      = local.freeapi_key_endpoint
-    OCABRA_BASE_URL              = ""
-    OCABRA_API_KEY               = ""
-    AUTO_PROVISION_OCABRA_API_KEY = tostring(local.auto_provision_ocabra_key)
+    GIT_AUTHOR_NAME                = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
+    GIT_AUTHOR_EMAIL               = data.coder_workspace_owner.me.email
+    GIT_COMMITTER_NAME             = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
+    GIT_COMMITTER_EMAIL            = data.coder_workspace_owner.me.email
+    HOME                           = "/home/coder"
+    OPENCODE_PROVIDER_URL          = ""
+    OPENCODE_API_KEY               = ""
+    OPENCODE_DEFAULT_MODEL         = local.opencode_default_model
+    OCABRA_ENDPOINT_BASE_URL       = local.ocabra_endpoint_base_url
+    OCABRA_KEY                     = local.ocabra_key
+    FREEAPI_BASE_URL               = local.freeapi_base_url
+    FREEAPI_KEY_ENDPOINT           = local.freeapi_key_endpoint
+    OCABRA_BASE_URL                = ""
+    OCABRA_API_KEY                 = ""
+    AUTO_PROVISION_OCABRA_API_KEY  = tostring(local.auto_provision_ocabra_key)
     AUTO_PROVISION_FREEAPI_API_KEY = tostring(local.auto_provision_freeapi_key)
-    CODER_USER_EMAIL      = data.coder_workspace_owner.me.email
-    CODER_WORKSPACE_NAME       = data.coder_workspace.me.name
-    DEFAULT_REPO_PATH     = local.default_repo_path
+    CODER_USER_EMAIL               = data.coder_workspace_owner.me.email
+    CODER_WORKSPACE_NAME           = data.coder_workspace.me.name
+    DEFAULT_REPO_PATH              = local.default_repo_path
   }
 
   metadata {
@@ -1540,7 +1556,7 @@ resource "coder_script" "opencode_web" {
     echo "OpenCode Web no respondió en $health_url; consulta $log_file" >&2
     exit 1
   EOT
-  depends_on = [module.opencode]
+  depends_on         = [module.opencode]
 }
 
 resource "coder_app" "opencode_web" {

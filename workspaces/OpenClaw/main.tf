@@ -1,16 +1,20 @@
 terraform {
   required_providers {
     coder = {
-      source = "coder/coder"
+      source  = "coder/coder"
+      version = "~> 2.18.0"
     }
     docker = {
-      source = "kreuzwerker/docker"
+      source  = "kreuzwerker/docker"
+      version = "~> 4.6.0"
     }
     null = {
-      source = "hashicorp/null"
+      source  = "hashicorp/null"
+      version = "~> 3.3.0"
     }
     random = {
-      source = "hashicorp/random"
+      source  = "hashicorp/random"
+      version = "~> 3.9.0"
     }
   }
 }
@@ -91,29 +95,29 @@ data "coder_parameter" "openclaw_default_model" {
 }
 
 locals {
-  username                   = data.coder_workspace_owner.me.name
-  workspace_image            = "ghcr.io/makespacemadrid/coder-mks-developer:latest"
-  enable_gpu                 = false
-  enable_dri                 = false
-  home_mount_host_path       = ""
-  host_mount_path            = ""
-  host_mount_uid             = "1000"
-  projects_mount_host_path   = ""
-  ocabra_endpoint_base_url  = trimspace(var.ocabra_endpoint_base_url)
-  ocabra_key           = trimspace(var.ocabra_key)
-  freeapi_base_url           = trimspace(var.freeapi_base_url)
-  freeapi_key_endpoint       = trimspace(var.freeapi_key_endpoint)
-  openai_base_url            = local.ocabra_endpoint_base_url
-  openai_api_key             = ""
-  auto_provision_ocabra_key     = data.coder_parameter.autoprovision_ocabra_key.value
-  auto_provision_freeapi_key = data.coder_parameter.autoprovision_freeapi_key.value
-  openclaw_autostart         = data.coder_parameter.openclaw_autostart.value
-  openclaw_port              = 3333
-  openclaw_gateway_token     = random_password.openclaw_gateway_token.result
-  openclaw_workdir           = trimspace(data.coder_parameter.openclaw_workdir.value)
-  openclaw_workdir_resolved  = local.openclaw_workdir != "" ? local.openclaw_workdir : "/home/coder/Projects"
-  openclaw_default_model     = trimspace(data.coder_parameter.openclaw_default_model.value)
-  coder_access_host          = split("/", data.coder_workspace.me.access_url)[2]
+  username                     = data.coder_workspace_owner.me.name
+  workspace_image              = "ghcr.io/makespacemadrid/coder-mks-developer:latest"
+  enable_gpu                   = false
+  enable_dri                   = false
+  home_mount_host_path         = ""
+  host_mount_path              = ""
+  host_mount_uid               = "1000"
+  projects_mount_host_path     = ""
+  ocabra_endpoint_base_url     = trimspace(var.ocabra_endpoint_base_url)
+  ocabra_key                   = trimspace(var.ocabra_key)
+  freeapi_base_url             = trimspace(var.freeapi_base_url)
+  freeapi_key_endpoint         = trimspace(var.freeapi_key_endpoint)
+  openai_base_url              = local.ocabra_endpoint_base_url
+  openai_api_key               = ""
+  auto_provision_ocabra_key    = data.coder_parameter.autoprovision_ocabra_key.value
+  auto_provision_freeapi_key   = data.coder_parameter.autoprovision_freeapi_key.value
+  openclaw_autostart           = data.coder_parameter.openclaw_autostart.value
+  openclaw_port                = 3333
+  openclaw_gateway_token       = random_password.openclaw_gateway_token.result
+  openclaw_workdir             = trimspace(data.coder_parameter.openclaw_workdir.value)
+  openclaw_workdir_resolved    = local.openclaw_workdir != "" ? local.openclaw_workdir : "/home/coder/Projects"
+  openclaw_default_model       = trimspace(data.coder_parameter.openclaw_default_model.value)
+  coder_access_host            = split("/", data.coder_workspace.me.access_url)[2]
   openclaw_ui_gateway_ws_url   = "wss://${local.coder_access_host}/@${data.coder_workspace_owner.me.name}/${data.coder_workspace.me.name}.main/apps/openclaw-ui/?token=${urlencode(local.openclaw_gateway_token)}"
   openclaw_ui_origin_subdomain = "https://openclaw-ui--${lower(data.coder_workspace.me.name)}--${lower(data.coder_workspace_owner.me.name)}.${local.coder_access_host}"
   openclaw_ui_origin_coder     = "https://${local.coder_access_host}"
@@ -1159,28 +1163,28 @@ OPENCLAWSTART
   EOT
 
   env = {
-    GIT_AUTHOR_NAME                 = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
-    GIT_AUTHOR_EMAIL                = data.coder_workspace_owner.me.email
-    GIT_COMMITTER_NAME              = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
-    GIT_COMMITTER_EMAIL             = data.coder_workspace_owner.me.email
-    HOME                            = "/home/coder"
-    OPENCODE_PROVIDER_URL           = local.openai_base_url
-    OPENCODE_API_KEY                = local.openai_api_key
+    GIT_AUTHOR_NAME                = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
+    GIT_AUTHOR_EMAIL               = data.coder_workspace_owner.me.email
+    GIT_COMMITTER_NAME             = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
+    GIT_COMMITTER_EMAIL            = data.coder_workspace_owner.me.email
+    HOME                           = "/home/coder"
+    OPENCODE_PROVIDER_URL          = local.openai_base_url
+    OPENCODE_API_KEY               = local.openai_api_key
     OCABRA_ENDPOINT_BASE_URL       = local.ocabra_endpoint_base_url
-    OCABRA_KEY                = local.ocabra_key
-    FREEAPI_BASE_URL                = local.freeapi_base_url
-    FREEAPI_KEY_ENDPOINT            = local.freeapi_key_endpoint
-    OCABRA_BASE_URL                    = local.openai_base_url
-    OCABRA_API_KEY                     = local.openai_api_key
-    AUTO_PROVISION_OCABRA_API_KEY      = tostring(local.auto_provision_ocabra_key)
-    AUTO_PROVISION_FREEAPI_API_KEY  = tostring(local.auto_provision_freeapi_key)
-    CODER_USER_EMAIL                = data.coder_workspace_owner.me.email
-    CODER_WORKSPACE_NAME       = data.coder_workspace.me.name
-    OPENCLAW_AUTOSTART              = tostring(local.openclaw_autostart)
-    OPENCLAW_PORT                   = tostring(local.openclaw_port)
-    OPENCLAW_GATEWAY_TOKEN          = local.openclaw_gateway_token
-    OPENCLAW_WORKDIR                = local.openclaw_workdir_resolved
-    OPENCLAW_DEFAULT_MODEL          = local.openclaw_default_model
+    OCABRA_KEY                     = local.ocabra_key
+    FREEAPI_BASE_URL               = local.freeapi_base_url
+    FREEAPI_KEY_ENDPOINT           = local.freeapi_key_endpoint
+    OCABRA_BASE_URL                = local.openai_base_url
+    OCABRA_API_KEY                 = local.openai_api_key
+    AUTO_PROVISION_OCABRA_API_KEY  = tostring(local.auto_provision_ocabra_key)
+    AUTO_PROVISION_FREEAPI_API_KEY = tostring(local.auto_provision_freeapi_key)
+    CODER_USER_EMAIL               = data.coder_workspace_owner.me.email
+    CODER_WORKSPACE_NAME           = data.coder_workspace.me.name
+    OPENCLAW_AUTOSTART             = tostring(local.openclaw_autostart)
+    OPENCLAW_PORT                  = tostring(local.openclaw_port)
+    OPENCLAW_GATEWAY_TOKEN         = local.openclaw_gateway_token
+    OPENCLAW_WORKDIR               = local.openclaw_workdir_resolved
+    OPENCLAW_DEFAULT_MODEL         = local.openclaw_default_model
   }
 }
 
@@ -1212,7 +1216,7 @@ resource "coder_app" "openclaw_ui" {
 }
 
 resource "docker_volume" "home_volume" {
-  name  = "coder-${data.coder_workspace.me.id}-home"
+  name = "coder-${data.coder_workspace.me.id}-home"
 
   lifecycle {
     ignore_changes = all

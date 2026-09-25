@@ -1,13 +1,16 @@
 terraform {
   required_providers {
     coder = {
-      source = "coder/coder"
+      source  = "coder/coder"
+      version = "~> 2.18.0"
     }
     docker = {
-      source = "kreuzwerker/docker"
+      source  = "kreuzwerker/docker"
+      version = "~> 4.6.0"
     }
     null = {
-      source = "hashicorp/null"
+      source  = "hashicorp/null"
+      version = "~> 3.3.0"
     }
   }
 }
@@ -119,33 +122,33 @@ data "coder_parameter" "claude_token" {
 }
 
 locals {
-  username             = data.coder_workspace_owner.me.name
-  workspace_image      = "ghcr.io/makespacemadrid/coder-mks-developer:latest"
-  persist_home_storage           = data.coder_parameter.persist_home_storage.value
-  persist_projects_storage       = data.coder_parameter.persist_projects_storage.value
-  enable_gpu                     = data.coder_parameter.enable_gpu.value
-  enable_dri                     = data.coder_parameter.enable_dri.value
-  host_mount_path                = ""
-  host_mount_uid                 = "1000"
-  workspace_storage_root         = trimspace(var.users_storage)
-  workspace_storage_home         = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}" : ""
-  workspace_storage_projects     = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}/Projects" : ""
-  home_mount_host_path           = local.persist_home_storage && local.workspace_storage_root != "" ? local.workspace_storage_home : ""
-  projects_mount_host_path       = local.persist_projects_storage && local.workspace_storage_root != "" ? local.workspace_storage_projects : ""
-  ocabra_endpoint_base_url      = trimspace(var.ocabra_endpoint_base_url)
-  ocabra_key               = trimspace(var.ocabra_key)
-  freeapi_base_url               = trimspace(var.freeapi_base_url)
-  freeapi_key_endpoint           = trimspace(var.freeapi_key_endpoint)
-  home_volume_resolved = "coder-${data.coder_workspace.me.id}-home"
-  repo_url          = trimspace(data.coder_parameter.git_repo_url.value)
-  repo_name         = local.repo_url != "" ? trimsuffix(basename(local.repo_url), ".git") : ""
-  default_repo_path = local.repo_name != "" ? "/home/coder/Projects/${local.repo_name}" : "/home/coder/Projects"
-  openai_base_url    = ""
-  openai_api_key     = ""
+  username                   = data.coder_workspace_owner.me.name
+  workspace_image            = "ghcr.io/makespacemadrid/coder-mks-developer:latest"
+  persist_home_storage       = data.coder_parameter.persist_home_storage.value
+  persist_projects_storage   = data.coder_parameter.persist_projects_storage.value
+  enable_gpu                 = data.coder_parameter.enable_gpu.value
+  enable_dri                 = data.coder_parameter.enable_dri.value
+  host_mount_path            = ""
+  host_mount_uid             = "1000"
+  workspace_storage_root     = trimspace(var.users_storage)
+  workspace_storage_home     = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}" : ""
+  workspace_storage_projects = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}/Projects" : ""
+  home_mount_host_path       = local.persist_home_storage && local.workspace_storage_root != "" ? local.workspace_storage_home : ""
+  projects_mount_host_path   = local.persist_projects_storage && local.workspace_storage_root != "" ? local.workspace_storage_projects : ""
+  ocabra_endpoint_base_url   = trimspace(var.ocabra_endpoint_base_url)
+  ocabra_key                 = trimspace(var.ocabra_key)
+  freeapi_base_url           = trimspace(var.freeapi_base_url)
+  freeapi_key_endpoint       = trimspace(var.freeapi_key_endpoint)
+  home_volume_resolved       = "coder-${data.coder_workspace.me.id}-home"
+  repo_url                   = trimspace(data.coder_parameter.git_repo_url.value)
+  repo_name                  = local.repo_url != "" ? trimsuffix(basename(local.repo_url), ".git") : ""
+  default_repo_path          = local.repo_name != "" ? "/home/coder/Projects/${local.repo_name}" : "/home/coder/Projects"
+  openai_base_url            = ""
+  openai_api_key             = ""
   auto_provision_freeapi_key = data.coder_parameter.autoprovision_freeapi_key.value
-  claude_token       = trimspace(data.coder_parameter.claude_token.value)
-  install_claude     = local.claude_token != ""
-  continue_default_config = file("${path.module}/continue-config.yaml")
+  claude_token               = trimspace(data.coder_parameter.claude_token.value)
+  install_claude             = local.claude_token != ""
+  continue_default_config    = file("${path.module}/continue-config.yaml")
 }
 
 provider "docker" {
@@ -1120,24 +1123,24 @@ CONTINUECFG
   EOT
 
   env = {
-    GIT_AUTHOR_NAME       = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
-    GIT_AUTHOR_EMAIL      = data.coder_workspace_owner.me.email
-    GIT_COMMITTER_NAME    = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
-    GIT_COMMITTER_EMAIL   = data.coder_workspace_owner.me.email
-    HOME                  = "/home/coder"
-    OPENCODE_PROVIDER_URL     = local.openai_base_url
-    OPENCODE_API_KEY          = local.openai_api_key
-    OCABRA_ENDPOINT_BASE_URL = local.ocabra_endpoint_base_url
-    OCABRA_KEY          = local.ocabra_key
-    FREEAPI_BASE_URL          = local.freeapi_base_url
-    FREEAPI_KEY_ENDPOINT      = local.freeapi_key_endpoint
-    OCABRA_BASE_URL              = local.openai_base_url
-    OCABRA_API_KEY               = local.openai_api_key
+    GIT_AUTHOR_NAME                = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
+    GIT_AUTHOR_EMAIL               = data.coder_workspace_owner.me.email
+    GIT_COMMITTER_NAME             = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
+    GIT_COMMITTER_EMAIL            = data.coder_workspace_owner.me.email
+    HOME                           = "/home/coder"
+    OPENCODE_PROVIDER_URL          = local.openai_base_url
+    OPENCODE_API_KEY               = local.openai_api_key
+    OCABRA_ENDPOINT_BASE_URL       = local.ocabra_endpoint_base_url
+    OCABRA_KEY                     = local.ocabra_key
+    FREEAPI_BASE_URL               = local.freeapi_base_url
+    FREEAPI_KEY_ENDPOINT           = local.freeapi_key_endpoint
+    OCABRA_BASE_URL                = local.openai_base_url
+    OCABRA_API_KEY                 = local.openai_api_key
     AUTO_PROVISION_FREEAPI_API_KEY = tostring(local.auto_provision_freeapi_key)
-    INSTALL_CLAUDE        = tostring(local.install_claude)
-    CODER_USER_EMAIL      = data.coder_workspace_owner.me.email
-    CODER_WORKSPACE_NAME       = data.coder_workspace.me.name
-    DEFAULT_REPO_PATH     = local.default_repo_path
+    INSTALL_CLAUDE                 = tostring(local.install_claude)
+    CODER_USER_EMAIL               = data.coder_workspace_owner.me.email
+    CODER_WORKSPACE_NAME           = data.coder_workspace.me.name
+    DEFAULT_REPO_PATH              = local.default_repo_path
   }
 
   metadata {
@@ -1207,12 +1210,12 @@ CONTINUECFG
 # ---------------------------------------------------------------
 
 module "code-server" {
-  count      = data.coder_workspace.me.start_count
-  source     = "registry.coder.com/coder/code-server/coder"
-  version    = "~> 1.1"
-  agent_id   = coder_agent.main.id
-  folder     = "/home/coder/Projects"
-  order      = 1
+  count    = data.coder_workspace.me.start_count
+  source   = "registry.coder.com/coder/code-server/coder"
+  version  = "~> 1.1"
+  agent_id = coder_agent.main.id
+  folder   = "/home/coder/Projects"
+  order    = 1
 }
 
 module "git-config" {
@@ -1327,7 +1330,7 @@ resource "coder_script" "opencode_web" {
     echo "OpenCode Web no respondió en $health_url; consulta $log_file" >&2
     exit 1
   EOT
-  depends_on = [module.opencode]
+  depends_on         = [module.opencode]
 }
 
 resource "coder_app" "opencode_web" {
@@ -1349,9 +1352,10 @@ resource "coder_app" "opencode_web" {
 }
 
 module "claude-code" {
-  count                   = local.install_claude ? 1 : 0
-  source                  = "registry.coder.com/coder/claude-code/coder"
-  version                 = "~> 4.2"
+  count  = local.install_claude ? 1 : 0
+  source = "registry.coder.com/coder/claude-code/coder"
+  # v5 elimina report_tasks/task_app_id, que esta plantilla sigue utilizando.
+  version                 = ">= 4.7.5, < 5.0.0"
   agent_id                = coder_agent.main.id
   workdir                 = "/home/coder/Projects"
   claude_code_oauth_token = local.claude_token

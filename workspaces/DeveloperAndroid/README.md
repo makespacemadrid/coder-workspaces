@@ -12,7 +12,7 @@ Workspace gráfico KDE/KasmVNC con toolchain Android preinstalado. Usa la imagen
 
 ## Qué incluye
 - Android SDK CLI en `/home/coder/Android/Sdk` con `platform-tools`, emulator y `cmdline-tools;latest` (instala tus propias plataformas/ build-tools según el proyecto).
-- Android Studio Otter 3 Feature Drop (2025.2.3.x).
+- Android Studio Quail 4 Patch 1 (2026.1.4), Android command-line tools 23.0 y Gradle 9.8.0.
 - Java 17, Node.js 24 (npm/pnpm/yarn), git/git-lfs y utilidades de desarrollo.
 - VS Code listo para personalizar tus extensiones (sin bundle preinstalado) y soporte C/C++ vía paquetes base.
 - JetBrains Toolbox + módulo JetBrains de Coder para lanzar IntelliJ IDEA remoto (instala el plugin Android) vía JetBrains Gateway/Coder Desktop.

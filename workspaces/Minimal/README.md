@@ -8,14 +8,14 @@ tags: [docker, dind, workspace, ocabra]
 
 # Minimal (code-server + DinD)
 
-Workspace ligero basado en la imagen oficial `codercom/enterprise-base:ubuntu`, sin escritorio gráfico. Incluye code-server y Docker in Docker mediante módulos de Coder.
+Workspace ligero basado en la imagen oficial fijada a Ubuntu 24.04 LTS (`codercom/example-base:ubuntu-noble`), sin escritorio gráfico. Incluye code-server y Docker in Docker mediante módulos de Coder.
 
 ## Cuándo usarlo
 - Necesitas un entorno minimalista sin escritorio, solo code-server/terminal.
 - Pruebas rápidas con Docker in Docker sin instalar tooling gráfico.
 
 ## Qué incluye
-- Imagen oficial `codercom/enterprise-base:ubuntu` con tooling base y sudo.
+- Imagen oficial `codercom/example-base:ubuntu-noble` con tooling base y sudo.
 - code-server integrado.
 - Docker instalado al iniciar y ejecutando DinD (dockerd dentro del contenedor).
 - OpenCode/Claude opcionales para asistentes de IA (con autoprovision de key Ocabra si se activa).

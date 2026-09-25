@@ -1,5 +1,5 @@
 # Base desktop image with KDE Plasma for Coder workspaces
-FROM codercom/enterprise-base:ubuntu
+FROM codercom/example-base:ubuntu-noble
 
 LABEL org.opencontainers.image.title="coder-mks-desktop-kde" \
       org.opencontainers.image.description="Base desktop image (KDE Plasma) for Coder workspaces" \

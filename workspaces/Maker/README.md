@@ -11,8 +11,8 @@ tags: [design, cad, 3d, electronics, ocabra]
 Template con escritorio KDE/KasmVNC y herramientas de diseño 2D/3D + electrónica usando la imagen `ghcr.io/makespacemadrid/coder-mks-design:latest`.
 
 ## Apps incluidas (imagen base)
-- 2D: Inkscape, GIMP, Krita
-- 3D/CAD: Blender, FreeCAD, OpenSCAD, MeshLab, LibreCAD
+- 2D: Inkscape, GIMP 3.2.6, Krita 5.3.4
+- 3D/CAD: Blender 5.2.2 LTS, FreeCAD 1.1.3, OpenSCAD, MeshLab, LibreCAD
 - Impresión 3D: PrusaSlicer, OrcaSlicer (AppImage)
 - Electrónica/EDA: KiCad (footprints/símbolos/templates), Fritzing, SimulIDE
 - Láser/CNC: LaserGRBL (via Wine)
@@ -20,6 +20,7 @@ Template con escritorio KDE/KasmVNC y herramientas de diseño 2D/3D + electróni
 - Media/imagen: ImageMagick, FFmpeg, ExifTool
 - Docs/tipografía: Pandoc, FontForge
 - Módulos Coder: KasmVNC, Filebrowser, OpenCode. RDP aplica solo a workspaces Windows según [las docs de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops); esta imagen Linux usa KasmVNC.
+- Blender MCP oficial de Blender Lab, con servidor y add-on fijados a una revisión reproducible e instalados sin depender de la red durante el arranque.
 
 - `OpenCode Web` se inicia automáticamente y aparece como app privada del propietario en Coder.
 ## Creación rápida en Coder

@@ -1,5 +1,5 @@
 # Base desktop image with MATE for Coder workspaces
-FROM codercom/enterprise-base:ubuntu
+FROM codercom/example-base:ubuntu-noble
 
 LABEL org.opencontainers.image.title="coder-mks-desktop" \
       org.opencontainers.image.description="Base desktop image (MATE) for Coder workspaces" \

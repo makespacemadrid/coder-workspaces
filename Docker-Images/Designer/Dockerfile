@@ -97,7 +97,7 @@ RUN apt-get update && \
 # KiCad autorouter: Freerouting requiere Java 21 (el sistema trae 11). El jar se
 # hornea en /opt; el template de Maker lo enlaza a ~/.kicad-mcp/freerouting.jar,
 # que es donde lo busca el MCP (check_freerouting/autoroute).
-ARG FREEROUTING_VERSION=2.1.0
+ARG FREEROUTING_VERSION=2.4.1
 RUN apt-get update && \
     apt-get install -y --no-install-recommends openjdk-21-jre-headless && \
     update-alternatives --set java /usr/lib/jvm/java-21-openjdk-amd64/bin/java && \
@@ -173,8 +173,8 @@ fi
 rm -rf /var/lib/apt/lists/*
 EOSH
 
-# Blender 4.5 LTS (binario oficial)
-ARG BLENDER_VERSION=4.5.12
+# Blender 5.2 LTS (binario oficial; requerido por el MCP oficial de Blender Lab)
+ARG BLENDER_VERSION=5.2.2
 RUN <<'EOSH'
 set -e
 BLENDER_DIR="/opt/blender"
@@ -200,6 +200,59 @@ Icon=blender
 Categories=Graphics;3DGraphics;
 Terminal=false
 EOF
+EOSH
+
+# Versiones oficiales modernas para aplicaciones que Ubuntu Noble mantiene muy atrasadas.
+# Se conservan los paquetes APT como dependencias/fallback y se priorizan estos AppImages.
+ARG FREECAD_VERSION=1.1.3
+ARG GIMP_VERSION=3.2.6
+ARG KRITA_VERSION=5.3.4
+RUN <<'EOSH'
+set -e
+install_appimage() {
+  name="$1"
+  url="$2"
+  destination="/opt/appimages/${name}.AppImage"
+  mkdir -p /opt/appimages
+  curl -fL "$url" -o "$destination"
+  chmod +x "$destination"
+  ln -sfn "$destination" "/usr/local/bin/$name"
+}
+install_appimage freecad "https://github.com/FreeCAD/FreeCAD/releases/download/${FREECAD_VERSION}/FreeCAD_${FREECAD_VERSION}-Linux-x86_64-py311.AppImage"
+install_appimage gimp "https://download.gimp.org/gimp/v3.2/linux/GIMP-${GIMP_VERSION}-x86_64.AppImage"
+install_appimage krita "https://download.kde.org/stable/krita/${KRITA_VERSION}/krita-${KRITA_VERSION}-x86_64.AppImage"
+
+cat > /usr/share/applications/org.gimp.GIMP.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=GIMP
+Exec=gimp %U
+Icon=gimp
+Categories=Graphics;2DGraphics;
+Terminal=false
+EOF
+EOSH
+
+# MCP oficial mantenido por Blender Lab, fijado a una revisión reproducible.
+# Se hornean tanto el servidor Python como el paquete del add-on para no depender
+# de Git/PyPI durante el arranque de cada workspace.
+ARG BLENDER_MCP_REVISION=ff54e4d8f6b09502f2f466189cca0e52b4a91643
+RUN <<'EOSH'
+set -e
+source_dir=/opt/blender-mcp-source
+git init "$source_dir"
+git -C "$source_dir" remote add origin https://projects.blender.org/lab/blender_mcp.git
+git -C "$source_dir" fetch --depth 1 origin "$BLENDER_MCP_REVISION"
+git -C "$source_dir" checkout --detach FETCH_HEAD
+test "$(git -C "$source_dir" rev-parse HEAD)" = "$BLENDER_MCP_REVISION"
+python3 -m venv /opt/blender-mcp-venv
+/opt/blender-mcp-venv/bin/pip install --no-cache-dir "$source_dir/mcp"
+ln -sfn /opt/blender-mcp-venv/bin/blender-mcp /usr/local/bin/blender-mcp
+blender --command extension build \
+  --source-dir "$source_dir/addon/blender_mcp_addon" \
+  --output-filepath /opt/blender-mcp-addon.zip
+rm -rf "$source_dir/.git"
+printf '%s\n' "$BLENDER_MCP_REVISION" > /opt/blender-mcp-revision
 EOSH
 
 # Configuración FUSE para permitir AppImages (allow_other)
