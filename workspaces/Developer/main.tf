@@ -192,6 +192,7 @@ locals {
   claude_token               = trimspace(data.coder_parameter.p05_claude_token.value)
   install_claude             = trimspace(data.coder_parameter.p05_claude_token.value) != ""
   continue_default_config    = file("${path.module}/continue-config.yaml")
+  llm_model_sync_script      = file("${path.module}/sync_llm_models.py")
 }
 
 provider "docker" {
@@ -556,13 +557,17 @@ PY
       echo "WARN: cambios de MCP revertidos porque config.toml no supero la validacion TOML" >&2
     fi
     mkdir -p ~/.opencode ~/.config/opencode
-    if [ ! -f ~/.opencode/opencode.json ]; then
-      cat > ~/.opencode/opencode.json <<'JSONCFG'
+    if [ ! -f ~/.config/opencode/opencode.json ]; then
+      if [ -f ~/.opencode/opencode.json ]; then
+        cp ~/.opencode/opencode.json ~/.config/opencode/opencode.json
+      else
+        cat > ~/.config/opencode/opencode.json <<'JSONCFG'
 {}
 JSONCFG
+      fi
     fi
-    ln -sf ~/.opencode/opencode.json ~/.opencode/config.json || true
-    ln -sf ~/.opencode/opencode.json ~/.config/opencode/opencode.json || true
+    ln -sf ~/.config/opencode/opencode.json ~/.opencode/opencode.json || true
+    ln -sf ~/.config/opencode/opencode.json ~/.opencode/config.json || true
 
     # Inicializar /etc/skel la primera vez
     if [ ! -f ~/.init_done ]; then
@@ -586,27 +591,28 @@ JSONCFG
     cat > "$HOME/Desktop/MODELOS-IA.md" <<'IAREADME'
 # Modelos de IA en este workspace
 
-## Gratis y listos (SIN login) - ya aparecen en el selector
-- Ocabra y FreeAPI (infraestructura propia)
-- OpenCode Zen (free): big-pickle (por defecto), deepseek-v4-flash-free,
-  nemotron-3-ultra-free, longcat-2.0-free, mimo-v2.5-free, laguna-s-2.1-free,
-  ling-3.0-tiny-free
+## Listos sin login
 
-## Gratis PERO requieren login: Antigravity y Gemini
-Abre una terminal y ejecuta:
+- Ocabra y FreeAPI se consultan en cada arranque. Solo aparecen modelos que el
+  endpoint confirma como disponibles.
+- OpenCode Zen usa el catálogo mantenido por OpenCode; no se fijan IDs en la
+  plantilla.
+
+## Proveedores con login
+
+Ejecuta:
 
     opencode auth login
 
-Hay DOS logins distintos (puedes hacer ambos):
-  - "Google"      -> desbloquea: gemini-2.5-flash
-  - "Antigravity" -> desbloquea: Claude Opus 4.5, Claude Sonnet 4.5,
-                     Gemini 3 Pro/Flash, gemini-2.5-pro, gemini-3-flash-preview
-Completa el login en el navegador. Si eliges un modelo y da
-"No Antigravity accounts configured", es que te falta el login de Antigravity.
+OpenAI, Google y otros proveedores usan el catálogo actual de OpenCode/models.dev
+y sus variantes de razonamiento. La plantilla no duplica esos modelos, así que
+las altas y retiradas no requieren volver a publicar el workspace.
 
-Se ha ocultado el resto del catalogo (modelos de pago) para reducir ruido.
-Para ver todos: edita ~/.config/opencode/opencode.json y quita
-"enabled_providers" y los "whitelist".
+Antigravity no se instala automáticamente: el antiguo plugin quedó archivado y
+el reemplazo no oficial advierte de posibles bloqueos de cuentas de Google.
+
+Usa `/models` dentro de OpenCode para consultar el catálogo vivo y seleccionar
+un modelo. La configuración existente del usuario se fusiona y no se reemplaza.
 IAREADME
 
     # Entorno virtual de Python listo para usar
@@ -760,17 +766,7 @@ if [ -z "$${OCABRA_KEY:-}" ] || [ -z "$${OCABRA_ENDPOINT_BASE_URL:-}" ]; then
 fi
 payload=$(printf '{"name":"%s","expires_in_days":30}' "$alias")
 resp=$(curl -fsSL -X POST "$KEY_ENDPOINT" -H "Authorization: Bearer $${OCABRA_KEY:-}" -H "Content-Type: application/json" -d "$payload")
-key=$(printf '%s' "$resp" | python3 - <<'PY'
-import json,sys
-try:
-  x=json.load(sys.stdin)
-  d=x if isinstance(x,dict) else {}
-  dd=d.get("data") if isinstance(d.get("data"),dict) else {}
-  print(d.get("key") or d.get("api_key") or d.get("apiKey") or dd.get("key") or dd.get("api_key") or dd.get("apiKey") or "")
-except Exception:
-  print("")
-PY
-)
+key=$(printf '%s' "$resp" | python3 -c 'import sys,json;x=json.load(sys.stdin);d=x if isinstance(x,dict) else {};dd=d.get("data") if isinstance(d.get("data"),dict) else {};print(d.get("key") or d.get("api_key") or d.get("apiKey") or dd.get("key") or dd.get("api_key") or dd.get("apiKey") or "")' 2>/dev/null || true)
 if [ -z "$key" ]; then
   echo "No se obtuvo key de Ocabra" >&2
   exit 1
@@ -779,12 +775,12 @@ export OPENCODE_API_KEY="$key"
 export OPENCODE_PROVIDER_URL="$PROVIDER"
 export OCABRA_BASE_URL="$PROVIDER"
 export OCABRA_API_KEY="$key"
-mkdir -p /home/coder/.opencode
+mkdir -p /home/coder/.opencode /home/coder/.config/opencode
 printf "%s" "$key" > /home/coder/.opencode/.latest_ocabra_key || true
 printf "%s" "$payload" > /home/coder/.opencode/.latest_ocabra_request || true
 python3 - <<'PY'
 import json,os
-path="/home/coder/.opencode/opencode.json"
+path="/home/coder/.config/opencode/opencode.json"
 data={}
 if os.path.exists(path):
   try:
@@ -802,378 +798,28 @@ os.makedirs(os.path.dirname(path),exist_ok=True)
 with open(path,"w") as f:
   json.dump(data,f,indent=2)
 PY
-ln -sf /home/coder/.opencode/opencode.json /home/coder/.opencode/config.json || true
+if [ -x /home/coder/.local/bin/sync-llm-models ]; then
+  /home/coder/.local/bin/sync-llm-models --opencode /home/coder/.config/opencode/opencode.json --continue-config /home/coder/.continue/config.yaml || true
+fi
+ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/opencode.json || true
+ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/config.json || true
 echo "Nueva key guardada y aplicada"
 GENMKS
     sudo chmod +x /usr/local/bin/gen_ocabra_key || true
 
-    # Config inicial de OpenCode (opcional)
-    if [ -n "$${OPENCODE_PROVIDER_URL:-$${OCABRA_ENDPOINT_BASE_URL:-}}" ] || [ -n "$${OCABRA_KEY:-}" ] || [ -n "$${FREEAPI_BASE_URL:-}" ] || [ -n "$${FREEAPI_KEY_ENDPOINT:-}" ] || [ -n "$${OPENCODE_API_KEY:-}" ] || [ -n "$${FREEAPI_API_KEY:-}" ]; then
-      mkdir -p /home/coder/.opencode
-      cat > /home/coder/.opencode/opencode.json <<'JSONCFG'
-{
-  "$schema": "https://opencode.ai/config.json",
-  "compaction": { "auto": true, "prune": true, "tail_turns": 8, "preserve_recent_tokens": 32000, "reserved": 40000 },
-  "plugin": [
-    "opencode-gemini-auth@latest",
-    "opencode-antigravity-auth@1.6.0",
-    "opencode-agent-memory",
-    "opencode-mystatus",
-    "opencode-handoff"
-  ],
-  "enabled_providers": ["opencode", "ocabra", "freeapi", "google"],
-  "provider": {
-    "opencode": {
-      "whitelist": ["big-pickle", "deepseek-v4-flash-free", "nemotron-3-ultra-free", "longcat-2.0-free", "mimo-v2.5-free", "laguna-s-2.1-free", "ling-3.0-tiny-free"]
-    },
-    "openai": {
-      "options": {
-        "reasoningEffort": "medium",
-        "reasoningSummary": "auto",
-        "textVerbosity": "medium",
-        "include": [
-          "reasoning.encrypted_content"
-        ],
-        "store": false
-      },
-      "models": {
-        "gpt-5.1-codex-low": {
-          "name": "GPT 5.1 Codex Low (OAuth)",
-          "limit": {
-            "context": 272000,
-            "output": 128000
-          },
-          "options": {
-            "reasoningEffort": "low",
-            "reasoningSummary": "auto",
-            "textVerbosity": "medium",
-            "include": [
-              "reasoning.encrypted_content"
-            ],
-            "store": false
-          }
-        },
-        "gpt-5.1-codex-medium": {
-          "name": "GPT 5.1 Codex Medium (OAuth)",
-          "limit": {
-            "context": 272000,
-            "output": 128000
-          },
-          "options": {
-            "reasoningEffort": "medium",
-            "reasoningSummary": "auto",
-            "textVerbosity": "medium",
-            "include": [
-              "reasoning.encrypted_content"
-            ],
-            "store": false
-          }
-        },
-        "gpt-5.1-codex-high": {
-          "name": "GPT 5.1 Codex High (OAuth)",
-          "limit": {
-            "context": 272000,
-            "output": 128000
-          },
-          "options": {
-            "reasoningEffort": "high",
-            "reasoningSummary": "detailed",
-            "textVerbosity": "medium",
-            "include": [
-              "reasoning.encrypted_content"
-            ],
-            "store": false
-          }
-        },
-        "gpt-5.1-codex-max": {
-          "name": "GPT 5.1 Codex Max (OAuth)",
-          "limit": {
-            "context": 272000,
-            "output": 128000
-          },
-          "options": {
-            "reasoningEffort": "high",
-            "reasoningSummary": "detailed",
-            "textVerbosity": "medium",
-            "include": [
-              "reasoning.encrypted_content"
-            ],
-            "store": false
-          }
-        },
-        "gpt-5.1-codex-max-low": {
-          "name": "GPT 5.1 Codex Max Low (OAuth)",
-          "limit": {
-            "context": 272000,
-            "output": 128000
-          },
-          "options": {
-            "reasoningEffort": "low",
-            "reasoningSummary": "detailed",
-            "textVerbosity": "medium",
-            "include": [
-              "reasoning.encrypted_content"
-            ],
-            "store": false
-          }
-        },
-        "gpt-5.1-codex-max-medium": {
-          "name": "GPT 5.1 Codex Max Medium (OAuth)",
-          "limit": {
-            "context": 272000,
-            "output": 128000
-          },
-          "options": {
-            "reasoningEffort": "medium",
-            "reasoningSummary": "detailed",
-            "textVerbosity": "medium",
-            "include": [
-              "reasoning.encrypted_content"
-            ],
-            "store": false
-          }
-        },
-        "gpt-5.1-codex-max-high": {
-          "name": "GPT 5.1 Codex Max High (OAuth)",
-          "limit": {
-            "context": 272000,
-            "output": 128000
-          },
-          "options": {
-            "reasoningEffort": "high",
-            "reasoningSummary": "detailed",
-            "textVerbosity": "medium",
-            "include": [
-              "reasoning.encrypted_content"
-            ],
-            "store": false
-          }
-        },
-        "gpt-5.1-codex-max-xhigh": {
-          "name": "GPT 5.1 Codex Max Extra High (OAuth)",
-          "limit": {
-            "context": 272000,
-            "output": 128000
-          },
-          "options": {
-            "reasoningEffort": "xhigh",
-            "reasoningSummary": "detailed",
-            "textVerbosity": "medium",
-            "include": [
-              "reasoning.encrypted_content"
-            ],
-            "store": false
-          }
-        },
-        "gpt-5.1-codex-mini-medium": {
-          "name": "GPT 5.1 Codex Mini Medium (OAuth)",
-          "limit": {
-            "context": 272000,
-            "output": 128000
-          },
-          "options": {
-            "reasoningEffort": "medium",
-            "reasoningSummary": "auto",
-            "textVerbosity": "medium",
-            "include": [
-              "reasoning.encrypted_content"
-            ],
-            "store": false
-          }
-        },
-        "gpt-5.1-codex-mini-high": {
-          "name": "GPT 5.1 Codex Mini High (OAuth)",
-          "limit": {
-            "context": 272000,
-            "output": 128000
-          },
-          "options": {
-            "reasoningEffort": "high",
-            "reasoningSummary": "detailed",
-            "textVerbosity": "medium",
-            "include": [
-              "reasoning.encrypted_content"
-            ],
-            "store": false
-          }
-        },
-        "gpt-5.1-low": {
-          "name": "GPT 5.1 Low (OAuth)",
-          "limit": {
-            "context": 272000,
-            "output": 128000
-          },
-          "options": {
-            "reasoningEffort": "low",
-            "reasoningSummary": "auto",
-            "textVerbosity": "low",
-            "include": [
-              "reasoning.encrypted_content"
-            ],
-            "store": false
-          }
-        },
-        "gpt-5.1-medium": {
-          "name": "GPT 5.1 Medium (OAuth)",
-          "limit": {
-            "context": 272000,
-            "output": 128000
-          },
-          "options": {
-            "reasoningEffort": "medium",
-            "reasoningSummary": "auto",
-            "textVerbosity": "medium",
-            "include": [
-              "reasoning.encrypted_content"
-            ],
-            "store": false
-          }
-        },
-        "gpt-5.1-high": {
-          "name": "GPT 5.1 High (OAuth)",
-          "limit": {
-            "context": 272000,
-            "output": 128000
-          },
-          "options": {
-            "reasoningEffort": "high",
-            "reasoningSummary": "detailed",
-            "textVerbosity": "high",
-            "include": [
-              "reasoning.encrypted_content"
-            ],
-            "store": false
-          }
-        }
-      }
-    },
-    "ocabra": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Ocabra",
-      "options": {
-        "baseURL": "OPENCODE_PROVIDER_URL_VALUE",
-        "apiKey": "OPENCODE_API_KEY_VALUE"
-      },
-      "models": {
-        "gemma4:12b-vllm-ctx256k": { "name": "Gemma 4 12b vLLM (256K)", "limit": { "context": 196608, "output": 16384 } },
-        "gemma4:26b-vllm-ctx64k": { "name": "Gemma 4 26b vLLM (64K)", "limit": { "context": 65536, "output": 16384 } },
-        "nemotron-3-nano:30b-vllm-ctx256k": { "name": "Nemotron 3 Nano 30b vLLM (256K)", "limit": { "context": 196608, "output": 16384 } },
-        "qwen3-coder:30b-vllm-ctx56k": { "name": "Qwen3 Coder 30b vLLM (56K)", "limit": { "context": 57344, "output": 32768 } },
-        "qwen3.5:27b-vllm-ctx64k": { "name": "Qwen3.5 27b vLLM (64K)", "limit": { "context": 65536, "output": 16384 } },
-        "qwen3.6:35b-vllm-ctx64k": { "name": "Qwen3.6 35b vLLM (64K)", "limit": { "context": 65536, "output": 16384 } },
-        "gemma4:12b-ctx256k": { "name": "Gemma 4 12b (256K)", "limit": { "context": 196608, "output": 16384 } },
-        "gemma4:26b-ctx160k": { "name": "Gemma 4 26b (160K)", "limit": { "context": 163840, "output": 16384 } },
-        "ministral-3:14b-ctx128k": { "name": "Ministral 3 14b (128K)", "limit": { "context": 131072, "output": 8192 } },
-        "nemotron-3-nano:30b-ctx256k": { "name": "Nemotron 3 Nano 30b (256K)", "limit": { "context": 196608, "output": 16384 } },
-        "nemotron-3-nano:30b-ctx384k": { "name": "Nemotron 3 Nano 30b (384K)", "limit": { "context": 196608, "output": 16384 } },
-        "nemotron3:33b-ctx64k": { "name": "Nemotron3 33b (64K)", "limit": { "context": 65536, "output": 8192 } },
-        "qwen3-coder:30b-ctx256k": { "name": "Qwen3 Coder 30b (256K)", "limit": { "context": 196608, "output": 32768 } },
-        "qwen3.5:27b-ctx96k": { "name": "Qwen3.5 27b (96K)", "limit": { "context": 98304, "output": 16384 } },
-        "qwen3.6:ctx128k": { "name": "Qwen3.6 (128K)", "limit": { "context": 131072, "output": 16384 } },
-        "ravenx-256k": { "name": "RavenX CyberAgent (256K)", "limit": { "context": 196608, "output": 32768 } }
-      }
-    },
-    "google": {
-      "whitelist": ["antigravity-claude-opus-4-5-thinking", "antigravity-claude-sonnet-4-5-thinking", "antigravity-gemini-3-pro", "antigravity-gemini-3-flash", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-3-flash-preview"],
-      "models": {
-        "antigravity-claude-opus-4-5-thinking": {
-          "name": "Claude Opus 4.5 Thinking (Antigravity)",
-          "options": { "thinkingBudget": 10000, "includeThoughts": true }
-        },
-        "antigravity-claude-sonnet-4-5-thinking": {
-          "name": "Claude Sonnet 4.5 Thinking (Antigravity)",
-          "options": { "thinkingBudget": 5000, "includeThoughts": true }
-        },
-        "antigravity-gemini-3-pro": {
-          "name": "Gemini 3 Pro (Antigravity)",
-          "options": { "thinkingLevel": "high", "includeThoughts": true }
-        },
-        "antigravity-gemini-3-flash": { "name": "Gemini 3 Flash (Antigravity)" },
-        "gemini-2.5-pro": {
-          "name": "Gemini 2.5 Pro (Free Tier)",
-          "options": { "thinkingBudget": 5000, "includeThoughts": true }
-        },
-        "gemini-2.5-flash": { "name": "Gemini 2.5 Flash (Free Tier)" },
-        "gemini-3-pro-preview": {
-          "name": "Gemini 3 Pro Preview (Free Tier)",
-          "options": { "thinkingLevel": "high", "includeThoughts": true }
-        },
-        "gemini-3-flash-preview": { "name": "Gemini 3 Flash Preview (Free Tier)" }
-      }
-    }
-  }
-}
-JSONCFG
-      base_url="$${OPENCODE_PROVIDER_URL:-$${OCABRA_ENDPOINT_BASE_URL:-}}"
-      sed -i "s|OPENCODE_PROVIDER_URL_VALUE|$base_url|g" /home/coder/.opencode/opencode.json
-      sed -i "s|OPENCODE_API_KEY_VALUE|$${OPENCODE_API_KEY}|g" /home/coder/.opencode/opencode.json
-      FREEAPI_BASE="$${FREEAPI_BASE_URL:-}"
-      FREEAPI_KEY="$${FREEAPI_API_KEY:-}"
-      FREEAPI_BASE="$${FREEAPI_BASE%/}"
-      if [ -n "$FREEAPI_BASE" ]; then
-        FREEAPI_BASE_URL="$FREEAPI_BASE" FREEAPI_API_KEY="$FREEAPI_KEY" python3 - <<'PY'
-import json, os, urllib.request
-
-path = "/home/coder/.opencode/opencode.json"
-base_url = (os.environ.get("FREEAPI_BASE_URL") or "").strip().rstrip("/")
-api_key = (os.environ.get("FREEAPI_API_KEY") or "").strip()
-if not base_url:
-    raise SystemExit(0)
-
-with open(path, "r", encoding="utf-8") as f:
-    data = json.load(f)
-
-def norm_model_id(raw):
-    if not isinstance(raw, str):
-        return ""
-    s = raw.strip()
-    if not s:
-        return ""
-    if "//" in s:
-        s = s.split("//", 1)[1]
-    if "/" in s:
-        s = s.rsplit("/", 1)[-1]
-    return s
-
-model_ids = []
-for p in ("/v1/models", "/models"):
-    try:
-        headers = {"Accept": "application/json"}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-        req = urllib.request.Request(f"{base_url}{p}", headers=headers)
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            payload = json.loads(resp.read().decode("utf-8", "replace"))
-        items = payload.get("data", payload if isinstance(payload, list) else [])
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            mid = norm_model_id(item.get("id"))
-            if mid.endswith("-ha"):
-                model_ids.append(mid)
-        if model_ids:
-            break
-    except Exception:
-        continue
-
-models = {}
-for mid in sorted(set(model_ids)):
-    models[mid] = {"name": mid}
-
-provider = data.setdefault("provider", {})
-provider["freeapi"] = {
-    "npm": "@ai-sdk/openai-compatible",
-    "name": "FreeAPI",
-    "options": {"baseURL": base_url, "apiKey": api_key},
-    "models": models,
-}
-
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2, ensure_ascii=False)
+    # Sincronizar catálogos vivos sin reemplazar la configuración del usuario.
+    mkdir -p /home/coder/.local/bin /home/coder/.opencode /home/coder/.config/opencode /home/coder/.continue
+    cat > /home/coder/.local/bin/sync-llm-models <<'PY'
+${local.llm_model_sync_script}
 PY
-      fi
-      chown -R "$USER:$USER" /home/coder/.opencode || true
-    fi
+    chmod 0755 /home/coder/.local/bin/sync-llm-models
+    /home/coder/.local/bin/sync-llm-models \
+      --opencode /home/coder/.config/opencode/opencode.json \
+      --continue-config /home/coder/.continue/config.yaml || \
+      echo "WARN: no se pudo sincronizar el catálogo de modelos; se conserva la configuración anterior" >&2
+    ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/opencode.json || true
+    ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/config.json || true
+    chown -R "$USER:$USER" /home/coder/.opencode /home/coder/.config/opencode /home/coder/.continue /home/coder/.local/bin || true
 
     # --------------------------------------------------------------------------------
     # UV: instalador universal para CLIs Python (opcional)
@@ -1663,11 +1309,15 @@ resource "docker_container" "workspace" {
     <<-EOT
       set -e
       mkdir -p /home/coder/.opencode /home/coder/.config/opencode
-      if [ ! -f /home/coder/.opencode/opencode.json ]; then
-        printf '{}' > /home/coder/.opencode/opencode.json
+      if [ ! -f /home/coder/.config/opencode/opencode.json ]; then
+        if [ -f /home/coder/.opencode/opencode.json ]; then
+          cp /home/coder/.opencode/opencode.json /home/coder/.config/opencode/opencode.json
+        else
+          printf '{}' > /home/coder/.config/opencode/opencode.json
+        fi
       fi
-      ln -sf /home/coder/.opencode/opencode.json /home/coder/.opencode/config.json || true
-      ln -sf /home/coder/.opencode/opencode.json /home/coder/.config/opencode/opencode.json || true
+      ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/opencode.json || true
+      ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/config.json || true
       ${replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")}
     EOT
   ]

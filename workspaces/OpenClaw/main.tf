@@ -88,9 +88,9 @@ data "coder_parameter" "openclaw_workdir" {
 data "coder_parameter" "openclaw_default_model" {
   name         = "05_openclaw_default_model"
   display_name = "[OpenClaw] Modelo por defecto"
-  description  = "Modelo por defecto de OpenClaw (ej. ocabra/gemma4:12b-ctx256k). Si se deja vacío, no se fuerza."
+  description  = "Modelo por defecto de OpenClaw. 'auto' elige el modelo de mayor capacidad descubierto en Ocabra/FreeAPI; también admite provider/model o vacío."
   type         = "string"
-  default      = "ocabra/gemma4:12b-ctx256k"
+  default      = "auto"
   mutable      = true
 }
 
@@ -121,6 +121,7 @@ locals {
   openclaw_ui_gateway_ws_url   = "wss://${local.coder_access_host}/@${data.coder_workspace_owner.me.name}/${data.coder_workspace.me.name}.main/apps/openclaw-ui/?token=${urlencode(local.openclaw_gateway_token)}"
   openclaw_ui_origin_subdomain = "https://openclaw-ui--${lower(data.coder_workspace.me.name)}--${lower(data.coder_workspace_owner.me.name)}.${local.coder_access_host}"
   openclaw_ui_origin_coder     = "https://${local.coder_access_host}"
+  llm_model_sync_script        = file("${path.module}/sync_llm_models.py")
 }
 
 resource "random_password" "openclaw_gateway_token" {
@@ -468,13 +469,17 @@ PY
     fi
 
     mkdir -p ~/.opencode ~/.config/opencode
-    if [ ! -f ~/.opencode/opencode.json ]; then
-      cat > ~/.opencode/opencode.json <<'JSONCFG'
+    if [ ! -f ~/.config/opencode/opencode.json ]; then
+      if [ -f ~/.opencode/opencode.json ]; then
+        cp ~/.opencode/opencode.json ~/.config/opencode/opencode.json
+      else
+        cat > ~/.config/opencode/opencode.json <<'JSONCFG'
 {}
 JSONCFG
+      fi
     fi
-    ln -sf ~/.opencode/opencode.json ~/.opencode/config.json || true
-    ln -sf ~/.opencode/opencode.json ~/.config/opencode/opencode.json || true
+    ln -sf ~/.config/opencode/opencode.json ~/.opencode/opencode.json || true
+    ln -sf ~/.config/opencode/opencode.json ~/.opencode/config.json || true
 
     # Asegurar permisos de pipx para el usuario actual
     sudo mkdir -p /opt/pipx /opt/pipx/bin
@@ -553,6 +558,18 @@ JSONCFG
         fi
       fi
     fi
+
+    # Sincronizar OpenCode y dejar disponible el mismo descubridor para OpenClaw.
+    mkdir -p /home/coder/.local/bin /home/coder/.opencode /home/coder/.config/opencode
+    cat > /home/coder/.local/bin/sync-llm-models <<'PY'
+${local.llm_model_sync_script}
+PY
+    chmod 0755 /home/coder/.local/bin/sync-llm-models
+    /home/coder/.local/bin/sync-llm-models \
+      --opencode /home/coder/.config/opencode/opencode.json || \
+      echo "WARN: no se pudo sincronizar el catálogo de OpenCode; se conserva la configuración anterior" >&2
+    ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/opencode.json || true
+    ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/config.json || true
 
     # Propagar variables a nuevas shells interactivas
     if [ -n "$${OPENCODE_PROVIDER_URL:-}" ]; then
@@ -829,220 +846,33 @@ with open(path, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2)
 PY
       fi
-      if [ -n "$${OPENAI_BASE_URL:-}" ]; then
-        ocabra_provider_json=$(python3 - <<'PY'
-import json, os
-cfg = {
-    "baseUrl": os.environ.get("OPENAI_BASE_URL", ""),
-    "auth": "api-key",
-    "api": "openai-completions",
-    "models": [
-        {"id": "gemma4:12b-ctx256k", "name": "Gemma 4 12b (256K)", "reasoning": True, "input": ["text"], "contextWindow": 196608, "maxTokens": 16384},
-        {"id": "qwen3-coder:30b-ctx256k", "name": "Qwen3 Coder 30b (256K)", "reasoning": False, "input": ["text"], "contextWindow": 196608, "maxTokens": 32768},
-        {"id": "nemotron-3-nano:30b-ctx384k", "name": "Nemotron 3 Nano 30b (384K)", "reasoning": True, "input": ["text"], "contextWindow": 196608, "maxTokens": 16384},
-        {"id": "nemotron-3-nano:30b-ctx256k", "name": "Nemotron 3 Nano 30b (256K)", "reasoning": True, "input": ["text"], "contextWindow": 196608, "maxTokens": 16384},
-        {"id": "qwen3.6:ctx128k", "name": "Qwen3.6 (128K)", "reasoning": True, "input": ["text"], "contextWindow": 131072, "maxTokens": 16384},
-        {"id": "gemma4:26b-ctx160k", "name": "Gemma 4 26b (160K)", "reasoning": True, "input": ["text"], "contextWindow": 163840, "maxTokens": 16384},
-        {"id": "ministral-3:14b-ctx128k", "name": "Ministral 3 14b (128K)", "reasoning": True, "input": ["text"], "contextWindow": 131072, "maxTokens": 8192},
-        {"id": "qwen3.5:27b-ctx96k", "name": "Qwen3.5 27b (96K)", "reasoning": True, "input": ["text"], "contextWindow": 98304, "maxTokens": 16384},
-        {"id": "nemotron3:33b-ctx64k", "name": "Nemotron3 33b (64K)", "reasoning": True, "input": ["text"], "contextWindow": 65536, "maxTokens": 8192},
-        {"id": "ravenx-256k", "name": "RavenX CyberAgent (256K)", "reasoning": False, "input": ["text"], "contextWindow": 196608, "maxTokens": 32768},
-    ],
-}
-print(json.dumps(cfg, separators=(",", ":")))
-PY
-)
-        openclaw config set models.providers.ocabra "$ocabra_provider_json" >/dev/null 2>&1 || true
-      fi
-      if [ -n "$${FREEAPI_BASE_URL:-}" ]; then
-        freeapi_provider_json=$(python3 - <<'PY'
-import json, os, urllib.request
+      # OpenClaw consume exactamente los mismos catálogos vivos que OpenCode.
+      for provider_id in ocabra freeapi; do
+        case "$provider_id" in
+          ocabra) provider_base="$${OPENAI_BASE_URL:-}" ;;
+          freeapi) provider_base="$${FREEAPI_BASE_URL:-}" ;;
+        esac
+        [ -n "$provider_base" ] || continue
+        provider_json=$(/home/coder/.local/bin/sync-llm-models --openclaw-provider "$provider_id" 2>/dev/null || echo "{}")
+        has_models=$(PROVIDER_JSON="$provider_json" python3 -c 'import json,os; data=json.loads(os.environ.get("PROVIDER_JSON", "{}")); print("1" if data.get("models") else "0")' 2>/dev/null || echo 0)
+        if [ "$has_models" = "1" ]; then
+          openclaw config set "models.providers.$provider_id" "$provider_json" >/dev/null 2>&1 || true
+        fi
+      done
 
-def norm_model_id(raw):
-    if not isinstance(raw, str):
-        return ""
-    s = raw.strip()
-    if not s:
-        return ""
-    if "//" in s:
-        s = s.split("//", 1)[1]
-    if "/" in s:
-        s = s.rsplit("/", 1)[-1]
-    return s
-
-base_url = os.environ.get("FREEAPI_BASE_URL", "").strip().rstrip("/")
-api_key = os.environ.get("FREEAPI_API_KEY", "").strip()
-discovered_ids = []
-for path in ("/v1/models", "/models"):
-    if not base_url:
-        continue
-    try:
-        headers = {"Accept": "application/json"}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-        req = urllib.request.Request(f"{base_url}{path}", headers=headers)
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            payload = json.loads(resp.read().decode("utf-8", "replace"))
-        items = payload.get("data", payload if isinstance(payload, list) else [])
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            model_id = norm_model_id(item.get("id"))
-            if model_id.endswith("-ha"):
-                discovered_ids.append(model_id)
-        if discovered_ids:
-            break
-    except Exception:
-        continue
-discovered_ids = sorted(set(discovered_ids))
-
-# Enriquecer capacidades/tokens/costes desde /model/info (LiteLLM-compatible).
-meta = {}
-for path in ("/v1/model/info", "/model/info"):
-    if not base_url:
-        continue
-    try:
-        headers = {"Accept": "application/json"}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-        req = urllib.request.Request(f"{base_url}{path}", headers=headers)
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            payload = json.loads(resp.read().decode("utf-8", "replace"))
-        rows = payload.get("data", payload if isinstance(payload, list) else [])
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            model_id = norm_model_id(row.get("model_name") or row.get("id"))
-            if not model_id.endswith("-ha"):
-                continue
-            mi = row.get("model_info", {}) if isinstance(row.get("model_info"), dict) else {}
-            lp = row.get("litellm_params", {}) if isinstance(row.get("litellm_params"), dict) else {}
-            tags = lp.get("tags", [])
-            tags = tags if isinstance(tags, list) else []
-
-            entry = meta.setdefault(model_id, {
-                "contextWindow": 0,
-                "maxTokens": 0,
-                "reasoning": False,
-                "input": {"text"},
-                "cost": {"input": None, "output": None, "cacheRead": None, "cacheWrite": None},
-            })
-
-            # Tokens
-            in_tok = mi.get("max_input_tokens") or mi.get("context_window") or mi.get("max_tokens")
-            out_tok = (
-                mi.get("max_output_tokens")
-                or mi.get("max_completion_tokens")
-                or mi.get("output_tokens")
-                or mi.get("max_tokens")
-            )
-            for val in (in_tok,):
-                if isinstance(val, int) and val > entry["contextWindow"]:
-                    entry["contextWindow"] = val
-            for val in (out_tok,):
-                if isinstance(val, int) and val > entry["maxTokens"]:
-                    entry["maxTokens"] = val
-
-            # Capacidades
-            tagset = {t for t in tags if isinstance(t, str)}
-            if (
-                any("capability:thinking" == t for t in tagset)
-                or bool(lp.get("merge_reasoning_content_in_choices"))
-                or bool(mi.get("supports_reasoning"))
-            ):
-                entry["reasoning"] = True
-            if any("capability:vision" == t or "capability:image" == t for t in tagset) or bool(mi.get("supports_vision")):
-                entry["input"].add("image")
-            if any("capability:audio" == t for t in tagset) or bool(mi.get("supports_audio_input")):
-                entry["input"].add("audio")
-
-            # Costes
-            cmap = {
-                "input": lp.get("input_cost_per_token"),
-                "output": lp.get("output_cost_per_token"),
-                "cacheRead": lp.get("cache_read_input_token_cost"),
-                "cacheWrite": lp.get("cache_creation_input_token_cost"),
-            }
-            for k, v in cmap.items():
-                if isinstance(v, (int, float)):
-                    entry["cost"][k] = v
-    except Exception:
-        continue
-
-models = []
-for model_id in discovered_ids:
-    m = meta.get(model_id, {})
-    context_window = m.get("contextWindow") if isinstance(m.get("contextWindow"), int) and m.get("contextWindow", 0) > 0 else 32768
-    max_tokens = m.get("maxTokens") if isinstance(m.get("maxTokens"), int) and m.get("maxTokens", 0) > 0 else 8192
-    reasoning = bool(m.get("reasoning")) or model_id.startswith("qwen3")
-    inputs = sorted(m.get("input", {"text"})) if isinstance(m.get("input"), set) else ["text"]
-    cost = m.get("cost") if isinstance(m.get("cost"), dict) else {}
-    for key in ("input", "output", "cacheRead", "cacheWrite"):
-        if not isinstance(cost.get(key), (int, float)):
-            cost[key] = 0
-    models.append({
-        "id": model_id,
-        "name": model_id,
-        "reasoning": reasoning,
-        "input": inputs,
-        "contextWindow": context_window,
-        "maxTokens": max_tokens,
-        "cost": cost,
-    })
-cfg = {
-    "baseUrl": base_url,
-    "auth": "api-key",
-    "api": "openai-completions",
-    "models": models,
-}
-print(json.dumps(cfg, separators=(",", ":")))
-PY
-)
-        openclaw config set models.providers.freeapi "$freeapi_provider_json" >/dev/null 2>&1 || true
-      fi
-      # Exponer en el selector de agentes todos los modelos iniciales configurados.
-      has_ocabra=0
-      has_freeapi=0
-      if openclaw config get models.providers.ocabra >/dev/null 2>&1; then
-        has_ocabra=1
-      fi
-      if openclaw config get models.providers.freeapi >/dev/null 2>&1; then
-        has_freeapi=1
-      fi
-      freeapi_models_json="[]"
-      if [ "$has_freeapi" = "1" ]; then
-        freeapi_provider_cfg_json=$(openclaw config get models.providers.freeapi --json 2>/dev/null || echo "{}")
-        freeapi_models_json=$(FREEAPI_PROVIDER_CFG_JSON="$freeapi_provider_cfg_json" python3 - <<'PY'
-import json, os
-try:
-    cfg = json.loads(os.environ.get("FREEAPI_PROVIDER_CFG_JSON", "{}"))
-except Exception:
-    cfg = {}
-models = cfg.get("models", [])
-ids = []
-for item in models:
-    if isinstance(item, dict):
-        model_id = item.get("id")
-        if isinstance(model_id, str) and model_id.endswith("-ha"):
-            ids.append(model_id)
-print(json.dumps(sorted(set(ids)), separators=(",", ":")))
-PY
-)
-      fi
-      allowed_models_json=$(HAS_OCABRA="$has_ocabra" HAS_FREEAPI="$has_freeapi" FREEAPI_MODELS_JSON="$freeapi_models_json" python3 - <<'PY'
+      ocabra_provider_cfg_json=$(openclaw config get models.providers.ocabra --json 2>/dev/null || echo "{}")
+      freeapi_provider_cfg_json=$(openclaw config get models.providers.freeapi --json 2>/dev/null || echo "{}")
+      allowed_models_json=$(OCABRA_PROVIDER_CFG_JSON="$ocabra_provider_cfg_json" FREEAPI_PROVIDER_CFG_JSON="$freeapi_provider_cfg_json" python3 - <<'PY'
 import json, os
 allowed = {}
-if os.environ.get("HAS_OCABRA") == "1":
-    for model in ("gemma4:12b-ctx256k", "qwen3-coder:30b-ctx256k", "nemotron-3-nano:30b-ctx384k", "nemotron-3-nano:30b-ctx256k", "qwen3.6:ctx128k", "gemma4:26b-ctx160k", "ministral-3:14b-ctx128k", "qwen3.5:27b-ctx96k", "nemotron3:33b-ctx64k", "ravenx-256k"):
-        allowed[f"ocabra/{model}"] = {}
-if os.environ.get("HAS_FREEAPI") == "1":
+for provider_id, variable in (("ocabra", "OCABRA_PROVIDER_CFG_JSON"), ("freeapi", "FREEAPI_PROVIDER_CFG_JSON")):
     try:
-        freeapi_models = json.loads(os.environ.get("FREEAPI_MODELS_JSON", "[]"))
+        config = json.loads(os.environ.get(variable, "{}"))
     except Exception:
-        freeapi_models = []
-    for model in freeapi_models:
-        if isinstance(model, str) and model.endswith("-ha"):
-            allowed[f"freeapi/{model}"] = {}
+        config = {}
+    for model in config.get("models", []):
+        if isinstance(model, dict) and isinstance(model.get("id"), str):
+            allowed[f"{provider_id}/{model['id']}"] = {}
 print(json.dumps(allowed, separators=(",", ":")))
 PY
 )
@@ -1069,14 +899,19 @@ PY
       openclaw config set --json agents.list "$merged_agents_list_json" >/dev/null 2>&1 || true
       if [ -n "$${OPENCLAW_DEFAULT_MODEL:-}" ]; then
         target_model="$OPENCLAW_DEFAULT_MODEL"
-        if ! printf '%s' "$target_model" | grep -q '/'; then
-          target_model="ocabra/$target_model"
+        if [ "$target_model" = "auto" ]; then
+          target_model=$(/home/coder/.local/bin/sync-llm-models --best-model 2>/dev/null || true)
         fi
-        target_provider="$${target_model%%/*}"
-        if openclaw config get "models.providers.$target_provider" >/dev/null 2>&1; then
-          openclaw models set "$target_model" >/dev/null 2>&1 || true
-        else
-          echo "WARN: modelo por defecto '$target_model' omitido: provider '$target_provider' no configurado." >&2
+        if [ -n "$target_model" ]; then
+          if ! printf '%s' "$target_model" | grep -q '/'; then
+            target_model="ocabra/$target_model"
+          fi
+          target_provider="$${target_model%%/*}"
+          if openclaw config get "models.providers.$target_provider" >/dev/null 2>&1; then
+            openclaw models set "$target_model" >/dev/null 2>&1 || true
+          else
+            echo "WARN: modelo por defecto '$target_model' omitido: provider '$target_provider' no configurado." >&2
+          fi
         fi
       fi
     fi
@@ -1087,7 +922,7 @@ PY
 OPENCLAW_PORT="$${OPENCLAW_PORT:-3333}"
 OPENCLAW_GATEWAY_TOKEN="$${OPENCLAW_GATEWAY_TOKEN:-}"
 OPENCLAW_WORKDIR="$${OPENCLAW_WORKDIR:-$HOME/Projects}"
-OPENCLAW_DEFAULT_MODEL="$${OPENCLAW_DEFAULT_MODEL:-ocabra/gemma4:12b-ctx256k}"
+OPENCLAW_DEFAULT_MODEL="$${OPENCLAW_DEFAULT_MODEL:-auto}"
 EOF
     chmod 600 "$HOME/.local/state/openclaw/runtime.env"
 
@@ -1282,11 +1117,15 @@ resource "docker_container" "workspace" {
     <<-EOT
       set -e
       mkdir -p /home/coder/.opencode /home/coder/.config/opencode
-      if [ ! -f /home/coder/.opencode/opencode.json ]; then
-        printf '{}' > /home/coder/.opencode/opencode.json
+      if [ ! -f /home/coder/.config/opencode/opencode.json ]; then
+        if [ -f /home/coder/.opencode/opencode.json ]; then
+          cp /home/coder/.opencode/opencode.json /home/coder/.config/opencode/opencode.json
+        else
+          printf '{}' > /home/coder/.config/opencode/opencode.json
+        fi
       fi
-      ln -sf /home/coder/.opencode/opencode.json /home/coder/.opencode/config.json || true
-      ln -sf /home/coder/.opencode/opencode.json /home/coder/.config/opencode/opencode.json || true
+      ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/opencode.json || true
+      ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/config.json || true
       ${replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")}
     EOT
   ]

@@ -153,6 +153,7 @@ locals {
   claude_token               = trimspace(data.coder_parameter.claude_token.value)
   install_claude             = local.claude_token != ""
   continue_default_config    = file("${path.module}/continue-config.yaml")
+  llm_model_sync_script      = file("${path.module}/sync_llm_models.py")
 }
 
 provider "docker" {
@@ -247,13 +248,17 @@ for path in paths:
         json.dump(data, f, indent=2)
 PY
     mkdir -p ~/.opencode ~/.config/opencode
-    if [ ! -f ~/.opencode/opencode.json ]; then
-      cat > ~/.opencode/opencode.json <<'JSONCFG'
+    if [ ! -f ~/.config/opencode/opencode.json ]; then
+      if [ -f ~/.opencode/opencode.json ]; then
+        cp ~/.opencode/opencode.json ~/.config/opencode/opencode.json
+      else
+        cat > ~/.config/opencode/opencode.json <<'JSONCFG'
 {}
 JSONCFG
+      fi
     fi
-    ln -sf ~/.opencode/opencode.json ~/.opencode/config.json || true
-    ln -sf ~/.opencode/opencode.json ~/.config/opencode/opencode.json || true
+    ln -sf ~/.config/opencode/opencode.json ~/.opencode/opencode.json || true
+    ln -sf ~/.config/opencode/opencode.json ~/.opencode/config.json || true
 
     # Asegurar permisos de pipx para el usuario actual
     sudo mkdir -p /opt/pipx /opt/pipx/bin
@@ -335,100 +340,19 @@ JSONCFG
       fi
     fi
 
-    # Aplicar providers de OpenCode (custom + freeapi) en opencode.json
-    if [ -n "$${OPENCODE_PROVIDER_URL:-$${OCABRA_ENDPOINT_BASE_URL:-}}" ] || [ -n "$${OCABRA_KEY:-}" ] || [ -n "$${FREEAPI_BASE_URL:-}" ] || [ -n "$${FREEAPI_KEY_ENDPOINT:-}" ] || [ -n "$${OPENCODE_API_KEY:-}" ] || [ -n "$${FREEAPI_API_KEY:-}" ]; then
-      mkdir -p /home/coder/.opencode
-      if [ ! -f /home/coder/.opencode/opencode.json ]; then
-        printf '{}' > /home/coder/.opencode/opencode.json
-      fi
-      OPENCODE_PROVIDER_URL="$${OPENCODE_PROVIDER_URL:-$${OCABRA_ENDPOINT_BASE_URL:-}}" \
-      OPENCODE_API_KEY="$${OPENCODE_API_KEY:-}" \
-      FREEAPI_BASE_URL="$${FREEAPI_BASE_URL:-}" \
-      FREEAPI_API_KEY="$${FREEAPI_API_KEY:-}" \
-      python3 - <<'PY'
-import json, os, urllib.request
-path="/home/coder/.opencode/opencode.json"
-try:
-    with open(path,"r",encoding="utf-8") as f:
-        data=json.load(f)
-except Exception:
-    data={}
-data["enabled_providers"]=["opencode","ocabra","freeapi"]
-data.setdefault("provider",{}).setdefault("opencode",{})["whitelist"]=['big-pickle', 'deepseek-v4-flash-free', 'nemotron-3-ultra-free', 'longcat-2.0-free', 'mimo-v2.5-free', 'laguna-s-2.1-free', 'ling-3.0-tiny-free']
-data["compaction"]={"auto":True,"prune":True,"tail_turns":8,"preserve_recent_tokens":32000,"reserved":40000}
-provider=data.setdefault("provider",{})
-base=(os.environ.get("OPENCODE_PROVIDER_URL") or "").strip().rstrip("/")
-key=(os.environ.get("OPENCODE_API_KEY") or "").strip()
-if key and base:
-    provider["ocabra"]={
-        "npm":"@ai-sdk/openai-compatible",
-        "name":"Ocabra",
-        "options":{"baseURL":base,"apiKey":key},
-        "models":{
-            "gemma4:12b-vllm-ctx256k": { "name": "Gemma 4 12b vLLM (256K)", "limit": { "context": 196608, "output": 16384 } },
-            "gemma4:26b-vllm-ctx64k": { "name": "Gemma 4 26b vLLM (64K)", "limit": { "context": 65536, "output": 16384 } },
-            "nemotron-3-nano:30b-vllm-ctx256k": { "name": "Nemotron 3 Nano 30b vLLM (256K)", "limit": { "context": 196608, "output": 16384 } },
-            "qwen3-coder:30b-vllm-ctx56k": { "name": "Qwen3 Coder 30b vLLM (56K)", "limit": { "context": 57344, "output": 32768 } },
-            "qwen3.5:27b-vllm-ctx64k": { "name": "Qwen3.5 27b vLLM (64K)", "limit": { "context": 65536, "output": 16384 } },
-            "qwen3.6:35b-vllm-ctx64k": { "name": "Qwen3.6 35b vLLM (64K)", "limit": { "context": 65536, "output": 16384 } },
-            "gemma4:12b-ctx256k": { "name": "Gemma 4 12b (256K)", "limit": { "context": 196608, "output": 16384 } },
-            "gemma4:26b-ctx160k": { "name": "Gemma 4 26b (160K)", "limit": { "context": 163840, "output": 16384 } },
-            "ministral-3:14b-ctx128k": { "name": "Ministral 3 14b (128K)", "limit": { "context": 131072, "output": 8192 } },
-            "nemotron-3-nano:30b-ctx256k": { "name": "Nemotron 3 Nano 30b (256K)", "limit": { "context": 196608, "output": 16384 } },
-            "nemotron-3-nano:30b-ctx384k": { "name": "Nemotron 3 Nano 30b (384K)", "limit": { "context": 196608, "output": 16384 } },
-            "nemotron3:33b-ctx64k": { "name": "Nemotron3 33b (64K)", "limit": { "context": 65536, "output": 8192 } },
-            "qwen3-coder:30b-ctx256k": { "name": "Qwen3 Coder 30b (256K)", "limit": { "context": 196608, "output": 32768 } },
-            "qwen3.5:27b-ctx96k": { "name": "Qwen3.5 27b (96K)", "limit": { "context": 98304, "output": 16384 } },
-            "qwen3.6:ctx128k": { "name": "Qwen3.6 (128K)", "limit": { "context": 131072, "output": 16384 } },
-            "ravenx-256k": { "name": "RavenX CyberAgent (256K)", "limit": { "context": 196608, "output": 32768 } }
-        }
-    }
-free_base=(os.environ.get("FREEAPI_BASE_URL") or "").strip().rstrip("/")
-free_key=(os.environ.get("FREEAPI_API_KEY") or "").strip()
-def norm_model_id(raw):
-    if not isinstance(raw, str):
-        return ""
-    s=raw.strip()
-    if not s:
-        return ""
-    if "//" in s:
-        s=s.split("//",1)[1]
-    if "/" in s:
-        s=s.rsplit("/",1)[-1]
-    return s
-if free_base:
-    mids=[]
-    for p in ("/v1/models","/models"):
-        try:
-            headers={"Accept":"application/json"}
-            if free_key:
-                headers["Authorization"]=f"Bearer {free_key}"
-            req=urllib.request.Request(f"{free_base}{p}",headers=headers)
-            with urllib.request.urlopen(req,timeout=10) as resp:
-                payload=json.loads(resp.read().decode("utf-8","replace"))
-            items=payload.get("data", payload if isinstance(payload,list) else [])
-            for item in items:
-                if isinstance(item,dict):
-                    mid=norm_model_id(item.get("id"))
-                    if mid.endswith("-ha"):
-                        mids.append(mid)
-            if mids:
-                break
-        except Exception:
-            continue
-    provider["freeapi"]={
-        "npm":"@ai-sdk/openai-compatible",
-        "name":"FreeAPI",
-        "options":{"baseURL":free_base,"apiKey":free_key},
-        "models":{mid:{"name":mid} for mid in sorted(set(mids))}
-    }
-with open(path,"w",encoding="utf-8") as f:
-    json.dump(data,f,indent=2,ensure_ascii=False)
+    # Sincronizar catálogos vivos sin reemplazar la configuración del usuario.
+    mkdir -p /home/coder/.local/bin /home/coder/.opencode /home/coder/.config/opencode /home/coder/.continue
+    cat > /home/coder/.local/bin/sync-llm-models <<'PY'
+${local.llm_model_sync_script}
 PY
-      ln -sf /home/coder/.opencode/opencode.json /home/coder/.opencode/config.json || true
-      ln -sf /home/coder/.opencode/opencode.json /home/coder/.config/opencode/opencode.json || true
-      chown -R "$USER:$USER" /home/coder/.opencode || true
-    fi
+    chmod 0755 /home/coder/.local/bin/sync-llm-models
+    /home/coder/.local/bin/sync-llm-models \
+      --opencode /home/coder/.config/opencode/opencode.json \
+      --continue-config /home/coder/.continue/config.yaml || \
+      echo "WARN: no se pudo sincronizar el catálogo de modelos; se conserva la configuración anterior" >&2
+    ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/opencode.json || true
+    ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/config.json || true
+    chown -R "$USER:$USER" /home/coder/.opencode /home/coder/.config/opencode /home/coder/.continue /home/coder/.local/bin || true
 
     # Propagar variables a nuevas shells interactivas
     if [ -n "$${OPENCODE_PROVIDER_URL:-}" ]; then
@@ -757,11 +681,15 @@ resource "docker_container" "workspace" {
     <<-EOT
       set -e
       mkdir -p /home/coder/.opencode /home/coder/.config/opencode
-      if [ ! -f /home/coder/.opencode/opencode.json ]; then
-        printf '{}' > /home/coder/.opencode/opencode.json
+      if [ ! -f /home/coder/.config/opencode/opencode.json ]; then
+        if [ -f /home/coder/.opencode/opencode.json ]; then
+          cp /home/coder/.opencode/opencode.json /home/coder/.config/opencode/opencode.json
+        else
+          printf '{}' > /home/coder/.config/opencode/opencode.json
+        fi
       fi
-      ln -sf /home/coder/.opencode/opencode.json /home/coder/.opencode/config.json || true
-      ln -sf /home/coder/.opencode/opencode.json /home/coder/.config/opencode/opencode.json || true
+      ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/opencode.json || true
+      ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/config.json || true
       ${replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")}
     EOT
   ]

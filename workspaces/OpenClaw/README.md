@@ -32,7 +32,7 @@ Template inicial para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid
 - Puedes entrar por KasmVNC (escritorio) o terminal.
 - `[OpenClaw] Auto-iniciar servicio`: arranca OpenClaw al iniciar.
 - `[OpenClaw] Directorio de trabajo`: directorio desde el que se ejecuta OpenClaw.
-- `[OpenClaw] Modelo por defecto`: modelo por defecto para OpenClaw (por defecto `ocabra/gemma4:12b-ctx256k`).
+- `[OpenClaw] Modelo por defecto`: `auto` por defecto para elegir el modelo de mayor capacidad del catálogo vivo; también acepta `provider/model`.
 - `Provisionar API key Ocabra automáticamente`: genera una key de 30 días si no aportas una.
 - `Provisionar API key FreeAPI automáticamente`: genera y precarga una key de FreeAPI al crear el workspace.
 - `TF_VAR_ocabra_endpoint_base_url`: base URL OpenAI-compatible de Ocabra por defecto.
@@ -57,11 +57,12 @@ Template inicial para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid
 - El template desactiva el pairing de dispositivos (`gateway.controlUi.dangerouslyDisableDeviceAuth=true`) para entrar directamente con token.
 - El template puede autoprovisionar 2 credenciales API (si hay endpoints): Ocabra (`OCABRA_KEY`) y FreeAPI (`FREEAPI_KEY_ENDPOINT`), cada una con su propio toggle en el formulario.
 - El template crea `auth-profiles.json` con perfiles `ocabra:manual` y/o `freeapi:manual`.
-- El template define `models.providers.ocabra` con el roster ctx-tagged: `gemma4:12b-ctx256k`, `qwen3-coder:30b-ctx256k`, `nemotron-3-nano:30b-ctx384k`, `nemotron-3-nano:30b-ctx256k`, `qwen3.6:ctx128k`, `gemma4:26b-ctx160k`, `ministral-3:14b-ctx128k`, `qwen3.5:27b-ctx96k`, `nemotron3:33b-ctx64k`, `ravenx-256k`.
-- El template detecta modelos FreeAPI acabados en `-ha` y, cuando está disponible `/model/info` (LiteLLM), enriquece automáticamente capacidades, tokens y costes por modelo.
+- El template descubre el catálogo vivo de Ocabra y los modelos FreeAPI acabados en `-ha` mediante `/v1/models` o `/models`; no mantiene un roster estático.
+- Cuando está disponible `/model/info` (LiteLLM), enriquece automáticamente capacidades, tokens y costes por modelo.
 - El template rellena `agents.defaults.models` con esos modelos para que aparezcan en el selector de agentes.
 - El template asegura `agents.list` con entrada `id: "main"` para que los cambios de modelo en la UI de agentes se marquen como modificados y el botón `Save` se habilite.
-- Para los modelos de familia `qwen3*`, el template marca `reasoning=true`.
+- Las capacidades de razonamiento, visión y audio se obtienen de la metadata del endpoint, con una detección conservadora por familia como respaldo.
+- En modo `auto`, el modelo por defecto se elige entre los modelos realmente descubiertos priorizando las familias de mayor capacidad; también se puede indicar cualquier `provider/model` explícito.
 - Si `[OpenClaw] Modelo por defecto` no incluye prefijo de provider, el template asume `ocabra/<modelo>`.
 - Si el provider del modelo por defecto no está configurado (falta base URL), el template no fuerza ese modelo para evitar `Unknown model`.
 - El template persiste `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `FREEAPI_API_KEY` y `FREEAPI_BASE_URL` en `~/.openclaw/.env`.
