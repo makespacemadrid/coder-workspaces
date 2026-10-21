@@ -387,13 +387,33 @@ JSONCFG
     clone_or_update "https://github.com/maorcc/gimp-mcp.git" "$HOME/.local/share/mcp-servers/gimp-mcp"
     clone_or_update "https://github.com/Shriinivas/inkmcp.git" "$HOME/.config/inkscape/extensions/inkmcp"
     clone_or_update "https://github.com/neka-nat/freecad-mcp.git" "$HOME/.local/share/mcp-servers/freecad-mcp"
+    # Retirar el add-on comunitario que instalaban versiones antiguas de la
+    # plantilla. El home es persistente, por lo que actualizar la imagen no lo
+    # elimina automáticamente y Blender puede seguir cargándolo junto al oficial.
+    BLENDER_LEGACY_ADDON_FOUND=false
+    for legacy_addon in "$HOME"/.config/blender/*/scripts/addons/blender_mcp.py; do
+      if [ -f "$legacy_addon" ]; then
+        BLENDER_LEGACY_ADDON_FOUND=true
+        break
+      fi
+    done
+    if [ "$BLENDER_LEGACY_ADDON_FOUND" = true ]; then
+      blender --background --python-expr "import bpy; module='blender_mcp'; enabled=module in bpy.context.preferences.addons; enabled and bpy.ops.preferences.addon_disable(module=module); enabled and bpy.ops.wm.save_userpref()" >/dev/null 2>&1 || true
+      for legacy_addon in "$HOME"/.config/blender/*/scripts/addons/blender_mcp.py; do
+        [ ! -f "$legacy_addon" ] || rm -f -- "$legacy_addon"
+      done
+    fi
+
     # Instalar y habilitar el add-on oficial de Blender Lab horneado en la imagen.
-    # El marcador fuerza la migración desde el antiguo add-on comunitario cuando
-    # cambie la revisión oficial incluida en la imagen.
+    # Además del marcador se comprueba el manifiesto: así se repara una instalación
+    # eliminada o incompleta sin reinstalarla innecesariamente en cada arranque.
     BLENDER_MCP_REVISION="$(cat /opt/blender-mcp-revision 2>/dev/null || true)"
     BLENDER_MCP_MARKER="$HOME/.config/blender/.mks-blender-mcp-revision"
+    BLENDER_MM="$(blender --version 2>/dev/null | awk 'NR == 1 { split($2, version, "."); print version[1] "." version[2] }')"
+    BLENDER_MCP_MANIFEST="$HOME/.config/blender/$BLENDER_MM/extensions/user_default/mcp/blender_manifest.toml"
     if [ -n "$BLENDER_MCP_REVISION" ] && \
-       [ "$(cat "$BLENDER_MCP_MARKER" 2>/dev/null || true)" != "$BLENDER_MCP_REVISION" ]; then
+       { [ "$(cat "$BLENDER_MCP_MARKER" 2>/dev/null || true)" != "$BLENDER_MCP_REVISION" ] || \
+         [ ! -f "$BLENDER_MCP_MANIFEST" ]; }; then
       if blender --command extension install-file --repo=user_default --enable /opt/blender-mcp-addon.zip >/dev/null 2>&1; then
         mkdir -p "$(dirname "$BLENDER_MCP_MARKER")"
         printf '%s\n' "$BLENDER_MCP_REVISION" > "$BLENDER_MCP_MARKER"

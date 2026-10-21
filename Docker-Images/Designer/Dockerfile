@@ -236,7 +236,7 @@ EOSH
 # MCP oficial mantenido por Blender Lab, fijado a una revisión reproducible.
 # Se hornean tanto el servidor Python como el paquete del add-on para no depender
 # de Git/PyPI durante el arranque de cada workspace.
-ARG BLENDER_MCP_REVISION=ff54e4d8f6b09502f2f466189cca0e52b4a91643
+ARG BLENDER_MCP_REVISION=dbbf836ad4b1025f14a2b3b504c43903f39e0b04
 RUN <<'EOSH'
 set -e
 source_dir=/opt/blender-mcp-source
