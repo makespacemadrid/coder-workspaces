@@ -8,7 +8,7 @@ tags: [design, cad, 3d, electronics, ocabra]
 
 # Ocabra Maker
 
-Template con escritorio KDE/KasmVNC y herramientas de diseño 2D/3D + electrónica usando la imagen `ghcr.io/makespacemadrid/coder-mks-design:latest`.
+Template con escritorio KDE/KasmVNC 1.5.0 y herramientas de diseño 2D/3D + electrónica usando la imagen `ghcr.io/makespacemadrid/coder-mks-design:latest`.
 
 ## Apps incluidas (imagen base)
 - 2D: Inkscape, GIMP 3.2.6, Krita 5.3.4
@@ -34,7 +34,8 @@ Template con escritorio KDE/KasmVNC y herramientas de diseño 2D/3D + electróni
 
 ## Notas
 - Home persistente en `/home/coder` (volumen o bind mount según parámetros). Escritorio con accesos directos a las apps clave.
-- KasmVNC para escritorio gráfico; incluye code-server y filebrowser por si necesitas editar assets/scripts.
+- KasmVNC 1.5.0 para escritorio gráfico, con el nuevo modo de vídeo H.264/H.265/AV1 y detección NVENC; incluye code-server y filebrowser por si necesitas editar assets/scripts.
+- La versión se fija en el módulo para que los workspaces nuevos instalen exactamente 1.5.0. Un workspace que ya tenga KasmVNC instalado debe recrearse para realizar la actualización.
 - Labels `com.centurylinklabs.watchtower.*` para que Watchtower pueda actualizar si usas `--label-enable`.
 - Si necesitas más programas (Cura, QCAD, LightBurn, simuladores SPICE), avisa y se añaden a la imagen.
 

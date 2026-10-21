@@ -1083,9 +1083,10 @@ EOT
 module "kasmvnc" {
   count               = data.coder_workspace.me.start_count
   source              = "registry.coder.com/coder/kasmvnc/coder"
-  version             = "~> 1.2"
+  version             = "1.3.0"
   agent_id            = coder_agent.main.id
   desktop_environment = "kde"
+  kasm_version        = "1.5.0"
   subdomain           = true
 }
 

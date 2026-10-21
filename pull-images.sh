@@ -10,6 +10,8 @@ IMAGES=(
   "coder-mks-developer"
   "coder-mks-developer-android"
   "coder-mks-design"
+  "coder-mks-design-selkies"
+  "coder-mks-developer-android-selkies"
 )
 
 for img in "${IMAGES[@]}"; do

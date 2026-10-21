@@ -1,0 +1,18 @@
+#!/usr/bin/with-contenv bash
+set -euo pipefail
+
+install -d -o abc -g abc /config/Desktop /config/Projects /config/Downloads
+install -d -o abc -g abc /config/.vscode/data /config/.vscode/extensions
+
+for launcher in /opt/maker-defaults/Desktop/*.desktop; do
+  [ -e "$launcher" ] || continue
+  destination="/config/Desktop/$(basename "$launcher")"
+  if [ ! -e "$destination" ]; then
+    install -o abc -g abc -m 0755 "$launcher" "$destination"
+  fi
+done
+
+if [ -d /opt/maker-defaults/vscode/extensions ] && [ -z "$(find /config/.vscode/extensions -mindepth 1 -maxdepth 1 -print -quit)" ]; then
+  cp -a /opt/maker-defaults/vscode/extensions/. /config/.vscode/extensions/
+  chown -R abc:abc /config/.vscode
+fi

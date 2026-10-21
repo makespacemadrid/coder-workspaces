@@ -1,0 +1,23 @@
+#!/usr/bin/with-contenv bash
+set -euo pipefail
+
+install -d -o abc -g abc /config/.android /config/Desktop /config/Projects
+
+for launcher in /opt/android-defaults/Desktop/*.desktop; do
+  [ -e "$launcher" ] || continue
+  destination="/config/Desktop/$(basename "$launcher")"
+  if [ ! -e "$destination" ]; then
+    install -o abc -g abc -m 0755 "$launcher" "$destination"
+  fi
+done
+
+if [ -e /dev/kvm ]; then
+  kvm_gid="$(stat -c '%g' /dev/kvm)"
+  kvm_group="$(getent group "$kvm_gid" | cut -d: -f1 || true)"
+  if [ -z "$kvm_group" ]; then
+    kvm_group=hostkvm
+    groupadd -g "$kvm_gid" "$kvm_group" 2>/dev/null || true
+  fi
+  usermod -aG "$kvm_group" abc || true
+  setfacl -m u:abc:rw /dev/kvm 2>/dev/null || true
+fi

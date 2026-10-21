@@ -1,0 +1,20 @@
+#!/usr/bin/with-contenv bash
+set -euo pipefail
+
+if [ -z "${CODER_AGENT_INIT_SCRIPT_B64:-}" ]; then
+  echo "CODER_AGENT_INIT_SCRIPT_B64 no esta definido" >&2
+  exit 1
+fi
+
+script=/tmp/coder-agent-init.sh
+printf '%s' "$CODER_AGENT_INIT_SCRIPT_B64" | base64 -d > "$script"
+chmod 0700 "$script"
+chown abc:abc "$script"
+
+cd /config
+exec s6-setuidgid abc env \
+  HOME=/config \
+  USER=abc \
+  LOGNAME=abc \
+  SHELL=/bin/bash \
+  /bin/bash "$script"

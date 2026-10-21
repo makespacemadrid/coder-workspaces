@@ -80,6 +80,70 @@ jobs:
             BUILDKIT_STEP_TIMEOUT=1800
           sbom: false
 
+  build-android-selkies:
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Detect changes for Android Selkies
+        id: changes
+        run: |
+          if [ "${GITHUB_EVENT_NAME:-}" = "schedule" ]; then
+            echo "run_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BASE_REF="${{ github.event.before }}"
+          if [ -z "$BASE_REF" ] || ! git cat-file -e "$BASE_REF^{commit}" 2>/dev/null; then
+            BASE_REF="HEAD^"
+          fi
+          if git diff --quiet "$BASE_REF" HEAD -- Docker-Images/Designer-Selkies Docker-Images/DeveloperAndroid-Selkies; then
+            echo "run_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log in to GHCR
+        if: steps.changes.outputs.run_build == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        if: steps.changes.outputs.run_build == 'true'
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/coder-mks-developer-android-selkies
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      - name: Set up Docker Buildx
+        if: steps.changes.outputs.run_build == 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push
+        if: steps.changes.outputs.run_build == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: Docker-Images/DeveloperAndroid-Selkies
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=coder-mks-developer-android-selkies
+          cache-to: type=gha,mode=max,scope=coder-mks-developer-android-selkies
+          build-args: |
+            BUILDKIT_STEP_TIMEOUT=1800
+          sbom: false
+
   build-desktop-kde:
     runs-on: ubuntu-latest
     permissions:
@@ -165,6 +229,9 @@ jobs:
           - image_name: coder-mks-design
             context: Docker-Images/Designer
             base_dep: desktop-kde
+          - image_name: coder-mks-design-selkies
+            context: Docker-Images/Designer-Selkies
+            base_dep: external
           - image_name: coder-mks-developer-android
             context: Docker-Images/DeveloperAndroid
             base_dep: desktop-kde

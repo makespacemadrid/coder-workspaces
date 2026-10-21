@@ -5,13 +5,17 @@ Imágenes Docker y templates de Coder para workspaces de desarrollo y diseño en
 ## Imágenes
 - `ghcr.io/makespacemadrid/coder-mks-developer:latest` (Docker-Images/Developer): escritorio XFCE/KasmVNC, Docker, Node.js 24, CLIs de IA (Codex, Claude, Gemini, Continue, Qwen), VS Code, GitHub Desktop, Claude Desktop, OpenCode Desktop, AppImage Pool, Geany y audio (PulseAudio/ALSA).
 - `ghcr.io/makespacemadrid/coder-mks-developer-android:latest` (Docker-Images/DeveloperAndroid): escritorio KDE/KasmVNC, toolchain Android (SDK/CLI), Node.js 24, VS Code, OpenCode Desktop, JetBrains Toolbox y utilidades Android (adb/scrcpy).
+- `ghcr.io/makespacemadrid/coder-mks-developer-android-selkies:latest` (Docker-Images/DeveloperAndroid-Selkies): variante Android KDE/Selkies acelerada, basada en las capas de Maker Selkies y con soporte KVM para el emulador.
 - `ghcr.io/makespacemadrid/coder-mks-design:latest` (Docker-Images/Designer): suite de diseño 2D/3D y electrónica (Inkscape, GIMP, Krita, Blender, FreeCAD, OpenSCAD, PrusaSlicer, MeshLab, LibreCAD, KiCad, Fritzing, SimulIDE, LaserGRBL via Wine), OpenCode Desktop, ImageMagick, FFmpeg, ExifTool, Pandoc, FontForge, AppImage Pool y Geany.
+- `ghcr.io/makespacemadrid/coder-mks-design-selkies:latest` (Docker-Images/Designer-Selkies): webtop KDE optimizado para NVIDIA/Selkies con el conjunto completo de Maker (impresión 3D, CAD, diseño 2D, electrónica, láser y utilidades de desarrollo).
 
 Build local:
 ```bash
 docker build -t coder-mks-developer Docker-Images/Developer
 docker build -t coder-mks-developer-android Docker-Images/DeveloperAndroid
+docker build -t coder-mks-developer-android-selkies Docker-Images/DeveloperAndroid-Selkies
 docker build -t coder-mks-design Docker-Images/Designer
+docker build -t coder-mks-design-selkies Docker-Images/Designer-Selkies
 ```
 
 ## Templates de workspaces

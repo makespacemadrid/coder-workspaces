@@ -17,5 +17,8 @@ build "Docker-Images/Desktop-KDE" "ghcr.io/makespacemadrid/coder-mks-desktop-kde
 build "Docker-Images/Developer" "ghcr.io/makespacemadrid/coder-mks-developer:latest"
 build "Docker-Images/DeveloperAndroid" "ghcr.io/makespacemadrid/coder-mks-developer-android:latest"
 build "Docker-Images/Designer" "ghcr.io/makespacemadrid/coder-mks-design:latest"
+build "Docker-Images/Designer-Selkies" "ghcr.io/makespacemadrid/coder-mks-design-selkies:latest"
+# DeveloperAndroid-Selkies hereda Designer-Selkies; debe construirse después.
+build "Docker-Images/DeveloperAndroid-Selkies" "ghcr.io/makespacemadrid/coder-mks-developer-android-selkies:latest"
 
 echo "Done."
