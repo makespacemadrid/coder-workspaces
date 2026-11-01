@@ -226,6 +226,9 @@ jobs:
           - image_name: coder-mks-developer
             context: Docker-Images/Developer
             base_dep: desktop
+          - image_name: coder-mks-developer-re
+            context: Docker-Images/DeveloperRE
+            base_dep: external
           - image_name: coder-mks-design
             context: Docker-Images/Designer
             base_dep: desktop-kde

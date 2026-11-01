@@ -11,12 +11,14 @@ Lee esto antes de tocar plantillas o imágenes. Para notas privadas, usa `AGENTS
 
 ## Imágenes base
 - `ghcr.io/makespacemadrid/coder-mks-developer:latest` (Docker-Images/Developer/Dockerfile): escritorio XFCE/KasmVNC, Docker Engine, Node.js 24, CLIs de IA (Codex, Claude, Gemini), VS Code, GitHub Desktop, Claude Desktop, AppImage Pool, audio (PulseAudio/ALSA), Geany y tooling dev (Docker, gh, etc.).
+- `ghcr.io/makespacemadrid/coder-mks-developer-re:latest` (Docker-Images/DeveloperRE/Dockerfile): `coder-mks-developer` + toolchain gratuita de ingeniería inversa (Ghidra, JADX, apktool, GDB+pwndbg, binwalk, unblob, pwntools, mitmproxy, tshark, sigrok, WABT, rizin) para usar con rea.
 - `ghcr.io/makespacemadrid/coder-mks-design:latest` (Docker-Images/Designer/Dockerfile): stack de diseño 2D/3D y electrónica (Inkscape, GIMP, Krita, Blender, FreeCAD, OpenSCAD, PrusaSlicer, OrcaSlicer, MeshLab, LibreCAD, KiCad, Fritzing, SimulIDE, LaserGRBL via Wine) + AppImage Pool y Geany.
 - `ghcr.io/makespacemadrid/coder-mks-design-selkies:latest` (Docker-Images/Designer-Selkies/Dockerfile): el mismo stack Maker sobre KDE/Selkies/PixelFlux, perfil en `/config` y NVIDIA/NVENC.
 - `ghcr.io/makespacemadrid/coder-mks-developer-android-selkies:latest` (Docker-Images/DeveloperAndroid-Selkies/Dockerfile): capa Android Studio/SDK/emulador y KVM sobre la imagen Maker Selkies.
 
 ## Templates Coder
 - `Developer` (DinD): workspace general con Docker-in-Docker y GPUs opcionales; volúmenes persistentes `/home/coder` y `/var/lib/docker`; red bridge. Escritorio XFCE/KasmVNC.
+- `DeveloperRE`: igual que `Developer`, imagen `coder-mks-developer-re` con toolchain de ingeniería inversa para usar con rea (morluto/rea).
 - `AdvancedHostDANGER`: **DANGER** acceso directo a Docker y red del host. Usa `Developer` si no necesitas tocar el host. Escritorio XFCE/KasmVNC.
 - `DeveloperAndroid`: escritorio KDE/KasmVNC con toolchain Android (SDK/CLI), Node 24 y VS Code base.
 - `DeveloperAndroidSelkies`: variante de prueba KDE/Selkies del entorno Android; hereda la imagen Maker Selkies, añade Android Studio/SDK/emulador y monta `/dev/kvm`.

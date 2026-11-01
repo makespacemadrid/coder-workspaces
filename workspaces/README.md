@@ -4,13 +4,20 @@ Guía rápida para elegir template y rellenar los parámetros al crear un worksp
 
 ## Qué template usar
 - `Developer` (DinD): desarrollo general con Docker in Docker, escritorio XFCE/KasmVNC, puertos opcionales y GPU.
+- `DeveloperRE`: igual que `Developer` más toolchain gratuita de ingeniería inversa (Ghidra, JADX, apktool, GDB+pwndbg, binwalk, unblob, pwntools, mitmproxy, tshark, sigrok, WABT, rizin) para usar con [rea](https://github.com/morluto/rea).
 - `AdvancedHostDANGER`: acceso directo a Docker y red del host, escritorio XFCE/KasmVNC. Úsalo solo si necesitas diagnosticar o tocar el host.
 - `DeveloperAndroid`: escritorio KDE/KasmVNC con toolchain Android (SDK/CLI), Node 24, VS Code base y JetBrains Toolbox (+ IntelliJ remoto vía Gateway).
 - `DeveloperAndroidSelkies`: variante de prueba Android sobre KDE/Selkies con NVIDIA, KVM, Android Studio, SDK/emulador y botón `Remote Desktop`.
 - `Maker`: entorno gráfico KDE/KasmVNC con suite de diseño 2D/3D, CAD y EDA. GPU opcional.
-- `MakerSelkies`: variante experimental de impresión 3D con KDE/Selkies, GPU NVIDIA y NVENC; úsala para comparar fluidez con `Maker`.
+- `MakerSelkies`: variante experimental de impresión 3D con KDE/Selkies, GPU NVIDIA, NVENC y MCPs Maker preconfigurados; úsala para comparar fluidez con `Maker`.
 - `Minimal`: sin escritorio; code-server + Docker in Docker ligeros.
-- `OpenClaw`: template inicial para agentes/OpenClaw con escritorio XFCE (KasmVNC), Chrome, code-server + DinD y arranque configurable.
+- `OpenClaw`: template inicial para agentes/OpenClaw, sin escritorio (OpenClaw es headless por diseño); DinD y arranque configurable.
+
+Los templates con Docker in Docker (`Developer`, `Minimal` y `OpenClaw`) incluyen una limpieza automática semanal, configurable desde `[Maintenance] Limpieza automática de Docker`. Conserva volúmenes y contenedores: solo elimina caché de build sin uso durante 7 días e imágenes sin contenedores asociadas de más de 30 días. No se aplica a `AdvancedHostDANGER`, porque su socket pertenece al Docker compartido del host.
+
+Los dos templates Maker pueden cargar perfiles privados compartidos de OrcaSlicer y PrusaSlicer desde `$TF_VAR_users_storage/_provisioning`. El origen se monta de solo lectura y su contenido no se incluye en Git, las imágenes ni el estado de Terraform.
+
+Todos los templates con escritorio (`Developer`, `DeveloperAndroid`, `DeveloperAndroidSelkies`, `Maker`, `MakerSelkies`) aplican un fondo de pantalla compartido en el primer arranque si existe `$TF_VAR_users_storage/_provisioning/desktop/wallpapers`, sin sobrescribir un fondo que ya hayas cambiado. `Minimal` y `OpenClaw` quedan fuera por no tener escritorio.
 
 ## Creación rápida en Coder
 1) Elige template y revisa su README (`workspaces/<Template>/README.md`) para ver qué incluye.
@@ -27,6 +34,7 @@ Guía rápida para elegir template y rellenar los parámetros al crear un worksp
 
 ## Documentación de cada template
 - `workspaces/Developer/README.md`
+- `workspaces/DeveloperRE/README.md`
 - `workspaces/AdvancedHostDANGER/README.md`
 - `workspaces/DeveloperAndroid/README.md`
 - `workspaces/DeveloperAndroidSelkies/README.md`
