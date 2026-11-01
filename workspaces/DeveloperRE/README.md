@@ -15,7 +15,7 @@ Es el template `Developer` (Docker in Docker, escritorio XFCE/KasmVNC) con una c
 - Todo lo que ofrece `Developer` (DinD, GPU opcional, escritorio KasmVNC, CLIs de IA) más el stack de ingeniería inversa.
 
 ## Arrancar con rea
-El workspace registra rea con OpenCode automáticamente en cada arranque (`npx rea-agents setup --client opencode --yes`, script "Configurar rea para OpenCode" — log en `~/.rea-setup.log`). No se preinstala como paquete, así siempre se usa la versión más reciente. Solo se registra con OpenCode, no con los demás agentes de IA de la imagen (Claude Code, Codex, Gemini CLI); si quieres alguno de esos, corre `npx rea-agents setup --client <id>` tú mismo. Detecta automáticamente las herramientas de abajo porque ya están en el `PATH`.
+El workspace registra rea automáticamente en cada arranque con **todos los agentes de IA que detecte** en la imagen (`npx rea-agents setup --all-detected --yes`, script "Configurar rea para los agentes de IA detectados" — log en `~/.rea-setup.log`): OpenCode, Claude Code (si diste token), Codex, Gemini CLI. No se preinstala como paquete, así siempre se usa la versión más reciente. Detecta automáticamente las herramientas de abajo porque ya están en el `PATH`.
 
 ## Qué incluye (gratuito / open-source)
 - **Binarios nativos**: Ghidra (descompilador NSA), rizin (build estático oficial), GNU objdump, GDB con [pwndbg](https://pwndbg.re/) integrado (`pwndbg` en vez de `gdb` para análisis de crashes).

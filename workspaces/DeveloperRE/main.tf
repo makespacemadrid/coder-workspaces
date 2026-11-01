@@ -1341,7 +1341,7 @@ resource "coder_script" "opencode_web" {
 
 resource "coder_script" "rea_setup" {
   agent_id           = coder_agent.main.id
-  display_name       = "Configurar rea para OpenCode"
+  display_name       = "Configurar rea para los agentes de IA detectados"
   icon               = "/icon/opencode.svg"
   run_on_start       = true
   start_blocks_login = false
@@ -1351,13 +1351,13 @@ resource "coder_script" "rea_setup" {
     set -uo pipefail
     export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
     log_file="$HOME/.rea-setup.log"
-    echo ">> Configurando rea (https://github.com/morluto/rea) para OpenCode..." > "$log_file"
-    # --client opencode: solo registra OpenCode, no los demas agentes de IA
-    # presentes en la imagen (Claude Code, Codex, Gemini CLI). --yes: no
-    # interactivo. Sin --install-hopper a proposito: Hopper es de pago y no
-    # se instala aqui.
-    if npx -y rea-agents setup --client opencode --yes >>"$log_file" 2>&1; then
-      echo ">> rea configurado para OpenCode." >> "$log_file"
+    echo ">> Configurando rea (https://github.com/morluto/rea)..." > "$log_file"
+    # --all-detected: registra rea con cualquier agente de IA que encuentre
+    # instalado en la imagen (OpenCode, Claude Code si hay token, Codex,
+    # Gemini CLI, etc.). --yes: no interactivo. Sin --install-hopper a
+    # proposito: Hopper es de pago y no se instala aqui.
+    if npx -y rea-agents setup --all-detected --yes >>"$log_file" 2>&1; then
+      echo ">> rea configurado." >> "$log_file"
     else
       echo ">> rea setup fallo; consulta $log_file" >&2
     fi
