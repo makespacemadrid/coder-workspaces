@@ -24,7 +24,7 @@ Detectará automáticamente las herramientas de abajo porque ya están en el `PA
 ## Qué incluye (gratuito / open-source)
 - **Binarios nativos**: Ghidra (descompilador NSA), rizin (build estático oficial), GNU objdump, GDB con [pwndbg](https://pwndbg.re/) integrado (`pwndbg` en vez de `gdb` para análisis de crashes).
 - **Android**: JADX (descompilador), apktool (recursos), adb, OpenJDK 21.
-- **Firmware**: binwalk, unblob (extracción; vía `pipx`).
+- **Firmware**: binwalk (v3, compilado con cargo — el paquete `binwalk` de PyPI está roto desde hace años), unblob (extracción; vía `pipx`).
 - **Exploiting / crashes**: pwntools (vía `pipx`).
 - **Red**: tshark + capinfos (el usuario `coder` está en el grupo `wireshark` para capturar sin root), mitmproxy/mitmdump (vía `pipx`).
 - **Señales lógicas**: sigrok-cli.

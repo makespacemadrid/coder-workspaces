@@ -36,6 +36,8 @@ RUN echo 'wireshark-common wireshark-common/install-setuid boolean true' | debco
         sigrok-cli \
         wabt \
         binutils \
+        pkg-config \
+        libfontconfig1-dev \
     && usermod -aG wireshark coder \
     && rm -rf /var/lib/apt/lists/*
 
@@ -81,12 +83,23 @@ RUN set -e; \
 # tocar ~/.gdbinit por usuario (evita el método legacy setup.sh).
 RUN curl --proto '=https' --tlsv1.2 -LsSf 'https://install.pwndbg.re' | sh -s -- -t pwndbg-gdb
 
+# --- binwalk (el paquete "binwalk" de PyPI tiene roto el empaquetado desde
+# hace años - ModuleNotFoundError: No module named 'binwalk.core'; v3 es un
+# binario Rust, se instala con cargo tal y como recomienda el propio proyecto.
+# El cargo de apt (1.75) es demasiado viejo para el edition2024 que necesitan
+# sus dependencias; usamos rustup para una toolchain actual y la borramos
+# despues de compilar, solo nos interesa el binario final).
+ENV RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo
+RUN set -e; \
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; \
+    /opt/cargo/bin/cargo install --root /usr/local binwalk; \
+    rm -rf /opt/rustup /opt/cargo
+
 # --- CLIs Python aisladas via pipx (mismo patron que el resto de Developer) -
 RUN su - coder -c '\
     set -e; \
     export PATH="/opt/pipx/bin:$PATH"; \
     pipx install pwntools; \
-    pipx install binwalk; \
     pipx install unblob; \
     pipx install mitmproxy \
     '
