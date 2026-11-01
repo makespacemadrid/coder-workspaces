@@ -25,13 +25,17 @@ RETIRED_TEMPLATE_MODELS = {
 }
 RETIRED_TEMPLATE_PLUGINS = {
     "opencode-antigravity-auth",
-}
-BASELINE_PLUGINS = (
-    "opencode-gemini-auth@latest",
-    "opencode-agent-memory",
+    # Broken under OpenCode 2: ships `export const MyStatusPlugin = ...`
+    # instead of `export default`, which the v2 plugin loader requires.
+    # No newer release fixes it (1.2.4, the latest, still fails the same way).
     "opencode-mystatus",
+    # Dropped from the baseline: keep the default install vanilla (no
+    # preconfigured plugins) rather than chase per-plugin v1/v2 compatibility.
+    "opencode-gemini-auth",
+    "opencode-agent-memory",
     "opencode-handoff",
-)
+}
+BASELINE_PLUGINS = ()
 LEGACY_OCABRA_MODELS = {
     "gemma4:12b-vllm-ctx256k",
     "gemma4:26b-vllm-ctx64k",
@@ -153,19 +157,44 @@ def discover(base_url: str, api_key: str, required_suffix: str = "") -> list[dic
         if not isinstance(litellm, dict):
             litellm = {}
         tags = {tag for tag in litellm.get("tags", []) if isinstance(tag, str)}
+        ocabra_block = raw.get("ocabra", {})
+        if not isinstance(ocabra_block, dict):
+            ocabra_block = {}
+        ocabra_caps = ocabra_block.get("capabilities", {})
+        if not isinstance(ocabra_caps, dict):
+            ocabra_caps = {}
+        if ocabra_block:
+            # ocabra's catalog mixes chat models in with STT/TTS/upscaling/
+            # embedding/agent-profile entries that have no business being
+            # offered as an opencode chat model — surfacing all ~65 of them
+            # left users with a "Modelos" settings page of mostly-irrelevant
+            # toggles. Keep only what's actually chat-capable.
+            if ocabra_block.get("category") != "llm" or ocabra_caps.get("chat") is not True:
+                continue
         context_window = positive_int(
             model_info.get("context_window"),
             model_info.get("max_model_len"),
             raw.get("context_window"),
             raw.get("context_length"),
             raw.get("max_model_len"),
+            ocabra_caps.get("context_length"),
+            ocabra_caps.get("native_context_length"),
         )
         output = positive_int(
             model_info.get("max_output_tokens"),
             model_info.get("max_completion_tokens"),
             raw.get("max_output_tokens"),
             raw.get("max_completion_tokens"),
+            ocabra_caps.get("max_output_tokens"),
         )
+        if output and context_window and output >= context_window:
+            # Some catalogs report max_output_tokens == context_length instead
+            # of a realistic single-generation cap (seen on ocabra 2026-11).
+            # Treating that as "unknown" instead of taking it at face value
+            # avoids deriving input_limit = max(context - output, 1) == 1,
+            # which made every model look like it had room for a single token
+            # of prompt and broke compaction's headroom math.
+            output = 0
         input_limit = positive_int(
             model_info.get("max_input_tokens"),
             raw.get("max_input_tokens"),
@@ -212,12 +241,67 @@ def plugin_name(value: str) -> str:
     return value.split("@", 1)[0]
 
 
+def migrate_provider_schema(data: dict[str, Any]) -> None:
+    """Move the v1 ``provider`` block into the v2 ``providers`` schema.
+
+    opencode v2 still reads the deprecated singular ``provider`` key (aliasing
+    ``npm``/``options`` to ``package``/``settings`` internally), but that
+    aliasing is undocumented and not guaranteed to stick around. Migrate once
+    so configs we write are self-describing under the current schema.
+    """
+    legacy = data.get("provider")
+    if not isinstance(legacy, dict) or not legacy:
+        data.pop("provider", None)
+        return
+    providers = data.setdefault("providers", {})
+    if not isinstance(providers, dict):
+        providers = {}
+        data["providers"] = providers
+    for provider_id, provider in legacy.items():
+        if provider_id in providers or not isinstance(provider, dict):
+            continue
+        migrated = {key: value for key, value in provider.items() if key not in ("npm", "options")}
+        if isinstance(provider.get("npm"), str):
+            migrated["package"] = provider["npm"]
+        options = provider.get("options")
+        if isinstance(options, dict):
+            migrated["settings"] = {**options, **migrated.get("settings", {})}
+        providers[provider_id] = migrated
+    data.pop("provider", None)
+
+
+def migrate_compaction_schema(data: dict[str, Any]) -> None:
+    """Rename the deprecated v1 compaction fields we used to write, in place.
+
+    ``reserved`` -> ``buffer`` and ``preserve_recent_tokens`` -> ``keep.tokens``
+    are value-preserving renames (opencode itself aliases them this way);
+    ``prune``/``tail_turns`` have no v2 equivalent and are dropped. Only
+    touches configs carrying at least one of our old field names, so a
+    compaction block a human hand-edited into some other shape is left alone.
+    """
+    compaction = data.get("compaction")
+    if not isinstance(compaction, dict):
+        return
+    if not any(key in compaction for key in ("prune", "tail_turns", "preserve_recent_tokens", "reserved")):
+        return
+    compaction.pop("prune", None)
+    compaction.pop("tail_turns", None)
+    preserve_recent_tokens = compaction.pop("preserve_recent_tokens", None)
+    if isinstance(preserve_recent_tokens, int) and "keep" not in compaction:
+        compaction["keep"] = {"tokens": preserve_recent_tokens}
+    reserved = compaction.pop("reserved", None)
+    if isinstance(reserved, int) and "buffer" not in compaction:
+        compaction["buffer"] = reserved
+
+
 def clean_legacy_config(data: dict[str, Any]) -> None:
     if data.get("enabled_providers") in (
         ["opencode", "ocabra", "freeapi"],
         ["opencode", "ocabra", "freeapi", "google"],
     ):
         data.pop("enabled_providers", None)
+
+    migrate_compaction_schema(data)
 
     had_plugin_config = "plugin" in data
     plugins = data.get("plugin", [])
@@ -240,10 +324,11 @@ def clean_legacy_config(data: dict[str, Any]) -> None:
     if plugins or had_plugin_config:
         data["plugin"] = plugins
 
-    providers = data.setdefault("provider", {})
+    migrate_provider_schema(data)
+    providers = data.setdefault("providers", {})
     if not isinstance(providers, dict):
         providers = {}
-        data["provider"] = providers
+        data["providers"] = providers
 
     ocabra = providers.get("ocabra")
     if isinstance(ocabra, dict):
@@ -309,11 +394,24 @@ def opencode_models(models: list[dict[str, Any]]) -> dict[str, Any]:
     for model in models:
         entry: dict[str, Any] = {"name": model["name"]}
         limit = {}
+        # opencode's v2 schema treats limit.context as the *total* window
+        # (input + output combined) and limit.input as the prompt budget —
+        # distinct fields, unlike v1 where "context" meant the prompt budget.
+        context_window = model["context_window"] or model["input_limit"]
+        if context_window:
+            limit["context"] = context_window
         if model["input_limit"]:
-            limit["context"] = model["input_limit"]
+            limit["input"] = model["input_limit"]
         if model["output"]:
             limit["output"] = model["output"]
         if limit:
+            # opencode's config schema rejects limit.context without
+            # limit.output. Catalogs served behind a vLLM/LiteLLM gateway
+            # without a working /model/info rarely report a real output cap,
+            # so fall back to a conservative default instead of shipping an
+            # invalid config that makes opencode refuse to start entirely.
+            limit.setdefault("context", limit.get("output", 8192))
+            limit.setdefault("output", min(limit["context"], 8192))
             entry["limit"] = limit
         result[model["id"]] = entry
     return result
@@ -370,28 +468,32 @@ def sync_opencode(
 ) -> None:
     data = load_json(path)
     data.setdefault("$schema", "https://opencode.ai/config.json")
+    clean_legacy_config(data)
     data.setdefault(
         "compaction",
         {
+            # keep.tokens/buffer replace the deprecated v1
+            # prune/tail_turns/preserve_recent_tokens/reserved fields. buffer
+            # is a percentage (not a flat token count) because the ocabra
+            # catalog spans context windows from ~1K to 256K+ tokens — a flat
+            # reserve would be negligible on the biggest models and leave no
+            # room at all on the smallest ones.
             "auto": True,
-            "prune": True,
-            "tail_turns": 8,
-            "preserve_recent_tokens": 32000,
-            "reserved": 40000,
+            "keep": {"tokens": 32000},
+            "buffer": "25%",
         },
     )
-    clean_legacy_config(data)
-    providers = data.setdefault("provider", {})
+    providers = data.setdefault("providers", {})
     for provider_id, (base_url, api_key) in connections.items():
         if not base_url:
             continue
         provider = providers.setdefault(provider_id, {})
-        provider["npm"] = "@ai-sdk/openai-compatible"
+        provider["package"] = "@ai-sdk/openai-compatible"
         provider["name"] = "FreeAPI" if provider_id == "freeapi" else "Ocabra"
-        options = provider.setdefault("options", {})
-        options["baseURL"] = base_url
+        settings = provider.setdefault("settings", {})
+        settings["baseURL"] = base_url
         if api_key:
-            options["apiKey"] = api_key
+            settings["apiKey"] = api_key
         if catalogs.get(provider_id):
             provider["models"] = opencode_models(catalogs[provider_id])
 
@@ -515,19 +617,28 @@ def main() -> int:
     args = parser.parse_args()
 
     existing = load_json(args.opencode) if args.opencode else {}
-    existing_providers = existing.get("provider", {})
+    existing_providers = existing.get("providers", {})
     if not isinstance(existing_providers, dict):
         existing_providers = {}
+    legacy_providers = existing.get("provider", {})
+    if not isinstance(legacy_providers, dict):
+        legacy_providers = {}
 
     def existing_option(provider_id: str, option: str) -> str:
-        provider = existing_providers.get(provider_id, {})
-        if not isinstance(provider, dict):
-            return ""
-        options = provider.get("options", {})
-        if not isinstance(options, dict):
-            return ""
-        value = options.get(option)
-        return value.strip() if isinstance(value, str) else ""
+        # Read from the current "providers"/"settings" schema first, falling
+        # back to the deprecated "provider"/"options" shape so a config that
+        # hasn't been migrated yet doesn't lose a saved baseURL/apiKey.
+        for source, settings_key in ((existing_providers, "settings"), (legacy_providers, "options")):
+            provider = source.get(provider_id, {})
+            if not isinstance(provider, dict):
+                continue
+            settings = provider.get(settings_key, {})
+            if not isinstance(settings, dict):
+                continue
+            value = settings.get(option)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
 
     def saved_key(filename: str) -> str:
         path = Path.home() / ".opencode" / filename

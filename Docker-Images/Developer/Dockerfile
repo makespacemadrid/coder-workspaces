@@ -257,18 +257,6 @@ GCWRAP
   chmod +x /usr/bin/google-chrome-stable
   ln -sf google-chrome-stable /usr/bin/google-chrome 2>/dev/null || true
 fi
-# OpenCode Desktop (Electron) - descubrir el binario real del paquete .deb
-_oc_real=""
-for _try in \
-  /usr/share/opencode-desktop/opencode-desktop \
-  /usr/lib/opencode-desktop/opencode-desktop \
-  /usr/share/opencode/opencode \
-  /usr/lib/opencode/opencode; do
-  if [ -x "$_try" ]; then _oc_real="$_try"; break; fi
-done
-if [ -n "$_oc_real" ] && [ -x /usr/bin/opencode-desktop ]; then
-  TARGET_BIN="$_oc_real" EXTRA_FLAGS="--disable-gpu" wrap /usr/bin/opencode-desktop "$_oc_real"
-fi
 EOSH
 
 # Extensiones VS Code preinstaladas para escritorio/remoto

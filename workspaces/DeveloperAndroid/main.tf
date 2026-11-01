@@ -153,6 +153,7 @@ locals {
   workspace_storage_projects = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}/Projects" : ""
   home_mount_host_path       = local.persist_home_storage && local.workspace_storage_root != "" ? local.workspace_storage_home : ""
   projects_mount_host_path   = local.persist_projects_storage && local.workspace_storage_root != "" ? local.workspace_storage_projects : ""
+  wallpaper_path             = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/_provisioning/desktop/wallpapers" : ""
   ocabra_endpoint_base_url   = trimspace(var.ocabra_endpoint_base_url)
   ocabra_key                 = trimspace(var.ocabra_key)
   freeapi_base_url           = trimspace(var.freeapi_base_url)
@@ -866,6 +867,96 @@ module "opencode" {
   workdir      = "/home/coder/"
   report_tasks = true
   cli_app      = false
+  # El instalador "latest" del módulo (curl https://opencode.ai/install) solo
+  # sirve OpenCode 1; OpenCode 2 vive en una URL separada. Si esto fuera
+  # pre_install_script, install_opencode() igualmente reinstalaría v1 encima
+  # (su propio "command -v opencode" corre en un proceso nuevo que no hereda
+  # el PATH que exportamos aquí). Como post_install_script, corremos DESPUÉS
+  # de esa v1 y la sobreescribimos con v2 en la misma ruta.
+  post_install_script = <<-EOT
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export PATH="$HOME/.opencode/bin:$PATH"
+    major=0
+    if command -v opencode >/dev/null 2>&1; then
+      major="$(opencode --version 2>/dev/null | grep -oE '[0-9]+' | head -1)"
+    fi
+    if [ "$${major:-0}" -lt 2 ] 2>/dev/null; then
+      curl -fsSL https://opencode.ai/v2/install | bash
+    fi
+  EOT
+}
+
+# Aplica el fondo de escritorio compartido si el montaje de solo lectura
+# _provisioning/desktop/wallpapers esta disponible; conserva el fondo si el
+# usuario lo ha cambiado despues.
+resource "coder_script" "setup_wallpaper" {
+  agent_id           = coder_agent.main.id
+  display_name       = "Fondo de escritorio MakeSpace"
+  icon               = "/icon/desktop.svg"
+  run_on_start       = true
+  start_blocks_login = false
+  timeout            = 120
+  script             = <<-EOT
+    #!/usr/bin/env bash
+    set -u
+
+    wallpaper_source="/opt/makespace-provisioning/wallpapers/developer.png"
+    if [ ! -r "$wallpaper_source" ]; then
+      echo ">> Fondo privado de Developer no disponible; se omite."
+      exit 0
+    fi
+
+    wallpaper_dir="$HOME/.local/share/wallpapers/MakeSpace"
+    wallpaper="$wallpaper_dir/developer.png"
+    helper="$HOME/.local/bin/makespace-apply-wallpaper"
+    autostart="$HOME/.config/autostart/makespace-wallpaper.desktop"
+
+    install -d -m 0700 "$wallpaper_dir" "$HOME/.local/bin" "$HOME/.config/autostart"
+    install -m 0644 "$wallpaper_source" "$wallpaper"
+
+    cat > "$helper" <<'EOF'
+#!/usr/bin/env bash
+set -u
+
+wallpaper="$HOME/.local/share/wallpapers/MakeSpace/developer.png"
+marker_dir="$HOME/.local/state/makespace"
+marker="$marker_dir/wallpaper-developer.sha256"
+
+[ -r "$wallpaper" ] || exit 0
+expected="$(sha256sum "$wallpaper" | awk '{print $1}')"
+[ "$(cat "$marker" 2>/dev/null || true)" != "$expected" ] || exit 0
+
+for _attempt in $(seq 1 30); do
+  if command -v plasma-apply-wallpaperimage >/dev/null 2>&1 && \
+     plasma-apply-wallpaperimage "$wallpaper" >/dev/null 2>&1; then
+    install -d -m 0700 "$marker_dir"
+    printf '%s\n' "$expected" > "$marker"
+    exit 0
+  fi
+  sleep 2
+done
+
+exit 0
+EOF
+    chmod 0700 "$helper"
+
+    cat > "$autostart" <<EOF
+[Desktop Entry]
+Type=Application
+Name=MakeSpace Wallpaper
+Exec=$helper
+Terminal=false
+OnlyShowIn=KDE;
+X-KDE-autostart-after=panel
+EOF
+    chmod 0600 "$autostart"
+
+    # Si Plasma ya esta levantado, aplica el fondo ahora. El autostart cubre
+    # los casos en los que el escritorio se abre despues del script de Coder.
+    nohup "$helper" >/dev/null 2>&1 &
+    echo ">> Fondo de escritorio MakeSpace preparado."
+  EOT
 }
 
 # UI web nativa de OpenCode, además de la integración AgentAPI del módulo.
@@ -896,7 +987,7 @@ resource "coder_script" "opencode_web" {
     if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
     mkdir -p "$log_dir"
     cd /home/coder
-    nohup "$opencode_bin" web --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
+    nohup "$opencode_bin" serve --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
     for _ in $(seq 1 30); do
       if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
       sleep 1
@@ -1083,6 +1174,15 @@ resource "docker_container" "workspace" {
       target = "/home/coder/host"
       type   = "bind"
       source = mounts.value
+    }
+  }
+
+  dynamic "volumes" {
+    for_each = local.wallpaper_path != "" ? [local.wallpaper_path] : []
+    content {
+      container_path = "/opt/makespace-provisioning/wallpapers"
+      host_path      = volumes.value
+      read_only      = true
     }
   }
 

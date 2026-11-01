@@ -101,6 +101,15 @@ data "coder_parameter" "persist_projects_storage" {
   mutable      = true
 }
 
+data "coder_parameter" "docker_auto_prune" {
+  name         = "02_03_docker_auto_prune"
+  display_name = "[Maintenance] Limpieza automática de Docker"
+  description  = "Limpia semanalmente la caché de compilación sin uso durante 7 días y las imágenes sin contenedores asociadas de más de 30 días. No elimina volúmenes ni contenedores."
+  type         = "bool"
+  default      = true
+  mutable      = true
+}
+
 data "coder_parameter" "autoprovision_ocabra_key" {
   name         = "04_autoprovision_ocabra_key"
   display_name = "[AI/Ocabra] Provisionar API key Ocabra automáticamente"
@@ -489,6 +498,72 @@ CONTINUECFG
   }
 }
 
+# El cron solo corre con el workspace encendido. La ejecución al arrancar y el
+# marcador persistente recuperan la limpieza semanal si estaba apagado.
+resource "coder_script" "docker_auto_prune" {
+  count              = data.coder_parameter.docker_auto_prune.value ? 1 : 0
+  agent_id           = coder_agent.main.id
+  display_name       = "Docker auto-prune"
+  icon               = "/icon/docker.svg"
+  cron               = "0 30 4 * * 0"
+  run_on_start       = true
+  start_blocks_login = false
+  timeout            = 1800
+  script             = <<-EOT
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    state_dir="$HOME/.local/state/coder-maintenance"
+    last_run_file="$state_dir/docker-prune.last"
+    lock_file="$state_dir/docker-prune.lock"
+    min_interval=$((7 * 24 * 60 * 60))
+    now=$(date +%s)
+    mkdir -p "$state_dir"
+
+    exec 9>"$lock_file"
+    if ! flock -n 9; then
+      echo ">> Docker auto-prune: ya hay otra limpieza en curso; se omite."
+      exit 0
+    fi
+
+    last_run=$(cat "$last_run_file" 2>/dev/null || echo 0)
+    case "$last_run" in
+      ''|*[!0-9]*) last_run=0 ;;
+    esac
+    if [ "$last_run" -gt 0 ] && [ "$now" -ge "$last_run" ] && [ $((now - last_run)) -lt "$min_interval" ]; then
+      echo ">> Docker auto-prune: la última limpieza fue hace menos de 7 días; se omite."
+      exit 0
+    fi
+
+    docker_ready=false
+    for _ in $(seq 1 120); do
+      if sudo docker info >/dev/null 2>&1; then
+        docker_ready=true
+        break
+      fi
+      sleep 1
+    done
+    if [ "$docker_ready" != "true" ]; then
+      echo ">> Docker auto-prune: dockerd no está disponible después de 120 segundos." >&2
+      exit 1
+    fi
+
+    echo ">> Uso de Docker antes de la limpieza:"
+    sudo docker system df || true
+
+    if sudo docker buildx version >/dev/null 2>&1; then
+      sudo docker buildx prune --all --force --filter "until=168h"
+    else
+      sudo docker builder prune --all --force --filter "until=168h"
+    fi
+    sudo docker image prune --all --force --filter "until=720h"
+
+    date +%s > "$last_run_file"
+    echo ">> Uso de Docker después de la limpieza:"
+    sudo docker system df || true
+  EOT
+}
+
 module "code-server" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/code-server/coder"
@@ -522,6 +597,24 @@ module "opencode" {
   workdir      = "/home/coder/"
   report_tasks = false
   cli_app      = true
+  # El instalador "latest" del módulo (curl https://opencode.ai/install) solo
+  # sirve OpenCode 1; OpenCode 2 vive en una URL separada. Si esto fuera
+  # pre_install_script, install_opencode() igualmente reinstalaría v1 encima
+  # (su propio "command -v opencode" corre en un proceso nuevo que no hereda
+  # el PATH que exportamos aquí). Como post_install_script, corremos DESPUÉS
+  # de esa v1 y la sobreescribimos con v2 en la misma ruta.
+  post_install_script = <<-EOT
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export PATH="$HOME/.opencode/bin:$PATH"
+    major=0
+    if command -v opencode >/dev/null 2>&1; then
+      major="$(opencode --version 2>/dev/null | grep -oE '[0-9]+' | head -1)"
+    fi
+    if [ "$${major:-0}" -lt 2 ] 2>/dev/null; then
+      curl -fsSL https://opencode.ai/v2/install | bash
+    fi
+  EOT
 }
 
 # UI web nativa de OpenCode, además de la interfaz de terminal del módulo.
@@ -552,7 +645,7 @@ resource "coder_script" "opencode_web" {
     if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
     mkdir -p "$log_dir"
     cd /home/coder
-    nohup "$opencode_bin" web --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
+    nohup "$opencode_bin" serve --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
     for _ in $(seq 1 30); do
       if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
       sleep 1

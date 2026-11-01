@@ -927,6 +927,24 @@ module "opencode" {
   version  = "~> 0.1"
   agent_id = coder_agent.main.id
   workdir  = "/home/coder/"
+  # El instalador "latest" del módulo (curl https://opencode.ai/install) solo
+  # sirve OpenCode 1; OpenCode 2 vive en una URL separada. Si esto fuera
+  # pre_install_script, install_opencode() igualmente reinstalaría v1 encima
+  # (su propio "command -v opencode" corre en un proceso nuevo que no hereda
+  # el PATH que exportamos aquí). Como post_install_script, corremos DESPUÉS
+  # de esa v1 y la sobreescribimos con v2 en la misma ruta.
+  post_install_script = <<-EOT
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export PATH="$HOME/.opencode/bin:$PATH"
+    major=0
+    if command -v opencode >/dev/null 2>&1; then
+      major="$(opencode --version 2>/dev/null | grep -oE '[0-9]+' | head -1)"
+    fi
+    if [ "$${major:-0}" -lt 2 ] 2>/dev/null; then
+      curl -fsSL https://opencode.ai/v2/install | bash
+    fi
+  EOT
 }
 
 # UI web nativa de OpenCode, además de la integración AgentAPI del módulo.
@@ -957,7 +975,7 @@ resource "coder_script" "opencode_web" {
     if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
     mkdir -p "$log_dir"
     cd /home/coder
-    nohup "$opencode_bin" web --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
+    nohup "$opencode_bin" serve --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
     for _ in $(seq 1 30); do
       if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
       sleep 1

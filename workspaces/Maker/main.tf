@@ -143,6 +143,8 @@ locals {
   workspace_storage_projects = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}/Projects" : ""
   home_mount_host_path       = local.persist_home_storage && local.workspace_storage_root != "" ? local.workspace_storage_home : ""
   projects_mount_host_path   = local.persist_projects_storage && local.workspace_storage_root != "" ? local.workspace_storage_projects : ""
+  maker_provisioning_path    = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/_provisioning/maker" : ""
+  wallpaper_path             = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/_provisioning/desktop/wallpapers" : ""
   home_volume_resolved       = "coder-${data.coder_workspace.me.id}-home"
   repo_url                   = trimspace(data.coder_parameter.git_repo_url.value)
   repo_name                  = local.repo_url != "" ? trimsuffix(basename(local.repo_url), ".git") : ""
@@ -1119,6 +1121,24 @@ module "opencode" {
   version  = "~> 0.1"
   agent_id = coder_agent.main.id
   workdir  = "/home/coder/"
+  # El instalador "latest" del módulo (curl https://opencode.ai/install) solo
+  # sirve OpenCode 1; OpenCode 2 vive en una URL separada. Si esto fuera
+  # pre_install_script, install_opencode() igualmente reinstalaría v1 encima
+  # (su propio "command -v opencode" corre en un proceso nuevo que no hereda
+  # el PATH que exportamos aquí). Como post_install_script, corremos DESPUÉS
+  # de esa v1 y la sobreescribimos con v2 en la misma ruta.
+  post_install_script = <<-EOT
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export PATH="$HOME/.opencode/bin:$PATH"
+    major=0
+    if command -v opencode >/dev/null 2>&1; then
+      major="$(opencode --version 2>/dev/null | grep -oE '[0-9]+' | head -1)"
+    fi
+    if [ "$${major:-0}" -lt 2 ] 2>/dev/null; then
+      curl -fsSL https://opencode.ai/v2/install | bash
+    fi
+  EOT
 }
 
 # UI web nativa de OpenCode, además de la integración AgentAPI del módulo.
@@ -1148,7 +1168,7 @@ resource "coder_script" "opencode_web" {
     if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
     mkdir -p "$log_dir"
     cd /home/coder
-    nohup "$opencode_bin" web --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
+    nohup "$opencode_bin" serve --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
     for _ in $(seq 1 30); do
       if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
       sleep 1
@@ -1157,6 +1177,16 @@ resource "coder_script" "opencode_web" {
     exit 1
   EOT
   depends_on         = [module.opencode]
+}
+
+resource "coder_script" "setup_maker_provisioning" {
+  agent_id           = coder_agent.main.id
+  display_name       = "Perfiles de impresion 3D"
+  icon               = "/emojis/1f5a8.png"
+  script             = file("${path.module}/scripts/setup-maker-provisioning.sh")
+  run_on_start       = true
+  start_blocks_login = false
+  timeout            = 300
 }
 
 resource "coder_app" "opencode_web" {
@@ -1294,6 +1324,24 @@ resource "docker_container" "workspace" {
     content {
       container_path = "/home/coder"
       volume_name    = volumes.value
+    }
+  }
+
+  dynamic "volumes" {
+    for_each = local.maker_provisioning_path != "" ? [local.maker_provisioning_path] : []
+    content {
+      container_path = "/opt/makespace-provisioning/maker"
+      host_path      = volumes.value
+      read_only      = true
+    }
+  }
+
+  dynamic "volumes" {
+    for_each = local.wallpaper_path != "" ? [local.wallpaper_path] : []
+    content {
+      container_path = "/opt/makespace-provisioning/wallpapers"
+      host_path      = volumes.value
+      read_only      = true
     }
   }
 

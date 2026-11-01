@@ -125,6 +125,15 @@ data "coder_parameter" "p03_persist_projects_storage" {
   mutable      = true
 }
 
+data "coder_parameter" "p03_docker_auto_prune" {
+  name         = "03_03_docker_auto_prune"
+  display_name = "[Maintenance] Limpieza automática de Docker"
+  description  = "Limpia semanalmente la caché de compilación sin uso durante 7 días y las imágenes sin contenedores asociadas de más de 30 días. No elimina volúmenes ni contenedores."
+  type         = "bool"
+  default      = true
+  mutable      = true
+}
+
 data "coder_parameter" "p04_git_repo_url" {
   name         = "04_git_repo_url"
   display_name = "[Code] Repositorio Git (opcional)"
@@ -176,6 +185,7 @@ locals {
   workspace_storage_projects = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}/Projects" : ""
   home_mount_host_path       = local.persist_home_storage && local.workspace_storage_root != "" ? local.workspace_storage_home : ""
   projects_mount_host_path   = local.persist_projects_storage && local.workspace_storage_root != "" ? local.workspace_storage_projects : ""
+  wallpaper_path             = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/_provisioning/desktop/wallpapers" : ""
   ocabra_endpoint_base_url   = trimspace(var.ocabra_endpoint_base_url)
   ocabra_key                 = trimspace(var.ocabra_key)
   freeapi_base_url           = trimspace(var.freeapi_base_url)
@@ -963,6 +973,156 @@ PY
 # MÓDULOS DE CODER
 # ---------------------------------------------------------------
 
+# Aplica el fondo de escritorio compartido si el montaje de solo lectura
+# _provisioning/desktop/wallpapers esta disponible; conserva el fondo si el
+# usuario lo ha cambiado despues.
+resource "coder_script" "setup_wallpaper" {
+  agent_id           = coder_agent.main.id
+  display_name       = "Fondo de escritorio MakeSpace"
+  icon               = "/icon/desktop.svg"
+  run_on_start       = true
+  start_blocks_login = false
+  timeout            = 120
+  script             = <<-EOT
+    #!/usr/bin/env bash
+    set -u
+
+    wallpaper_source="/opt/makespace-provisioning/wallpapers/developer.png"
+    if [ ! -r "$wallpaper_source" ]; then
+      echo ">> Fondo privado de Developer no disponible; se omite."
+      exit 0
+    fi
+
+    wallpaper_dir="$HOME/.local/share/wallpapers/MakeSpace"
+    wallpaper="$wallpaper_dir/developer.png"
+    helper="$HOME/.local/bin/makespace-apply-wallpaper"
+    autostart="$HOME/.config/autostart/makespace-wallpaper.desktop"
+
+    install -d -m 0700 "$wallpaper_dir" "$HOME/.local/bin" "$HOME/.config/autostart"
+    install -m 0644 "$wallpaper_source" "$wallpaper"
+
+    cat > "$helper" <<'EOF'
+#!/usr/bin/env bash
+set -u
+
+wallpaper="$HOME/.local/share/wallpapers/MakeSpace/developer.png"
+marker_dir="$HOME/.local/state/makespace"
+marker="$marker_dir/wallpaper-developer.sha256"
+
+[ -r "$wallpaper" ] || exit 0
+expected="$(sha256sum "$wallpaper" | awk '{print $1}')"
+[ "$(cat "$marker" 2>/dev/null || true)" != "$expected" ] || exit 0
+
+for _attempt in $(seq 1 30); do
+  session_pid="$(pgrep -u "$(id -u)" -x mate-session | head -1)"
+  if [ -n "$session_pid" ] && [ -r "/proc/$session_pid/environ" ] && command -v gsettings >/dev/null 2>&1; then
+    unset DBUS_SESSION_BUS_ADDRESS DISPLAY
+    while IFS= read -r envline; do
+      case "$envline" in
+        DBUS_SESSION_BUS_ADDRESS=*|DISPLAY=*) export "$envline" ;;
+      esac
+    done < <(tr '\0' '\n' < "/proc/$session_pid/environ")
+    if [ -n "$${DBUS_SESSION_BUS_ADDRESS:-}" ] && \
+       gsettings set org.mate.background picture-filename "$wallpaper" 2>/dev/null; then
+      gsettings set org.mate.background picture-options 'zoom' 2>/dev/null || true
+      install -d -m 0700 "$marker_dir"
+      printf '%s\n' "$expected" > "$marker"
+      exit 0
+    fi
+  fi
+  sleep 2
+done
+
+exit 0
+EOF
+    chmod 0700 "$helper"
+
+    cat > "$autostart" <<EOF
+[Desktop Entry]
+Type=Application
+Name=MakeSpace Wallpaper
+Exec=$helper
+Terminal=false
+OnlyShowIn=MATE;
+X-GNOME-Autostart-Delay=5
+EOF
+    chmod 0600 "$autostart"
+
+    # El escritorio base es MATE (KasmVNC lo invoca via un wrapper "xfce" por
+    # compatibilidad). El autostart cubre el caso en el que la sesion se abre
+    # despues del script de Coder.
+    nohup "$helper" >/dev/null 2>&1 &
+    echo ">> Fondo de escritorio MakeSpace preparado."
+  EOT
+}
+
+# Mantenimiento del Docker interno. El cron solo corre con el workspace
+# encendido; run_on_start y el marcador persistente recuperan ejecuciones
+# semanales que se hayan perdido mientras estaba apagado.
+resource "coder_script" "docker_auto_prune" {
+  count              = data.coder_parameter.p03_docker_auto_prune.value ? 1 : 0
+  agent_id           = coder_agent.main.id
+  display_name       = "Docker auto-prune"
+  icon               = "/icon/docker.svg"
+  cron               = "0 30 4 * * 0"
+  run_on_start       = true
+  start_blocks_login = false
+  timeout            = 1800
+  script             = <<-EOT
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    state_dir="$HOME/.local/state/coder-maintenance"
+    last_run_file="$state_dir/docker-prune.last"
+    lock_file="$state_dir/docker-prune.lock"
+    min_interval=$((7 * 24 * 60 * 60))
+    now=$(date +%s)
+    mkdir -p "$state_dir"
+
+    exec 9>"$lock_file"
+    if ! flock -n 9; then
+      echo ">> Docker auto-prune: ya hay otra limpieza en curso; se omite."
+      exit 0
+    fi
+
+    last_run=$(cat "$last_run_file" 2>/dev/null || echo 0)
+    case "$last_run" in
+      ''|*[!0-9]*) last_run=0 ;;
+    esac
+    if [ "$last_run" -gt 0 ] && [ "$now" -ge "$last_run" ] && [ $((now - last_run)) -lt "$min_interval" ]; then
+      echo ">> Docker auto-prune: la última limpieza fue hace menos de 7 días; se omite."
+      exit 0
+    fi
+
+    docker_ready=false
+    for _ in $(seq 1 120); do
+      if sudo docker info >/dev/null 2>&1; then
+        docker_ready=true
+        break
+      fi
+      sleep 1
+    done
+    if [ "$docker_ready" != "true" ]; then
+      echo ">> Docker auto-prune: dockerd no está disponible después de 120 segundos." >&2
+      exit 1
+    fi
+
+    echo ">> Uso de Docker antes de la limpieza:"
+    sudo docker system df || true
+
+    if sudo docker buildx version >/dev/null 2>&1; then
+      sudo docker buildx prune --all --force --filter "until=168h"
+    else
+      sudo docker builder prune --all --force --filter "until=168h"
+    fi
+    sudo docker image prune --all --force --filter "until=720h"
+
+    date +%s > "$last_run_file"
+    echo ">> Uso de Docker después de la limpieza:"
+    sudo docker system df || true
+  EOT
+}
+
 # Script de preparación de pipx (debe ejecutarse antes de jupyterlab)
 resource "coder_script" "setup_pipx" {
   agent_id           = coder_agent.main.id
@@ -1120,6 +1280,24 @@ module "opencode" {
   workdir      = "/home/coder/Projects"
   report_tasks = true
   cli_app      = false
+  # El instalador "latest" del módulo (curl https://opencode.ai/install) solo
+  # sirve OpenCode 1; OpenCode 2 vive en una URL separada. Si esto fuera
+  # pre_install_script, install_opencode() igualmente reinstalaría v1 encima
+  # (su propio "command -v opencode" corre en un proceso nuevo que no hereda
+  # el PATH que exportamos aquí). Como post_install_script, corremos DESPUÉS
+  # de esa v1 y la sobreescribimos con v2 en la misma ruta.
+  post_install_script = <<-EOT
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export PATH="$HOME/.opencode/bin:$PATH"
+    major=0
+    if command -v opencode >/dev/null 2>&1; then
+      major="$(opencode --version 2>/dev/null | grep -oE '[0-9]+' | head -1)"
+    fi
+    if [ "$${major:-0}" -lt 2 ] 2>/dev/null; then
+      curl -fsSL https://opencode.ai/v2/install | bash
+    fi
+  EOT
 }
 
 # UI web nativa de OpenCode, además de la integración AgentAPI del módulo.
@@ -1150,7 +1328,7 @@ resource "coder_script" "opencode_web" {
     if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
     mkdir -p "$log_dir"
     cd /home/coder
-    nohup "$opencode_bin" web --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
+    nohup "$opencode_bin" serve --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
     for _ in $(seq 1 30); do
       if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
       sleep 1
@@ -1390,6 +1568,15 @@ resource "docker_container" "workspace" {
     content {
       container_path = "/var/lib/docker"
       volume_name    = volumes.value
+    }
+  }
+
+  dynamic "volumes" {
+    for_each = local.wallpaper_path != "" ? [local.wallpaper_path] : []
+    content {
+      container_path = "/opt/makespace-provisioning/wallpapers"
+      host_path      = volumes.value
+      read_only      = true
     }
   }
 
