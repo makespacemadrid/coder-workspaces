@@ -1339,6 +1339,32 @@ resource "coder_script" "opencode_web" {
   depends_on         = [module.opencode]
 }
 
+resource "coder_script" "rea_setup" {
+  agent_id           = coder_agent.main.id
+  display_name       = "Configurar rea para OpenCode"
+  icon               = "/icon/opencode.svg"
+  run_on_start       = true
+  start_blocks_login = false
+  timeout            = 180
+  script             = <<-EOT
+    #!/usr/bin/env bash
+    set -uo pipefail
+    export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
+    log_file="$HOME/.rea-setup.log"
+    echo ">> Configurando rea (https://github.com/morluto/rea) para OpenCode..." > "$log_file"
+    # --client opencode: solo registra OpenCode, no los demas agentes de IA
+    # presentes en la imagen (Claude Code, Codex, Gemini CLI). --yes: no
+    # interactivo. Sin --install-hopper a proposito: Hopper es de pago y no
+    # se instala aqui.
+    if npx -y rea-agents setup --client opencode --yes >>"$log_file" 2>&1; then
+      echo ">> rea configurado para OpenCode." >> "$log_file"
+    else
+      echo ">> rea setup fallo; consulta $log_file" >&2
+    fi
+  EOT
+  depends_on         = [module.opencode]
+}
+
 resource "coder_app" "opencode_web" {
   count        = local.install_claude ? 0 : 1
   agent_id     = coder_agent.main.id
