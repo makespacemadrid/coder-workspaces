@@ -1,59 +1,48 @@
 ---
 display_name: Developer
-description: "Workspace de desarrollo general con Docker in Docker y GPU opcional (autoprovisiona key Ocabra de IA por defecto, configurable)"
+description: "Workspace headless de desarrollo: Docker in Docker, CLIs de IA y JupyterLab. GPU opcional solo para cómputo (CUDA/NVENC)."
 icon: icon.svg
 maintainer_github: makespacemadrid
-tags: [docker, dind, gpu, workspace, ocabra]
+tags: [docker, dind, workspace, ocabra]
 ---
 
-# Developer (Docker in Docker)
+# Developer (headless, Docker in Docker)
 
-Workspace de desarrollo general, con **Docker in Docker (DinD)**, escritorio XFCE/KasmVNC y aislamiento del host. Usa la imagen `ghcr.io/makespacemadrid/coder-mks-developer:latest`.
+Workspace de desarrollo general sin escritorio gráfico, con **Docker in Docker (DinD)** y aislamiento del host. Usa la imagen `ghcr.io/makespacemadrid/coder-mks-developer-cli:latest`.
 
 ## Para qué sirve
-- Entornos de desarrollo aislados sin tocar el Docker del host.
-- Proyectos que necesitan GPU opcional y mapeo de puertos a host.
-- Sesiones gráficas ligeras (KasmVNC) con herramientas dev y CLIs de IA.
+- Entornos de desarrollo aislados sin tocar el Docker del host, vía terminal/code-server.
+- Proyectos que necesitan GPU opcional para cómputo (CUDA/NVENC) — no hay escritorio que acelerar, así que GPU solo tiene sentido si la vas a usar directamente en tu código.
+- Si necesitas escritorio gráfico (KDE/Selkies), usa el template `DeveloperDesktop` en su lugar.
 
 ## Qué incluye
 - Docker Engine y docker-compose-plugin internos (DinD, no se usa el socket del host).
-- Escritorio XFCE/KasmVNC, code-server y Filebrowser. RDP solo aplica a workspaces Windows según [la guía de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops).
-- Apps desktop: VS Code, GitHub Desktop, Claude Desktop, OpenCode Desktop, Google Chrome, Firefox, Geany, AppImage Pool.
-- Node.js 22, CLIs de IA (OpenAI/Codex, Claude, Gemini, Continue, Qwen), git/gh y audio (PulseAudio/ALSA).
-- Utilidades CLI extra: `yq`, `sqlite3`.
-- Python con `python3-venv` y venv base en `~/.venvs/base`.
-- Persistencia en `/home/coder` (volumen o bind mount) y `/var/lib/docker`.
-- Antigravity auto-updater (`antigravity`) preinstalado.
+- code-server y JupyterLab (módulos de Coder).
+- Node.js 24, CLIs de IA (OpenAI/Codex, Claude, Gemini, Continue, Qwen), git/gh — todo horneado en la imagen, sin fallbacks de instalación en runtime.
+- Python con `venv`/`pipx` y kernel Jupyter (`coder-py`) listo para usar.
+- Persistencia en `/home/coder` (volumen Docker o bind mount según parámetros) y `/var/lib/docker`.
+- Limpieza automática semanal del Docker interno: caché de build sin uso durante 7 días e imágenes sin contenedores asociadas de más de 30 días.
 
 ## Creación rápida en Coder
 - Si es tu primera vez, probablemente no necesitas tocar nada: baja al final y pulsa `Create workspace`.
-- Qué es: workspace con Docker DinD, code-server/VS Code y tooling de IA listo para usar.
-- **Identidad**: deja vacío “Full Name for Git config” para usar el nombre de tu usuario Coder.
-- [Compute] GPU (opcional): activa `Habilitar GPUs` si lo necesitas.
-- [Network] Exponer puertos al host: usa `Exponer puertos al host` + `Puerto inicial/final` para publicar servicios.
-- [Storage] Persistir home en el host: monta `/home/coder` en `TF_VAR_users_storage/<usuario>/<workspace>`.
-- [Storage] Persistir solo ~/Projects: monta `/home/coder/Projects` en `TF_VAR_users_storage/<usuario>/<workspace>/Projects`.
-- [Storage] Montar ruta host en ~/host: monta una ruta del host en `/home/coder/host`.
-- [Storage] Especificar UID para montar la ruta host: UID para ejecutar el contenedor cuando montas `/home/coder/host` (por defecto 1000).
-- [Storage] Docker data persistente: `/var/lib/docker` se guarda en un volumen interno automático.
-- [Code] Repositorio Git (opcional): pre-rellenado con `TF_VAR_default_repo_url`, clona en `~/Projects` al primer arranque.
-- Code-server abre por defecto la carpeta clonada en `~/Projects/<repo>`.
-- [AI/OpenCode] Provisionar API_KEY de Ocabra automáticamente: viene activo por defecto, genera la key Ocabra (30 días), configura OpenCode (base URL por entorno si no pones URL) y exporta `OCABRA_BASE_URL`/`OCABRA_API_KEY`.
-- [AI/OpenAI] Base URL / API key (opcionales): rellénalas para usar tu proveedor o desactiva la casilla anterior si no quieres la llave preprovisionada. La autoprovisión requiere `TF_VAR_ocabra_endpoint_base_url` y `TF_VAR_ocabra_key`.
-- `OpenCode Web`: app web nativa de OpenCode, arrancada automáticamente y accesible solo por el propietario desde las apps de Coder.
-- [AI/Claude] Token: si lo rellenas se instalará Claude Code (subdomain=false) y las tareas de Coder usarán Claude; OpenCode no instala módulo (solo CLI via script) para evitar conflictos.
+- Qué es: workspace headless con Docker DinD, code-server/JupyterLab y tooling de IA listo para usar.
+- [Compute] Aceleración gráfica: déjalo en `Software` salvo que necesites GPU NVIDIA para cómputo (CUDA/NVENC) en tu propio código.
+- [Storage] Persistencia: `Ninguna` (volumen Docker), `Home completo` o `Solo ~/Projects` en el host.
+- [Network] Exponer puertos al host: usa el rango de puertos para publicar servicios.
+- [Maintenance] Limpieza automática de Docker: activa por defecto; no elimina volúmenes ni contenedores y se puede desactivar desde los parámetros del workspace.
+- [AI] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
+- [AI] Provisionar API key FreeAPI automáticamente: activo por defecto.
 
 ## Notas de uso
 - El daemon Docker se arranca dentro del contenedor (`dockerd` con overlay2) y guarda datos en `/var/lib/docker`.
-- Usa KasmVNC para escritorio XFCE (consola del workspace -> abrir URL de KasmVNC).
+- `Docker auto-prune` se ejecuta los domingos a las 04:30 mientras el workspace está encendido. También comprueba la última ejecución al arrancar para recuperar semanas en las que estuviera apagado; los resultados aparecen en los logs de scripts de Coder.
 - El contenedor lleva labels `com.centurylinklabs.watchtower.*` para auto-actualización vía Watchtower.
-- Claude Desktop fuerza `COWORK_VM_BACKEND=host` para que el modo cowork no intente usar `bwrap` dentro del contenedor.
 
 ### Limitaciones de DinD
 - No hay Swarm ni orquestador, por lo que `docker compose` ignora la sección `deploy.*` (incluidos `resources.reservations/limits`, `placement`, `replicas`); solo aplican los flags directos de `docker run`/`docker compose` como `--cpus` o `--memory`.
 - Las reservas de recursos son contra el propio workspace: los contenedores hijos comparten el presupuesto de CPU/RAM que tenga asignado el workspace y no pueden reservar más que eso.
-- El Docker interno no ve el Docker del host; si necesitas gestionar contenedores/volúmenes del nodo, usa el template AdvancedHostDANGER.
+- El Docker interno no ve el Docker del host.
 
 ## Cómo publicar cambios
-- Edita este template y la imagen base en `Docker-Images/Developer/Dockerfile`.
+- Edita este template y la imagen base en `Docker-Images/DeveloperCLI/Dockerfile`.
 - Tras el merge a `main`, ejecuta `coder templates push` para desplegar el template en Coder.

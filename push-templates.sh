@@ -7,13 +7,15 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACES=(
   "Developer"
-  "AdvancedHostDANGER"
+  "DeveloperDesktop"
+  "DeveloperRE"
   "DeveloperAndroid"
   "DeveloperAndroidSelkies"
   "Maker"
   "MakerSelkies"
   "Minimal"
   "OpenClaw"
+  "Hermes"
   "ProxmoxVM"
 )
 

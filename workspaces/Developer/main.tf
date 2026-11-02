@@ -17,7 +17,7 @@ terraform {
 
 variable "docker_socket" {
   default     = "unix:///var/run/docker.sock"
-  description = "(Optional) Docker socket URI (use unix:// prefix)"
+  description = "(Opcional) Docker socket URI (usa unix:// prefix)"
   type        = string
 }
 
@@ -27,15 +27,9 @@ variable "users_storage" {
   type        = string
 }
 
-variable "default_repo_url" {
-  default     = ""
-  description = "Repositorio Git por defecto (ej. $TF_VAR_default_repo_url)."
-  type        = string
-}
-
 variable "ocabra_endpoint_base_url" {
   default     = ""
-  description = "Base URL OpenAI-compatible por defecto (si no se define en parámetros)."
+  description = "Base URL OpenAI-compatible por defecto (ej. $TF_VAR_ocabra_endpoint_base_url)."
   type        = string
 }
 
@@ -57,127 +51,136 @@ variable "freeapi_key_endpoint" {
   type        = string
 }
 
-
-# ================================
-#   Parámetros visibles en Coder
-# ================================
-
-data "coder_parameter" "p01_enable_gpu" {
-  name         = "01_enable_gpu"
-  display_name = "[Compute] GPU"
-  description  = "Activa --gpus all en el contenedor."
-  type         = "bool"
-  default      = false
+data "coder_parameter" "graphics_acceleration" {
+  # Sin nivel DRI intermedio: confirmado en vivo que no da aceleración NVIDIA
+  # real sin --gpus all (Mesa cae a LLVMpipe/software igualmente).
+  name         = "01_graphics_acceleration"
+  display_name = "[Compute] Aceleración gráfica"
+  description  = "Software: todo por CPU (Mesa LLVMpipe), sin GPU. GPU NVIDIA: pasa la GPU completa al contenedor (--gpus all), habilita NVENC/CUDA."
+  type         = "string"
+  default      = "software"
+  order        = 10
   mutable      = true
+  option {
+    name  = "Software (CPU)"
+    value = "software"
+  }
+  option {
+    name  = "GPU NVIDIA (NVENC/CUDA)"
+    value = "gpu"
+  }
 }
 
-data "coder_parameter" "p01_enable_dri" {
-  name         = "01_enable_dri"
-  display_name = "[Compute] DRI (/dev/dri)"
-  description  = "Mapea /dev/dri para aceleracion grafica (Intel/AMD o NVIDIA via EGL/GL)."
-  type         = "bool"
-  default      = true
+data "coder_parameter" "storage_mode" {
+  name         = "20_storage_mode"
+  display_name = "[Storage] Persistencia"
+  description  = "Ninguna: todo en volumen Docker (se puede perder si se limpia Docker en el host estando el workspace apagado). Home completo: monta /home/coder en el host. Solo Projects: monta solo /home/coder/Projects en el host."
+  type         = "string"
+  default      = "none"
+  order        = 20
   mutable      = true
+  option {
+    name  = "Ninguna (volumen Docker)"
+    value = "none"
+  }
+  option {
+    name  = "Home completo en el host"
+    value = "home"
+  }
+  option {
+    name  = "Solo ~/Projects en el host"
+    value = "projects_only"
+  }
 }
 
-data "coder_parameter" "p02_expose_ports" {
-  name         = "02_00_expose_ports"
+data "coder_parameter" "expose_ports" {
+  name         = "30_expose_ports"
   display_name = "[Network] Exponer puertos del host"
   description  = "Mapea un rango de puertos del host hacia el workspace. Elige un rango alto y raro para evitar colisiones."
   type         = "bool"
   default      = false
+  order        = 30
   mutable      = true
 }
 
-data "coder_parameter" "p02_port_range_start" {
-  name         = "02_01_port_range_start"
+data "coder_parameter" "port_range_start" {
+  name         = "31_port_range_start"
   display_name = "[Network] Puerto inicial a exponer"
   description  = "Puerto inicial del rango publicado cuando expones puertos."
   type         = "number"
   default      = 15000
+  order        = 31
   mutable      = true
 }
 
-data "coder_parameter" "p02_port_range_end" {
-  name         = "02_02_port_range_end"
+data "coder_parameter" "port_range_end" {
+  name         = "32_port_range_end"
   display_name = "[Network] Puerto final a exponer"
   description  = "Puerto final (incluido) del rango publicado cuando expones puertos."
   type         = "number"
   default      = 15050
+  order        = 32
   mutable      = true
 }
 
-data "coder_parameter" "p03_persist_home_storage" {
-  name         = "03_01_persist_home_storage"
-  display_name = "[Storage] Persistir home en el host"
-  description  = "Monta /home/coder en TF_VAR_users_storage/<usuario>/<workspace>. Si no lo activas, /home/coder se guarda en un volumen Docker; si el workspace esta apagado y se limpia Docker en el host, ese volumen puede desaparecer."
-  type         = "bool"
-  default      = false
-  mutable      = true
-}
-
-data "coder_parameter" "p03_persist_projects_storage" {
-  name         = "03_02_persist_projects_storage"
-  display_name = "[Storage] Persistir solo ~/Projects"
-  description  = "Monta /home/coder/Projects en TF_VAR_users_storage/<usuario>/<workspace>/Projects."
-  type         = "bool"
-  default      = false
-  mutable      = true
-}
-
-data "coder_parameter" "p03_docker_auto_prune" {
-  name         = "03_03_docker_auto_prune"
+data "coder_parameter" "docker_auto_prune" {
+  name         = "90_docker_auto_prune"
   display_name = "[Maintenance] Limpieza automática de Docker"
   description  = "Limpia semanalmente la caché de compilación sin uso durante 7 días y las imágenes sin contenedores asociadas de más de 30 días. No elimina volúmenes ni contenedores."
   type         = "bool"
   default      = true
+  order        = 90
   mutable      = true
 }
 
-data "coder_parameter" "p04_git_repo_url" {
-  name         = "04_git_repo_url"
-  display_name = "[Code] Repositorio Git (opcional)"
-  description  = "URL para clonar en ~/Projects/<repo> en el primer arranque."
+data "coder_parameter" "ocabra_key_mode" {
+  name         = "60_ocabra_key_mode"
+  display_name = "[AI] Clave Ocabra"
+  description  = "Auto-aprovisionar una API key Ocabra nueva, o usar una que ya tengas."
   type         = "string"
-  default      = var.default_repo_url
+  default      = "auto"
+  order        = 60
   mutable      = true
+  option {
+    name  = "Auto-aprovisionar"
+    value = "auto"
+  }
+  option {
+    name  = "Usar mi propia clave"
+    value = "manual"
+  }
 }
 
-data "coder_parameter" "p05_claude_token" {
-  name         = "05_claude_token"
-  display_name = "[AI/Claude] Token"
-  description  = "Token de Claude (oauth). Si se rellena se usa Claude y se omite el módulo OpenCode. Obténlo con `claude setup-token`."
+data "coder_parameter" "ocabra_key_value" {
+  name         = "61_ocabra_key_value"
+  display_name = "[AI] Clave Ocabra manual"
+  description  = "Solo se usa si arriba elegiste 'Usar mi propia clave'."
   type         = "string"
   default      = ""
+  order        = 61
   mutable      = true
 }
 
-data "coder_parameter" "p05_autoprovision_ocabra_key" {
-  name         = "05_autoprovision_ocabra_key"
-  display_name = "[AI/Ocabra] Provisionar API key Ocabra automáticamente"
-  description  = "Genera y precarga una API key Ocabra. La API de Ocabra es privada en los servidores de Ocabra."
-  type         = "bool"
-  default      = true
-  mutable      = true
-}
-
-data "coder_parameter" "p05_autoprovision_freeapi_key" {
-  name         = "05_autoprovision_freeapi_key"
-  display_name = "[AI/FreeAPI] Provisionar API key automáticamente"
+data "coder_parameter" "autoprovision_freeapi_key" {
+  name         = "62_autoprovision_freeapi_key"
+  display_name = "[AI] Provisionar API key FreeAPI automáticamente"
   description  = "Generar automaticamente una key con acceso a recursos gratis externos que pueden no ser privados."
   type         = "bool"
   default      = true
+  order        = 62
   mutable      = true
 }
 
 locals {
   username                   = data.coder_workspace_owner.me.name
-  workspace_image            = "ghcr.io/makespacemadrid/coder-mks-developer:latest"
-  port_range                 = data.coder_parameter.p02_expose_ports.value ? range(data.coder_parameter.p02_port_range_start.value, data.coder_parameter.p02_port_range_end.value + 1) : []
-  enable_gpu                 = data.coder_parameter.p01_enable_gpu.value
-  enable_dri                 = data.coder_parameter.p01_enable_dri.value
-  persist_home_storage       = data.coder_parameter.p03_persist_home_storage.value
-  persist_projects_storage   = data.coder_parameter.p03_persist_projects_storage.value
+  workspace_image            = "ghcr.io/makespacemadrid/coder-mks-developer-cli:latest"
+  port_range                 = data.coder_parameter.expose_ports.value ? range(data.coder_parameter.port_range_start.value, data.coder_parameter.port_range_end.value + 1) : []
+  graphics_acceleration      = data.coder_parameter.graphics_acceleration.value
+  enable_gpu                 = local.graphics_acceleration == "gpu"
+  enable_dri                 = local.graphics_acceleration == "gpu"
+  storage_mode               = data.coder_parameter.storage_mode.value
+  persist_home_storage       = local.storage_mode == "home"
+  persist_projects_storage   = local.storage_mode == "projects_only"
   host_mount_path            = ""
   host_mount_uid             = "1000"
   workspace_storage_root     = trimspace(var.users_storage)
@@ -185,22 +188,17 @@ locals {
   workspace_storage_projects = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}/Projects" : ""
   home_mount_host_path       = local.persist_home_storage && local.workspace_storage_root != "" ? local.workspace_storage_home : ""
   projects_mount_host_path   = local.persist_projects_storage && local.workspace_storage_root != "" ? local.workspace_storage_projects : ""
-  wallpaper_path             = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/_provisioning/desktop/wallpapers" : ""
   ocabra_endpoint_base_url   = trimspace(var.ocabra_endpoint_base_url)
   ocabra_key                 = trimspace(var.ocabra_key)
   freeapi_base_url           = trimspace(var.freeapi_base_url)
   freeapi_key_endpoint       = trimspace(var.freeapi_key_endpoint)
-  home_volume_resolved       = "coder-${data.coder_workspace.me.id}-home"
-  docker_data_volume_name    = "coder-${data.coder_workspace.me.id}-docker-data"
-  repo_url                   = trimspace(data.coder_parameter.p04_git_repo_url.value)
-  repo_name                  = local.repo_url != "" ? trimsuffix(basename(local.repo_url), ".git") : ""
-  default_repo_path          = local.repo_name != "" ? "/home/coder/Projects/${local.repo_name}" : "/home/coder/Projects"
+  ocabra_key_mode            = data.coder_parameter.ocabra_key_mode.value
+  ocabra_key_value           = trimspace(data.coder_parameter.ocabra_key_value.value)
   openai_base_url            = ""
-  openai_api_key             = ""
-  auto_provision_ocabra_key  = data.coder_parameter.p05_autoprovision_ocabra_key.value
-  auto_provision_freeapi_key = data.coder_parameter.p05_autoprovision_freeapi_key.value
-  claude_token               = trimspace(data.coder_parameter.p05_claude_token.value)
-  install_claude             = trimspace(data.coder_parameter.p05_claude_token.value) != ""
+  openai_api_key             = local.ocabra_key_mode == "manual" ? local.ocabra_key_value : ""
+  auto_provision_ocabra_key  = local.ocabra_key_mode == "auto"
+  auto_provision_freeapi_key = data.coder_parameter.autoprovision_freeapi_key.value
+  install_claude             = false
   continue_default_config    = file("${path.module}/continue-config.yaml")
   llm_model_sync_script      = file("${path.module}/sync_llm_models.py")
 }
@@ -219,70 +217,6 @@ resource "coder_agent" "main" {
 
   startup_script = <<-EOT
     set -e
-
-    # Levantar dbus (necesario para apps Electron)
-    if ! pgrep -x dbus-daemon >/dev/null 2>&1; then
-      sudo mkdir -p /run/dbus
-      sudo dbus-daemon --system --fork || true
-    fi
-
-    # Configurar PulseAudio para soporte de audio en KasmVNC
-    sudo usermod -aG audio "$USER" || true
-    mkdir -p ~/.config/pulse
-    if [ ! -f ~/.config/pulse/client.conf ]; then
-      cat > ~/.config/pulse/client.conf <<'PULSECFG'
-autospawn = yes
-daemon-binary = /usr/bin/pulseaudio
-enable-shm = false
-PULSECFG
-    fi
-    # Iniciar PulseAudio si no está corriendo
-    if ! pgrep -u "$USER" pulseaudio >/dev/null 2>&1; then
-      pulseaudio --start --exit-idle-time=-1 || true
-    fi
-    # Cargar null-sink virtual para que KasmVNC pueda capturar audio
-    # (en contenedores Docker no hay hardware de audio; el null-sink actua como sink por defecto)
-    for _pa_try in 1 2 3; do
-      if pactl load-module module-null-sink sink_name=vcable sink_properties=device.description="VirtualCable" 2>/dev/null; then
-        pactl set-default-sink vcable 2>/dev/null || true
-        break
-      fi
-      sleep 1
-    done
-    unset _pa_try
-
-    # Configurar Claude Desktop cowork VM para usar HostBackend en Docker
-    # COWORK_VM_BACKEND=host evita que Claude Desktop use bwrap (que falla en contenedores)
-    # El contenedor Docker ya provee el aislamiento necesario
-    COWORK_TAG="# managed-by-developer-template: cowork-vm-backend"
-    for cowork_file in "$HOME/.xsessionrc" "$HOME/.profile"; do
-      if ! grep -qF "$COWORK_TAG" "$cowork_file" 2>/dev/null; then
-        printf '%s\nexport COWORK_VM_BACKEND=host\n' "$COWORK_TAG" >> "$cowork_file"
-      fi
-    done
-    mkdir -p "$HOME/.config/environment.d"
-    cat > "$HOME/.config/environment.d/claude-cowork.conf" <<EOF
-$${COWORK_TAG}
-COWORK_VM_BACKEND=host
-EOF
-    CLAUDE_WRAP_TAG="# managed-by-developer-template: claude-desktop-wrapper"
-    # claude-desktop: /usr/bin/claude-desktop es un symlink al binario Electron en
-    # /usr/lib. Escribir el wrapper con 'tee' sobre el symlink machacaria el binario
-    # real (RPATH=$ORIGIN), dejando un self-exec en bucle. Por eso: (1) solo actuar si
-    # el binario real esta intacto, (2) borrar el symlink antes de escribir, (3) crear
-    # un fichero regular que ejecuta el binario real con flags de render por software
-    # (KasmVNC no tiene GPU).
-    if [ -x /usr/lib/claude-desktop/claude-desktop ] && [ "$(stat -c%s /usr/lib/claude-desktop/claude-desktop 2>/dev/null || echo 0)" -gt 1000000 ]; then
-      sudo rm -f /usr/bin/claude-desktop /usr/bin/claude-desktop.real
-      sudo tee /usr/bin/claude-desktop >/dev/null <<'CLAUDEWRAP'
-#!/bin/sh
-exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT=auto COWORK_VM_BACKEND=host \
-  /usr/lib/claude-desktop/claude-desktop \
-  --no-sandbox --disable-gpu-sandbox --use-gl=angle --use-angle=swiftshader \
-  --enable-unsafe-swiftshader --ignore-gpu-blocklist --disable-dev-shm-usage --password-store=basic "$@"
-CLAUDEWRAP
-      sudo chmod 0755 /usr/bin/claude-desktop
-    fi
 
     # Asegurar /home/coder como HOME efectivo incluso si se ejecuta como root
     sudo mkdir -p /home/coder
@@ -308,50 +242,7 @@ CLAUDEWRAP
           fi
         fi
       done
-
-      # Activar aceleracion 3D en KasmVNC solo cuando la ruta GBM/DRI es viable.
-      # Nota: con driver NVIDIA propietario suele fallar con "Failed to create gbm".
-      mkdir -p "$HOME/.vnc"
-      KASM_USER_CFG="$HOME/.vnc/kasmvnc.yaml"
-      KASM_MANAGED_TAG="# managed-by-developer-template: kasmvnc-hw3d"
-      HAS_RENDER_NODE=false
-      if [ -e /dev/dri/renderD128 ] && [ -r /dev/dri/renderD128 ] && [ -w /dev/dri/renderD128 ]; then
-        HAS_RENDER_NODE=true
-      fi
-      HAS_NVIDIA=false
-      if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
-        HAS_NVIDIA=true
-      fi
-
-      if [ "$HAS_RENDER_NODE" = "true" ] && [ "$HAS_NVIDIA" = "false" ]; then
-        cat > "$KASM_USER_CFG" <<'KASMGPUCFG'
-# managed-by-developer-template: kasmvnc-hw3d
-desktop:
-  gpu:
-    hw3d: true
-    drinode: /dev/dri/renderD128
-KASMGPUCFG
-      elif [ "$HAS_NVIDIA" = "true" ]; then
-        # NVIDIA propietario: hw3d no soporta DRI3/GBM; configurar Zink (OpenGL→Vulkan→GPU)
-        if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
-          rm -f "$KASM_USER_CFG"
-        fi
-        ZINK_TAG="# managed-by-developer-template: zink-nvidia"
-        if ! grep -qF "$ZINK_TAG" "$HOME/.xsessionrc" 2>/dev/null; then
-          printf '%s\nexport MESA_LOADER_DRIVER_OVERRIDE=zink\nexport GALLIUM_DRIVER=zink\n' \
-            "$ZINK_TAG" >> "$HOME/.xsessionrc"
-        fi
-      else
-        # Sin render node accesible: limpiar config gestionada
-        if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
-          rm -f "$KASM_USER_CFG"
-        fi
-      fi
     fi
-
-    # Asegurar permisos de pipx para el usuario actual
-    sudo mkdir -p /opt/pipx /opt/pipx/bin
-    sudo chown -R "$USER:$USER" /opt/pipx || true
 
     # Configurar PATH para .local/bin (siempre útil)
     mkdir -p /home/coder/.local/bin
@@ -381,21 +272,7 @@ KASMGPUCFG
       fi
     fi
 
-    # Alinear binarios instalados como root (ej. jupyter)
-    sudo mkdir -p /home/coder/.local/bin
-    # Fuerza enlace al path de pipx aunque aún no exista; se arregla cuando pipx instale jupyterlab
-    sudo ln -sf /opt/pipx/bin/jupyter-lab /home/coder/.local/bin/jupyter-lab || true
-    for path in /root/.local/bin/jupyter-lab /usr/local/bin/jupyter-lab; do
-      if [ -x "$path" ]; then
-        sudo ln -sf "$path" /home/coder/.local/bin/jupyter-lab || true
-      fi
-    done
-    sudo chown -R "$USER:$USER" /home/coder/.local || true
-
     mkdir -p ~/Projects
-    if [ -n "$${DEFAULT_REPO_PATH:-}" ]; then
-      mkdir -p "$DEFAULT_REPO_PATH"
-    fi
     python3 - <<'PY'
 import json
 import os
@@ -417,155 +294,6 @@ for path in paths:
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
 PY
-    mkdir -p "$HOME/.codex"
-    touch "$HOME/.codex/config.toml"
-    codex_config="$HOME/.codex/config.toml"
-    codex_config_previous="$HOME/.codex/config.toml.template-prev"
-    cp -p "$codex_config" "$codex_config_previous" 2>/dev/null || true
-
-    # Reparar el residuo exacto dejado por la migracion antigua de chrome-devtools:
-    # un array ["-lc", "...chrome-devtools-mcp..."] sin clave ni cabecera TOML.
-    python3 - "$codex_config" <<'PY' || echo "WARN: fallo la reparacion preventiva de config.toml; se conserva el archivo anterior" >&2
-import os
-import stat
-import sys
-import tempfile
-import tomllib
-
-path = sys.argv[1]
-with open(path, encoding="utf-8") as f:
-    content = f.read()
-lines = content.splitlines()
-out = []
-i = 0
-repaired = False
-while i < len(lines):
-    if lines[i].strip() == "[":
-        j = i + 1
-        while j < len(lines) and lines[j].strip() != "]":
-            j += 1
-        if j < len(lines):
-            fragment = "\n".join(lines[i:j + 1])
-            if '"-lc"' in fragment and "chrome-devtools-mcp" in fragment:
-                end = j + 1
-                if end < len(lines) and lines[end].strip() in ("enabled = true", "enabled = false"):
-                    end += 1
-                if end < len(lines) and not lines[end].strip():
-                    end += 1
-                repaired = True
-                i = end
-                continue
-    out.append(lines[i])
-    i += 1
-
-if repaired:
-    candidate = "\n".join(out).rstrip("\n")
-    candidate = (candidate + "\n") if candidate else ""
-    try:
-        tomllib.loads(candidate)
-    except tomllib.TOMLDecodeError as exc:
-        print(f"WARN: no se pudo reparar config.toml de Codex de forma segura: {exc}", file=sys.stderr)
-    else:
-        mode = stat.S_IMODE(os.stat(path).st_mode)
-        fd, tmp = tempfile.mkstemp(prefix=".config.toml.", dir=os.path.dirname(path), text=True)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(candidate)
-            os.chmod(tmp, mode)
-            os.replace(tmp, path)
-            print("Reparado config.toml de Codex dañado por la migracion antigua")
-        finally:
-            if os.path.exists(tmp):
-                os.unlink(tmp)
-PY
-
-    if python3 -c 'import sys,tomllib; tomllib.load(open(sys.argv[1], "rb"))' "$codex_config" 2>/dev/null; then
-    # Migrar config antigua de chrome-devtools (formato bash -lc) si existe
-    python3 - <<'PY'
-import os
-path = os.path.expanduser("~/.codex/config.toml")
-try:
-    with open(path, encoding="utf-8") as f:
-        content = f.read()
-except FileNotFoundError:
-    content = ""
-if "[mcp_servers.chrome-devtools]" in content and '"bash"' in content:
-    lines = content.splitlines()
-    cleaned = []
-    i = 0
-    removed = False
-    while i < len(lines):
-        if lines[i].strip() == "[mcp_servers.chrome-devtools]":
-            j = i + 1
-            block = [lines[i]]
-            while j < len(lines) and not lines[j].lstrip().startswith("["):
-                block.append(lines[j])
-                j += 1
-            if '"bash"' in "\n".join(block):
-                removed = True
-                i = j
-                continue
-        cleaned.append(lines[i])
-        i += 1
-    if removed:
-        content = "\n".join(cleaned).rstrip("\n")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write((content + "\n") if content else "")
-PY
-    if ! grep -q '^\[mcp_servers\.chrome-devtools\]' "$HOME/.codex/config.toml" 2>/dev/null; then
-      cat >> "$HOME/.codex/config.toml" <<'CODEXCFG'
-
-[mcp_servers.chrome-devtools]
-command = "npx"
-args = [
-  "-y",
-  "chrome-devtools-mcp@latest",
-  "--chrome-arg=--use-gl=angle",
-  "--chrome-arg=--use-angle=swiftshader",
-  "--chrome-arg=--enable-unsafe-swiftshader",
-  "--chrome-arg=--no-sandbox",
-  "--chrome-arg=--disable-gpu-sandbox",
-  "--chrome-arg=--disable-setuid-sandbox",
-  "--chrome-arg=--disable-dev-shm-usage",
-]
-env = { DISPLAY=":1", XAUTHORITY="/home/coder/.Xauthority" }
-enabled = true
-CODEXCFG
-    fi
-    # MCP docker retirado: si quedó de una versión anterior, se elimina del config.toml
-    if grep -q '^\[mcp_servers\.docker\]' "$HOME/.codex/config.toml" 2>/dev/null; then
-      python3 - <<'PY'
-import os
-path = os.path.expanduser("~/.codex/config.toml")
-try:
-    with open(path, encoding="utf-8") as f:
-        lines = f.read().splitlines()
-except FileNotFoundError:
-    lines = []
-out, i, removed = [], 0, False
-while i < len(lines):
-    if lines[i].strip() == "[mcp_servers.docker]":
-        i += 1
-        while i < len(lines) and not lines[i].lstrip().startswith("["):
-            i += 1
-        removed = True
-        continue
-    out.append(lines[i]); i += 1
-if removed:
-    content = "\n".join(out).rstrip("\n")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write((content + "\n") if content else "")
-PY
-    fi
-    else
-      echo "WARN: $codex_config contiene TOML invalido; se omiten cambios automaticos de MCP" >&2
-    fi
-
-    # Nunca dejar un config.toml peor que el que habia al iniciar el script.
-    if ! python3 -c 'import sys,tomllib; tomllib.load(open(sys.argv[1], "rb"))' "$codex_config" 2>/dev/null; then
-      cp -p "$codex_config_previous" "$codex_config" 2>/dev/null || true
-      echo "WARN: cambios de MCP revertidos porque config.toml no supero la validacion TOML" >&2
-    fi
     mkdir -p ~/.opencode ~/.config/opencode
     if [ ! -f ~/.config/opencode/opencode.json ]; then
       if [ -f ~/.opencode/opencode.json ]; then
@@ -579,60 +307,33 @@ JSONCFG
     ln -sf ~/.config/opencode/opencode.json ~/.opencode/opencode.json || true
     ln -sf ~/.config/opencode/opencode.json ~/.opencode/config.json || true
 
+    # chunkTimeout=false + timeout largo: evita que OpenCode corte respuestas
+    # largas de los modelos locales/lentos. No pisa si el usuario ya lo cambió.
+    python3 - <<'PY'
+import json, os
+path = os.path.expanduser("~/.config/opencode/opencode.json")
+data = {}
+if os.path.exists(path):
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+settings = data.setdefault("settings", {})
+settings.setdefault("chunkTimeout", False)
+settings.setdefault("timeout", 2100000)
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+PY
+
+    # Asegurar permisos de pipx para el usuario actual
+    sudo mkdir -p /opt/pipx /opt/pipx/bin
+    sudo chown -R "$USER:$USER" /opt/pipx || true
+
     # Inicializar /etc/skel la primera vez
     if [ ! -f ~/.init_done ]; then
       cp -rT /etc/skel ~ || true
       touch ~/.init_done
-    fi
-
-    # Refrescar accesos directos en el escritorio (si faltan)
-    mkdir -p ~/Desktop
-    if [ -f /usr/share/applications/ai.opencode.desktop.desktop ]; then
-      ln -sfn /usr/share/applications/ai.opencode.desktop.desktop "$HOME/Desktop/OpenCode.desktop"
-    fi
-    for f in code.desktop github-desktop.desktop com.anthropic.Claude.desktop OpenCode.desktop firefox.desktop google-chrome.desktop geany.desktop appimagepool.desktop; do
-      src="/usr/share/applications/$f"
-      if [ -f "$src" ] && [ ! -e "$HOME/Desktop/$f" ]; then
-        ln -sf "$src" "$HOME/Desktop/$f"
-      fi
-    done
-    chmod +x ~/Desktop/*.desktop 2>/dev/null || true
-    # Guia en el escritorio: modelos disponibles y como activar los de login.
-    cat > "$HOME/Desktop/MODELOS-IA.md" <<'IAREADME'
-# Modelos de IA en este workspace
-
-## Listos sin login
-
-- Ocabra y FreeAPI se consultan en cada arranque. Solo aparecen modelos que el
-  endpoint confirma como disponibles.
-- OpenCode Zen usa el catálogo mantenido por OpenCode; no se fijan IDs en la
-  plantilla.
-
-## Proveedores con login
-
-Ejecuta:
-
-    opencode auth login
-
-OpenAI, Google y otros proveedores usan el catálogo actual de OpenCode/models.dev
-y sus variantes de razonamiento. La plantilla no duplica esos modelos, así que
-las altas y retiradas no requieren volver a publicar el workspace.
-
-Antigravity no se instala automáticamente: el antiguo plugin quedó archivado y
-el reemplazo no oficial advierte de posibles bloqueos de cuentas de Google.
-
-Usa `/models` dentro de OpenCode para consultar el catálogo vivo y seleccionar
-un modelo. La configuración existente del usuario se fusiona y no se reemplaza.
-IAREADME
-
-    # Entorno virtual de Python listo para usar
-    mkdir -p "$HOME/.venvs"
-    if [ ! -d "$HOME/.venvs/base" ]; then
-      python3 -m venv "$HOME/.venvs/base" || true
-      "$HOME/.venvs/base/bin/pip" install --upgrade pip setuptools wheel || true
-    fi
-    if ! grep -q "source \\$HOME/.venvs/base/bin/activate" "$HOME/.bashrc" 2>/dev/null; then
-      echo 'if [ -f "$HOME/.venvs/base/bin/activate" ]; then source "$HOME/.venvs/base/bin/activate"; fi' >> "$HOME/.bashrc"
     fi
 
     # Autoprovisionar clave OpenCode Ocabra si está habilitado
@@ -653,17 +354,18 @@ IAREADME
           echo "OCABRA_KEY no configurado; omitiendo autoprovision de key" >&2
         else
           workspace_slug="$(printf '%s' "$${CODER_WORKSPACE_NAME:-workspace}" | tr -cs '[:alnum:]._-' '-')"; email_slug="$(printf '%s' "$${CODER_USER_EMAIL:-unknown}" | tr -cs '[:alnum:]._-' '-')"; alias="coder-$${workspace_slug}-$${email_slug}-$(tr -dc 0-9 </dev/urandom 2>/dev/null | head -c 8 | sed 's/^$/00000000/')"
-        payload=$(printf '{"name":"%s","expires_in_days":30}' "$alias")
-        resp=$(curl -fsSL -X POST "$KEY_ENDPOINT" -H "Authorization: Bearer $${OCABRA_KEY:-}" -H "Content-Type: application/json" -d "$payload" 2>/dev/null || true)
-        key=$(printf '%s' "$resp" | python3 -c 'import sys,json;x=json.load(sys.stdin);d=x if isinstance(x,dict) else {};dd=d.get("data") if isinstance(d.get("data"),dict) else {};print(d.get("key") or d.get("api_key") or d.get("apiKey") or dd.get("key") or dd.get("api_key") or dd.get("apiKey") or "")' 2>/dev/null || true)
-        if [ -n "$key" ]; then
-          OPENCODE_API_KEY="$key"
-          export OPENCODE_API_KEY
-          OCABRA_API_KEY="$key"
-          export OCABRA_API_KEY
-          mkdir -p /home/coder/.opencode
-          printf "%s" "$key" > /home/coder/.opencode/.latest_ocabra_key || true
-          printf "%s" "$payload" > /home/coder/.opencode/.latest_ocabra_request || true
+          payload=$(printf '{"name":"%s","expires_in_days":30}' "$alias")
+          resp=$(curl -fsSL -X POST "$KEY_ENDPOINT" -H "Authorization: Bearer $${OCABRA_KEY:-}" -H "Content-Type: application/json" -d "$payload" 2>/dev/null || true)
+          key=$(printf '%s' "$resp" | python3 -c 'import sys,json;x=json.load(sys.stdin);d=x if isinstance(x,dict) else {};dd=d.get("data") if isinstance(d.get("data"),dict) else {};print(d.get("key") or d.get("api_key") or d.get("apiKey") or dd.get("key") or dd.get("api_key") or dd.get("apiKey") or "")' 2>/dev/null || true)
+          if [ -n "$key" ]; then
+            OPENCODE_API_KEY="$key"
+            export OPENCODE_API_KEY
+            OCABRA_API_KEY="$key"
+            export OCABRA_API_KEY
+            mkdir -p /home/coder/.opencode
+            printf "%s" "$key" > /home/coder/.opencode/.latest_ocabra_key || true
+            printf "%s" "$payload" > /home/coder/.opencode/.latest_ocabra_request || true
+          fi
         fi
       fi
       if [ -n "$${OPENCODE_API_KEY:-}" ]; then
@@ -674,7 +376,6 @@ IAREADME
         if [ -n "$payload" ] && [ -n "$${OPENCODE_API_KEY:-}" ]; then
           printf "%s" "$${OPENCODE_API_KEY:-}" > /home/coder/.opencode/.latest_ocabra_key || true
           printf "%s" "$payload" > /home/coder/.opencode/.latest_ocabra_request || true
-        fi
         fi
       fi
     fi
@@ -704,6 +405,20 @@ IAREADME
         fi
       fi
     fi
+
+    # Sincronizar catálogos vivos sin reemplazar la configuración del usuario.
+    mkdir -p /home/coder/.local/bin /home/coder/.opencode /home/coder/.config/opencode /home/coder/.continue
+    cat > /home/coder/.local/bin/sync-llm-models <<'PY'
+${local.llm_model_sync_script}
+PY
+    chmod 0755 /home/coder/.local/bin/sync-llm-models
+    /home/coder/.local/bin/sync-llm-models \
+      --opencode /home/coder/.config/opencode/opencode.json \
+      --continue-config /home/coder/.continue/config.yaml || \
+      echo "WARN: no se pudo sincronizar el catálogo de modelos; se conserva la configuración anterior" >&2
+    ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/opencode.json || true
+    ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/config.json || true
+    chown -R "$USER:$USER" /home/coder/.opencode /home/coder/.config/opencode /home/coder/.continue /home/coder/.local/bin || true
 
     # Propagar variables a nuevas shells interactivas
     if [ -n "$${OPENCODE_PROVIDER_URL:-}" ]; then
@@ -737,15 +452,7 @@ IAREADME
       fi
     fi
 
-    # Instalar OpenCode CLI si Claude está activo (sin módulo)
-    if printf '%s' "$${INSTALL_CLAUDE:-false}" | grep -Eq '^(1|true|TRUE|yes|on)$'; then
-      if ! command -v opencode >/dev/null 2>&1; then
-        echo ">> Installing OpenCode CLI (Claude active, module disabled)..."
-        curl -fsSL https://opencode.ai/install | bash || true
-      fi
-    fi
-
-    # Configuración de Continue solo cuando se autoprovisiona la key OpenAI-compatible
+    # Configuración de Continue solo cuando la key OpenAI se autoprovisiona
     if printf '%s' "$${AUTO_PROVISION_OCABRA_API_KEY:-false}" | grep -Eq '^(1|true|TRUE|yes|on)$' \
       && [ -n "$${OCABRA_API_KEY:-}" ] && [ -n "$${OCABRA_BASE_URL:-}" ]; then
       if [ ! -f ~/.continue/config.yaml ]; then
@@ -758,100 +465,10 @@ CONTINUECFG
       fi
     fi
 
-    # Script para regenerar y aplicar nueva key de Ocabra
-    sudo tee /usr/local/bin/gen_ocabra_key >/dev/null <<'GENMKS'
-#!/usr/bin/env bash
-set -euo pipefail
-KEY_ENDPOINT="$${OCABRA_ENDPOINT_BASE_URL%/}/ocabra/auth/keys"
-PROVIDER="$${OPENCODE_PROVIDER_URL:-$${OCABRA_ENDPOINT_BASE_URL:-}}"
-EMAIL="$${CODER_USER_EMAIL:-}"
-          workspace_slug="$(printf '%s' "$${CODER_WORKSPACE_NAME:-workspace}" | tr -cs '[:alnum:]._-' '-')"; email_slug="$(printf '%s' "$${CODER_USER_EMAIL:-unknown}" | tr -cs '[:alnum:]._-' '-')"; alias="coder-$${workspace_slug}-$${email_slug}-$(tr -dc 0-9 </dev/urandom 2>/dev/null | head -c 8 | sed 's/^$/00000000/')"
-if [ -z "$EMAIL" ]; then
-  echo "Falta CODER_USER_EMAIL para solicitar la key" >&2
-  exit 1
-fi
-if [ -z "$${OCABRA_KEY:-}" ] || [ -z "$${OCABRA_ENDPOINT_BASE_URL:-}" ]; then
-  echo "Falta OCABRA_KEY para solicitar la key" >&2
-  exit 1
-fi
-payload=$(printf '{"name":"%s","expires_in_days":30}' "$alias")
-resp=$(curl -fsSL -X POST "$KEY_ENDPOINT" -H "Authorization: Bearer $${OCABRA_KEY:-}" -H "Content-Type: application/json" -d "$payload")
-key=$(printf '%s' "$resp" | python3 -c 'import sys,json;x=json.load(sys.stdin);d=x if isinstance(x,dict) else {};dd=d.get("data") if isinstance(d.get("data"),dict) else {};print(d.get("key") or d.get("api_key") or d.get("apiKey") or dd.get("key") or dd.get("api_key") or dd.get("apiKey") or "")' 2>/dev/null || true)
-if [ -z "$key" ]; then
-  echo "No se obtuvo key de Ocabra" >&2
-  exit 1
-fi
-export OPENCODE_API_KEY="$key"
-export OPENCODE_PROVIDER_URL="$PROVIDER"
-export OCABRA_BASE_URL="$PROVIDER"
-export OCABRA_API_KEY="$key"
-mkdir -p /home/coder/.opencode /home/coder/.config/opencode
-printf "%s" "$key" > /home/coder/.opencode/.latest_ocabra_key || true
-printf "%s" "$payload" > /home/coder/.opencode/.latest_ocabra_request || true
-python3 - <<'PY'
-import json,os
-path="/home/coder/.config/opencode/opencode.json"
-data={}
-if os.path.exists(path):
-  try:
-    with open(path) as f:
-      data=json.load(f)
-  except Exception:
-    data={}
-prov_block=data.setdefault("provider",{}).setdefault("ocabra",{})
-prov_block.setdefault("npm","@ai-sdk/openai-compatible")
-prov_block.setdefault("name","Ocabra")
-prov=prov_block.setdefault("options",{})
-prov["baseURL"]=os.environ.get("OPENCODE_PROVIDER_URL") or os.environ.get("OCABRA_ENDPOINT_BASE_URL","")
-prov["apiKey"]=os.environ.get("OPENCODE_API_KEY","")
-os.makedirs(os.path.dirname(path),exist_ok=True)
-with open(path,"w") as f:
-  json.dump(data,f,indent=2)
-PY
-if [ -x /home/coder/.local/bin/sync-llm-models ]; then
-  /home/coder/.local/bin/sync-llm-models --opencode /home/coder/.config/opencode/opencode.json --continue-config /home/coder/.continue/config.yaml || true
-fi
-ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/opencode.json || true
-ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/config.json || true
-echo "Nueva key guardada y aplicada"
-GENMKS
-    sudo chmod +x /usr/local/bin/gen_ocabra_key || true
+    # gh, Node24+CLIs IA y Docker Engine ya vienen horneados en la imagen
+    # (DevTools-Base) — sin fallbacks de instalación en runtime.
 
-    # Sincronizar catálogos vivos sin reemplazar la configuración del usuario.
-    mkdir -p /home/coder/.local/bin /home/coder/.opencode /home/coder/.config/opencode /home/coder/.continue
-    cat > /home/coder/.local/bin/sync-llm-models <<'PY'
-${local.llm_model_sync_script}
-PY
-    chmod 0755 /home/coder/.local/bin/sync-llm-models
-    /home/coder/.local/bin/sync-llm-models \
-      --opencode /home/coder/.config/opencode/opencode.json \
-      --continue-config /home/coder/.continue/config.yaml || \
-      echo "WARN: no se pudo sincronizar el catálogo de modelos; se conserva la configuración anterior" >&2
-    ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/opencode.json || true
-    ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/config.json || true
-    chown -R "$USER:$USER" /home/coder/.opencode /home/coder/.config/opencode /home/coder/.continue /home/coder/.local/bin || true
-
-    # --------------------------------------------------------------------------------
-    # UV: instalador universal para CLIs Python (opcional)
-    # --------------------------------------------------------------------------------
-    if ! command -v uv >/dev/null 2>&1; then
-      echo ">> Installing uv (Python package/CLI installer)..."
-      curl -LsSf https://astral.sh/uv/install.sh | sh || true
-
-      # Intentar dejar uv en el PATH del sistema
-      if [ -f "/root/.local/bin/uv" ]; then
-        sudo ln -sf /root/.local/bin/uv /usr/local/bin/uv || true
-      fi
-      if [ -f "$HOME/.local/bin/uv" ]; then
-        sudo ln -sf "$HOME/.local/bin/uv" /usr/local/bin/uv || true
-      fi
-
-      hash -r || true
-    fi
-
-    # --------------------------------------------------------------------------------
-    # Docker in Docker: preparar cgroup v2 para anidar contenedores con límites
-    # --------------------------------------------------------------------------------
+    # Cgroup v2: delegar controladores para Docker in Docker (evita modo threaded)
     if [ -f /sys/fs/cgroup/cgroup.controllers ]; then
       echo ">> Enabling cgroup v2 delegation for DinD..."
       sudo mkdir -p /sys/fs/cgroup/init
@@ -868,9 +485,6 @@ PY
       fi
     fi
 
-    # --------------------------------------------------------------------------------
-    # Docker in Docker: arrancar dockerd si no está corriendo
-    # --------------------------------------------------------------------------------
     if ! pgrep dockerd >/dev/null 2>&1; then
       echo ">> Starting dockerd (DinD)..."
       sudo dockerd --host=unix:///var/run/docker.sock --storage-driver=overlay2 >/tmp/dockerd.log 2>&1 &
@@ -882,6 +496,7 @@ PY
         sleep 1
       done
     fi
+
   EOT
 
   env = {
@@ -900,11 +515,9 @@ PY
     OCABRA_API_KEY                 = local.openai_api_key
     AUTO_PROVISION_OCABRA_API_KEY  = tostring(local.auto_provision_ocabra_key)
     AUTO_PROVISION_FREEAPI_API_KEY = tostring(local.auto_provision_freeapi_key)
+    INSTALL_CLAUDE                 = tostring(local.install_claude)
     CODER_USER_EMAIL               = data.coder_workspace_owner.me.email
     CODER_WORKSPACE_NAME           = data.coder_workspace.me.name
-    INSTALL_CLAUDE                 = tostring(local.install_claude)
-    AGENTAPI_CHAT_BASE_PATH        = local.install_claude ? "/@${data.coder_workspace_owner.me.name}/${data.coder_workspace.me.id}/apps/ccw/chat" : "/@${data.coder_workspace_owner.me.name}/${data.coder_workspace.me.id}/apps/opencode/chat"
-    DEFAULT_REPO_PATH              = local.default_repo_path
   }
 
   metadata {
@@ -969,98 +582,10 @@ PY
   }
 }
 
-# ---------------------------------------------------------------
-# MÓDULOS DE CODER
-# ---------------------------------------------------------------
-
-# Aplica el fondo de escritorio compartido si el montaje de solo lectura
-# _provisioning/desktop/wallpapers esta disponible; conserva el fondo si el
-# usuario lo ha cambiado despues.
-resource "coder_script" "setup_wallpaper" {
-  agent_id           = coder_agent.main.id
-  display_name       = "Fondo de escritorio MakeSpace"
-  icon               = "/icon/desktop.svg"
-  run_on_start       = true
-  start_blocks_login = false
-  timeout            = 120
-  script             = <<-EOT
-    #!/usr/bin/env bash
-    set -u
-
-    wallpaper_source="/opt/makespace-provisioning/wallpapers/developer.png"
-    if [ ! -r "$wallpaper_source" ]; then
-      echo ">> Fondo privado de Developer no disponible; se omite."
-      exit 0
-    fi
-
-    wallpaper_dir="$HOME/.local/share/wallpapers/MakeSpace"
-    wallpaper="$wallpaper_dir/developer.png"
-    helper="$HOME/.local/bin/makespace-apply-wallpaper"
-    autostart="$HOME/.config/autostart/makespace-wallpaper.desktop"
-
-    install -d -m 0700 "$wallpaper_dir" "$HOME/.local/bin" "$HOME/.config/autostart"
-    install -m 0644 "$wallpaper_source" "$wallpaper"
-
-    cat > "$helper" <<'EOF'
-#!/usr/bin/env bash
-set -u
-
-wallpaper="$HOME/.local/share/wallpapers/MakeSpace/developer.png"
-marker_dir="$HOME/.local/state/makespace"
-marker="$marker_dir/wallpaper-developer.sha256"
-
-[ -r "$wallpaper" ] || exit 0
-expected="$(sha256sum "$wallpaper" | awk '{print $1}')"
-[ "$(cat "$marker" 2>/dev/null || true)" != "$expected" ] || exit 0
-
-for _attempt in $(seq 1 30); do
-  session_pid="$(pgrep -u "$(id -u)" -x mate-session | head -1)"
-  if [ -n "$session_pid" ] && [ -r "/proc/$session_pid/environ" ] && command -v gsettings >/dev/null 2>&1; then
-    unset DBUS_SESSION_BUS_ADDRESS DISPLAY
-    while IFS= read -r envline; do
-      case "$envline" in
-        DBUS_SESSION_BUS_ADDRESS=*|DISPLAY=*) export "$envline" ;;
-      esac
-    done < <(tr '\0' '\n' < "/proc/$session_pid/environ")
-    if [ -n "$${DBUS_SESSION_BUS_ADDRESS:-}" ] && \
-       gsettings set org.mate.background picture-filename "$wallpaper" 2>/dev/null; then
-      gsettings set org.mate.background picture-options 'zoom' 2>/dev/null || true
-      install -d -m 0700 "$marker_dir"
-      printf '%s\n' "$expected" > "$marker"
-      exit 0
-    fi
-  fi
-  sleep 2
-done
-
-exit 0
-EOF
-    chmod 0700 "$helper"
-
-    cat > "$autostart" <<EOF
-[Desktop Entry]
-Type=Application
-Name=MakeSpace Wallpaper
-Exec=$helper
-Terminal=false
-OnlyShowIn=MATE;
-X-GNOME-Autostart-Delay=5
-EOF
-    chmod 0600 "$autostart"
-
-    # El escritorio base es MATE (KasmVNC lo invoca via un wrapper "xfce" por
-    # compatibilidad). El autostart cubre el caso en el que la sesion se abre
-    # despues del script de Coder.
-    nohup "$helper" >/dev/null 2>&1 &
-    echo ">> Fondo de escritorio MakeSpace preparado."
-  EOT
-}
-
-# Mantenimiento del Docker interno. El cron solo corre con el workspace
-# encendido; run_on_start y el marcador persistente recuperan ejecuciones
-# semanales que se hayan perdido mientras estaba apagado.
+# El cron solo corre con el workspace encendido. La ejecución al arrancar y el
+# marcador persistente recuperan la limpieza semanal si estaba apagado.
 resource "coder_script" "docker_auto_prune" {
-  count              = data.coder_parameter.p03_docker_auto_prune.value ? 1 : 0
+  count              = data.coder_parameter.docker_auto_prune.value ? 1 : 0
   agent_id           = coder_agent.main.id
   display_name       = "Docker auto-prune"
   icon               = "/icon/docker.svg"
@@ -1203,6 +728,14 @@ PY
   start_blocks_login = false
 }
 
+module "jupyterlab" {
+  count      = data.coder_workspace.me.start_count
+  source     = "registry.coder.com/coder/jupyterlab/coder"
+  version    = "~> 1.2"
+  agent_id   = coder_agent.main.id
+  depends_on = [coder_script.setup_pipx, coder_script.setup_jupyter_kernel]
+}
+
 module "code-server" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/code-server/coder"
@@ -1213,63 +746,11 @@ module "code-server" {
 }
 
 module "git-config" {
-  count    = data.coder_workspace.me.start_count
-  source   = "registry.coder.com/coder/git-config/coder"
-  version  = "~> 1.0"
-  agent_id = coder_agent.main.id
-}
-
-module "git-clone" {
-  count    = data.coder_parameter.p04_git_repo_url.value != "" ? data.coder_workspace.me.start_count : 0
-  source   = "registry.coder.com/coder/git-clone/coder"
-  version  = "~> 2.0"
-  agent_id = coder_agent.main.id
-  url      = data.coder_parameter.p04_git_repo_url.value
-  base_dir = "~/Projects"
-}
-
-module "coder-login" {
-  count    = data.coder_workspace.me.start_count
-  source   = "registry.coder.com/coder/coder-login/coder"
-  version  = "~> 1.1"
-  agent_id = coder_agent.main.id
-}
-
-module "tmux" {
-  source   = "registry.coder.com/anomaly/tmux/coder"
-  version  = "~> 1.0"
-  agent_id = coder_agent.main.id
-}
-
-module "kasmvnc" {
-  count               = data.coder_workspace.me.start_count
-  source              = "registry.coder.com/coder/kasmvnc/coder"
-  version             = "~> 1.2"
-  agent_id            = coder_agent.main.id
-  desktop_environment = "xfce"
-  subdomain           = true
-}
-
-module "github-upload-public-key" {
-  count    = 0 # Deshabilitado temporalmente (external-auth no configurado)
-  source   = "registry.coder.com/coder/github-upload-public-key/coder"
-  version  = "~> 1.0"
-  agent_id = coder_agent.main.id
-}
-
-module "cursor" {
-  count    = data.coder_workspace.me.start_count
-  source   = "registry.coder.com/coder/cursor/coder"
-  version  = "~> 1.4"
-  agent_id = coder_agent.main.id
-}
-
-module "filebrowser" {
-  count    = data.coder_workspace.me.start_count
-  source   = "registry.coder.com/coder/filebrowser/coder"
-  version  = "~> 1.1"
-  agent_id = coder_agent.main.id
-  folder   = "/home/coder"
+  count                  = data.coder_workspace.me.start_count
+  source                 = "registry.coder.com/coder/git-config/coder"
+  version                = "~> 1.0"
+  agent_id               = coder_agent.main.id
+  allow_username_change  = false
 }
 
 module "opencode" {
@@ -1277,8 +758,11 @@ module "opencode" {
   source       = "registry.coder.com/coder-labs/opencode/coder"
   version      = "~> 0.1"
   agent_id     = coder_agent.main.id
-  workdir      = "/home/coder/Projects"
-  report_tasks = true
+  workdir      = "/home/coder/"
+  report_tasks = false
+  # cli_app=true duplicaba un tercer botón "OpenCode CLI" junto al "OpenCode"
+  # (chat AgentAPI del propio módulo) y nuestro "OpenCode Web" — confirmado en
+  # un workspace de prueba real (3 apps opencode). false deja solo los 2 útiles.
   cli_app      = false
   # El instalador "latest" del módulo (curl https://opencode.ai/install) solo
   # sirve OpenCode 1; OpenCode 2 vive en una URL separada. Si esto fuera
@@ -1300,104 +784,9 @@ module "opencode" {
   EOT
 }
 
-# UI web nativa de OpenCode, además de la integración AgentAPI del módulo.
-resource "coder_script" "opencode_web" {
-  count              = local.install_claude ? 0 : 1
-  agent_id           = coder_agent.main.id
-  display_name       = "Start OpenCode Web"
-  icon               = "/icon/opencode.svg"
-  run_on_start       = true
-  start_blocks_login = false
-  script             = <<-EOT
-    #!/usr/bin/env bash
-    set -euo pipefail
-    port=4096
-    health_url="http://127.0.0.1:$port/global/health"
-    log_dir="$HOME/.opencode"
-    log_file="$log_dir/opencode-web.log"
-    export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
-    for _ in $(seq 1 120); do
-      if command -v opencode >/dev/null 2>&1; then break; fi
-      sleep 1
-    done
-    opencode_bin="$(command -v opencode || true)"
-    if [ -z "$opencode_bin" ]; then
-      echo "OpenCode no se instaló en dos minutos; consulta ~/.opencode-module" >&2
-      exit 1
-    fi
-    if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
-    mkdir -p "$log_dir"
-    cd /home/coder
-    nohup "$opencode_bin" serve --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
-    for _ in $(seq 1 30); do
-      if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
-      sleep 1
-    done
-    echo "OpenCode Web no respondió en $health_url; consulta $log_file" >&2
-    exit 1
-  EOT
-  depends_on         = [module.opencode]
-}
-
-resource "coder_app" "opencode_web" {
-  count        = local.install_claude ? 0 : 1
-  agent_id     = coder_agent.main.id
-  slug         = "opencode-web"
-  display_name = "OpenCode Web"
-  icon         = "/icon/opencode.svg"
-  url          = "http://127.0.0.1:4096"
-  share        = "owner"
-  subdomain    = true
-  open_in      = "tab"
-  healthcheck {
-    url       = "http://127.0.0.1:4096/global/health"
-    interval  = 5
-    threshold = 6
-  }
-  depends_on = [coder_script.opencode_web]
-}
-
-module "claude-code" {
-  count  = local.install_claude ? 1 : 0
-  source = "registry.coder.com/coder/claude-code/coder"
-  # v5 elimina report_tasks/task_app_id, que esta plantilla sigue utilizando.
-  version                 = ">= 4.7.5, < 5.0.0"
-  agent_id                = coder_agent.main.id
-  workdir                 = "/home/coder/Projects"
-  claude_code_oauth_token = local.claude_token
-  subdomain               = false
-  report_tasks            = true
-  depends_on              = [module.opencode]
-}
-
-module "antigravity" {
-  count    = data.coder_workspace.me.start_count
-  source   = "registry.coder.com/coder/antigravity/coder"
-  version  = "~> 1.0"
-  agent_id = coder_agent.main.id
-  folder   = "/home/coder/Projects"
-}
-
-module "jupyterlab" {
-  count      = data.coder_workspace.me.start_count
-  source     = "registry.coder.com/coder/jupyterlab/coder"
-  version    = "~> 1.2"
-  agent_id   = coder_agent.main.id
-  depends_on = [coder_script.setup_pipx, coder_script.setup_jupyter_kernel]
-}
-
-resource "coder_ai_task" "opencode_task" {
-  app_id     = local.install_claude ? module.claude-code[0].task_app_id : module.opencode[0].task_app_id
-  depends_on = [module.opencode, module.claude-code]
-}
-
-# ---------------------------------------------------------------
-# HOME Y DOCKER DATA PERSISTENTES
-# ---------------------------------------------------------------
-
 resource "docker_volume" "home_volume" {
   count = local.home_mount_host_path == "" ? 1 : 0
-  name  = local.home_volume_resolved
+  name  = "coder-${data.coder_workspace.me.id}-home"
 
   lifecycle {
     ignore_changes = all
@@ -1422,8 +811,7 @@ resource "docker_volume" "home_volume" {
 }
 
 resource "docker_volume" "docker_data" {
-  count = 1
-  name  = local.docker_data_volume_name
+  name = "coder-${data.coder_workspace.me.id}-docker-data"
 
   lifecycle {
     ignore_changes = all
@@ -1464,10 +852,6 @@ resource "null_resource" "ensure_host_paths" {
     EOT
   }
 }
-
-# ---------------------------------------------------------------
-# CONTENEDOR PRINCIPAL DEL WORKSPACE (DinD)
-# ---------------------------------------------------------------
 
 resource "docker_container" "workspace" {
   depends_on = [null_resource.ensure_host_paths]
@@ -1538,7 +922,7 @@ resource "docker_container" "workspace" {
   }
 
   dynamic "volumes" {
-    for_each = local.home_mount_host_path == "" ? [local.home_volume_resolved] : []
+    for_each = local.home_mount_host_path == "" ? [docker_volume.home_volume[0].name] : []
     content {
       container_path = "/home/coder"
       volume_name    = volumes.value
@@ -1563,21 +947,9 @@ resource "docker_container" "workspace" {
     }
   }
 
-  dynamic "volumes" {
-    for_each = [local.docker_data_volume_name]
-    content {
-      container_path = "/var/lib/docker"
-      volume_name    = volumes.value
-    }
-  }
-
-  dynamic "volumes" {
-    for_each = local.wallpaper_path != "" ? [local.wallpaper_path] : []
-    content {
-      container_path = "/opt/makespace-provisioning/wallpapers"
-      host_path      = volumes.value
-      read_only      = true
-    }
+  volumes {
+    container_path = "/var/lib/docker"
+    volume_name    = docker_volume.docker_data.name
   }
 
   host {
