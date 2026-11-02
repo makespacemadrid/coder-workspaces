@@ -13,23 +13,15 @@ USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Paquetes adicionales de diseño (la base ya incluye KDE + Firefox)
+# Paquetes adicionales de diseño (la base ya incluye KDE, Firefox, Chrome, Node+CLIs
+# IA, Docker Engine, Perl/VNC, vcable, Vulkan/Mesa y utilidades de consola)
 RUN dpkg --add-architecture i386 && \
     apt-get update && \
     apt-get install -y --no-install-recommends software-properties-common && \
-    add-apt-repository -y universe && \
-    add-apt-repository -y ppa:mozillateam/ppa && \
     add-apt-repository -y ppa:freecad-maintainers/freecad-stable && \
     add-apt-repository -y ppa:kicad/kicad-10.0-releases && \
-    printf 'Package: firefox*\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001\n' > /etc/apt/preferences.d/mozillateam-firefox && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        build-essential \
-        pkg-config \
-        python3 python3-venv python3-pip python3-requests pipx \
-        zip unzip p7zip-full \
-        fuse3 \
-        libfuse2 \
         inkscape \
         gimp \
         krita \
@@ -53,45 +45,12 @@ RUN dpkg --add-architecture i386 && \
         exiftool \
         pandoc \
         fontforge \
-        cifs-utils \
-        nfs-common \
-        sshfs \
         uidmap \
-        # dependencias runtime (Perl/VNC) que queremos preinstalar
-        libdatetime-perl \
-        liblist-moreutils-perl \
-        libyaml-tiny-perl \
-        libhash-merge-simple-perl \
-        libxfont2 \
-        libfontenc1 \
-        ssl-cert \
         simulide \
         wine64 \
         wine32 \
         winbind \
         geany \
-        desktop-file-utils \
-        command-not-found \
-        bash-completion \
-        nano \
-        iputils-ping \
-        byobu \
-        pulseaudio \
-        pulseaudio-utils \
-        alsa-utils \
-    && rm -rf /var/lib/apt/lists/*
-
-# PulseAudio: null-sink virtual para contenedores sin hardware de audio
-# Permite que KasmVNC capture audio via el monitor de este sink
-RUN mkdir -p /etc/pulse/default.pa.d && \
-    printf 'load-module module-null-sink sink_name=vcable sink_properties=device.description="VirtualCable"\nset-default-sink vcable\n' \
-    > /etc/pulse/default.pa.d/10-null-sink.pa
-
-# Vulkan loader + Mesa Vulkan drivers (incluye Zink: OpenGL sobre Vulkan para NVIDIA en KasmVNC)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libvulkan1 \
-        mesa-vulkan-drivers \
     && rm -rf /var/lib/apt/lists/*
 
 # KiCad autorouter: Freerouting requiere Java 21 (el sistema trae 11). El jar se
@@ -106,11 +65,11 @@ RUN apt-get update && \
       "https://github.com/freerouting/freerouting/releases/download/v${FREEROUTING_VERSION}/freerouting-${FREEROUTING_VERSION}.jar" && \
     rm -rf /var/lib/apt/lists/*
 
-# OrcaSlicer (AppImage), LaserGRBL (Wine), OpenCode Desktop y VisiCut (.deb)
+# OrcaSlicer (AppImage), LaserGRBL (Wine) y VisiCut (.deb). OpenCode Desktop y
+# Claude Desktop ya vienen de la base (Desktop-KDE), que las comparte con Developer.
 RUN <<'EOSH'
 set -e
 ORCA_VERSION="2.4.2"
-OPENCODE_DESKTOP_URL="https://opencode.ai/es/download/stable/linux-x64-deb"
 # OrcaSlicer publica AppImage para Ubuntu 24.04; libwebkit2gtk-4.1 se instala arriba.
 ORCA_URLS=" \
   https://github.com/OrcaSlicer/OrcaSlicer/releases/download/v${ORCA_VERSION}/OrcaSlicer_Linux_AppImage_Ubuntu2404_V${ORCA_VERSION}.AppImage \
@@ -134,42 +93,10 @@ LASERGRBL_VERSION="7.14.1"
 LASERGRBL_URL="https://github.com/arkypita/LaserGRBL/releases/download/v${LASERGRBL_VERSION}/install.exe"
 curl -fL "${LASERGRBL_URL}" -o /opt/lasergrbl/LaserGRBL-install.exe
 curl -fL "https://github.com/t-oster/VisiCut/releases/download/2.1/visicut_2.1%2Bdevel-1_all.deb" -o /tmp/visicut.deb
-curl -fL "${OPENCODE_DESKTOP_URL}" -o /tmp/opencode-desktop.deb
 apt-get update
 apt-get install -y --no-install-recommends libwebkit2gtk-4.1-0
-apt-get install -y --no-install-recommends /tmp/visicut.deb /tmp/opencode-desktop.deb
+apt-get install -y --no-install-recommends /tmp/visicut.deb
 rm /tmp/visicut.deb
-rm /tmp/opencode-desktop.deb
-# Normalizar el lanzador que instala el .deb de OpenCode Desktop.
-set -e; \
-    if [ -x /opt/OpenCode/ai.opencode.desktop ]; then \
-      mv /opt/OpenCode/ai.opencode.desktop /opt/OpenCode/ai.opencode.desktop.real; \
-      printf "%s\n" "#!/bin/sh" "exec /opt/OpenCode/ai.opencode.desktop.real --no-sandbox --disable-gpu-sandbox --disable-setuid-sandbox --disable-seccomp-filter-sandbox --no-zygote --disable-gpu \"\$@\"" > /opt/OpenCode/ai.opencode.desktop; \
-      chmod +x /opt/OpenCode/ai.opencode.desktop; \
-    fi; \
-    if [ -f /usr/share/applications/ai.opencode.desktop.desktop ]; then \
-      ln -sf /usr/share/applications/ai.opencode.desktop.desktop /usr/share/applications/OpenCode.desktop; \
-    fi
-
-rm -rf /var/lib/apt/lists/*
-EOSH
-
-ENV COWORK_VM_BACKEND=host
-
-# Claude Desktop desde el repo APT oficial de Anthropic (downloads.claude.ai).
-# Se mantiene el source list para recibir actualizaciones vía `apt upgrade`.
-# No hace falta wrapper --no-sandbox: ELECTRON_DISABLE_SANDBOX/OZONE (ENV globales)
-# y COWORK_VM_BACKEND=host bastan; el .desktop oficial hace `Exec=claude-desktop`.
-RUN <<'EOSH'
-set -e
-if curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc https://downloads.claude.ai/claude-desktop/key.asc; then
-  echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" > /etc/apt/sources.list.d/claude-desktop.list
-  if ! apt-get update || ! apt-get install -y --no-install-recommends claude-desktop; then
-    echo "WARN: no se pudo instalar Claude Desktop desde el repo oficial; se continua sin esa app" >&2
-  fi
-else
-  echo "WARN: no se pudo descargar la key de Claude Desktop; se continua sin esa app" >&2
-fi
 rm -rf /var/lib/apt/lists/*
 EOSH
 
@@ -262,63 +189,18 @@ RUN echo "user_allow_other" > /etc/fuse.conf
 RUN locale-gen es_ES.UTF-8 en_US.UTF-8 && \
     update-locale LANG=es_ES.UTF-8
 
-# KasmVNC usa `startkde`; en Plasma moderno el binario es `startplasma-x11`.
-RUN if [ -x /usr/bin/startplasma-x11 ] && [ ! -x /usr/bin/startkde ]; then \
-      ln -sf /usr/bin/startplasma-x11 /usr/bin/startkde; \
-    fi && \
-    update-alternatives --set x-session-manager /usr/bin/startplasma-x11 || true
+# `startkde`/el alternative de x-session-manager ya los fija Desktop-KDE (KDE
+# real está instalado ahí, a diferencia del viejo caso Developer/MATE).
 
 ENV LANG=es_ES.UTF-8 \
     LC_ALL=es_ES.UTF-8
 
-ENV ELECTRON_DISABLE_SANDBOX=1 \
-    ELECTRON_OZONE_PLATFORM_HINT=auto
+# uv (Astral) para MCPs en Python. El CLI de OpenCode NO se hornea aquí: el
+# módulo Terraform `opencode` instala su propia copia en ~/.opencode/bin y la
+# antepone al PATH en cada arranque, dejando muerto cualquier binario horneado
+# en la imagen (confirmado en la auditoría) — MakerSelkies ya no lo hornea.
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
 
-# Utilidades NVIDIA para `nvidia-smi` cuando se habilitan GPUs
-RUN set -e; \
-    apt-get update; \
-    if ! apt-get install -y --no-install-recommends nvidia-utils-580; then \
-      if ! apt-get install -y --no-install-recommends nvidia-utils-570; then \
-        apt-get install -y --no-install-recommends nvidia-utils-565 || true; \
-      fi; \
-    fi; \
-    rm -rf /var/lib/apt/lists/*
-
-# Node.js 24 LTS + CLIs de IA para trabajo con código
-RUN install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" \
-      | tee /etc/apt/sources.list.d/nodesource.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends nodejs && \
-    npm install -g --omit=dev --no-update-notifier --no-fund \
-        @openai/codex \
-        @anthropic-ai/claude-code && \
-    npm cache clean --force && \
-    rm -rf /var/lib/apt/lists/*
-
-# uv + OpenCode CLI (binario en /usr/local/bin/opencode)
-RUN <<'EOSH'
-set -e
-# uv (Astral)
-curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
-# OpenCode CLI using official installer in an unmanaged path
-export HOME=/opt/opencode-cli
-mkdir -p "$HOME"
-curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path
-install -m 0755 /opt/opencode-cli/.opencode/bin/opencode /usr/local/bin/opencode
-EOSH
-
-# Desactivar bloqueo/ahorro de pantalla (KDE)
-RUN printf '[Daemon]\nTimeout=0\nLockOnResume=false\nLockOnSuspend=false\nAutolock=false\n' > /etc/xdg/kscreenlockerrc
-
-# Extensiones VS Code preinstaladas para escritorio/remoto
-RUN su - coder -c 'set -e; \
-  EXT_LIST="anthropic.claude-code opencodeai.opencode google.gemini-code-assistant qwen-team.qwen-vscode openai.openai"; \
-  for ext in $EXT_LIST; do \
-    code --install-extension "$ext" --force --user-data-dir /home/coder/.vscode/data --extensions-dir /home/coder/.vscode/extensions || true; \
-  done; \
-  mkdir -p /home/coder/.vscode-server/extensions'
 
 # AppImage Pool (gestor de AppImages con actualizaciones e integración en menú)
 ARG APPIMAGEPOOL_VERSION=5.1.0

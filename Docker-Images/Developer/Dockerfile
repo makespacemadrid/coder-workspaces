@@ -320,7 +320,7 @@ RUN update-desktop-database /usr/share/applications || true && \
 # Accesos directos en el escritorio por defecto
 RUN set -e; \
     mkdir -p /etc/skel/Desktop && \
-    for f in code.desktop github-desktop.desktop com.anthropic.Claude.desktop OpenCode.desktop firefox.desktop geany.desktop appimagepool.desktop; do \
+    for f in com.microsoft.VSCode.desktop github-desktop.desktop com.anthropic.Claude.desktop OpenCode.desktop firefox.desktop geany.desktop appimagepool.desktop; do \
       src="/usr/share/applications/$f"; \
       if [ -f "$src" ]; then ln -sf "$src" "/etc/skel/Desktop/$f"; fi; \
     done; \

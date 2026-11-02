@@ -114,7 +114,7 @@ Terminal=false
 Type=Application
 Categories=Development;IDE;
 EOF
-for app in android-studio.desktop code.desktop OpenCode.desktop firefox.desktop google-chrome.desktop; do
+for app in android-studio.desktop com.microsoft.VSCode.desktop OpenCode.desktop firefox.desktop google-chrome.desktop; do
   if [ -f "/usr/share/applications/$app" ]; then
     cp "/usr/share/applications/$app" "/opt/android-defaults/Desktop/$app"
   fi

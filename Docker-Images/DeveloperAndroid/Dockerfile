@@ -13,77 +13,22 @@ USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Paquetes base para desarrollo Android + utilidades
+# Paquetes específicos de Android (la base ya trae KDE, Firefox, Chrome, Docker
+# Engine, Node24+CLIs IA, Perl/VNC, vcable, pulseaudio y utilidades de consola)
 RUN dpkg --add-architecture i386 && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        build-essential \
-        pkg-config \
         openjdk-17-jdk \
-        python3 python3-venv python3-pip pipx \
-        unzip zip \
-        git git-lfs \
-        gnupg \
-        jq \
-        curl wget \
-        ca-certificates \
         libc6:i386 libstdc++6:i386 libgcc-s1:i386 libz1:i386 libncurses6:i386 \
         libpulse0 \
         adb \
-        dnsutils net-tools iputils-ping \
-        ripgrep fzf \
-        direnv \
         httpie \
-        sqlite3 \
-        yq \
         xmlstarlet \
         scrcpy \
         acl \
-        libfuse2 \
-        bash-completion \
-        nano \
-        lsof \
-        htop \
-        tmux \
-        byobu \
-        pulseaudio pulseaudio-utils alsa-utils \
         libglu1-mesa \
         qemu-kvm \
-        # dependencias runtime (Perl/VNC) que queremos preinstalar
-        libdatetime-perl \
-        liblist-moreutils-perl \
-        libyaml-tiny-perl \
-        libhash-merge-simple-perl \
-        libxfont2 \
-        libfontenc1 \
-        ssl-cert \
     && rm -rf /var/lib/apt/lists/*
-
-# PulseAudio: null-sink virtual para contenedores sin hardware de audio
-# Permite que KasmVNC capture audio via el monitor de este sink
-RUN mkdir -p /etc/pulse/default.pa.d && \
-    printf 'load-module module-null-sink sink_name=vcable sink_properties=device.description="VirtualCable"\nset-default-sink vcable\n' \
-    > /etc/pulse/default.pa.d/10-null-sink.pa
-
-# GitHub CLI (repositorio oficial)
-RUN install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg && \
-    chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-      | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends gh && \
-    rm -rf /var/lib/apt/lists/*
-
-# Google Chrome (repositorio oficial)
-RUN install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
-    chmod a+r /etc/apt/keyrings/google-chrome.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
-      | tee /etc/apt/sources.list.d/google-chrome.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends google-chrome-stable && \
-    rm -rf /var/lib/apt/lists/*
 
 # Antigravity auto-updater
 RUN install -m 0755 -d /etc/apt/keyrings && \
@@ -98,31 +43,8 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
 # Añadir coder al grupo KVM para aceleración del emulador
 RUN usermod -aG kvm coder
 
-# KasmVNC busca startkde; en Plasma moderno es startplasma-x11
-RUN if [ -x /usr/bin/startplasma-x11 ] && [ ! -x /usr/bin/startkde ]; then \
-      ln -sf /usr/bin/startplasma-x11 /usr/bin/startkde; \
-    fi
-
-# Disable KDE screen locker/screensaver
-RUN printf '[Daemon]\nTimeout=0\nLockOnResume=false\nLockOnSuspend=false\nAutolock=false\n' > /etc/xdg/kscreenlockerrc
-
-# Node.js 24 LTS + package managers (para React Native/JS tooling)
-RUN install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" \
-      | tee /etc/apt/sources.list.d/nodesource.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends nodejs && \
-    npm install -g --omit=dev --no-update-notifier --no-fund \
-        pnpm \
-        yarn \
-        @openai/codex \
-        @anthropic-ai/claude-code \
-        @google/gemini-cli \
-        @continuedev/cli \
-        @qwen-code/qwen-code && \
-    npm cache clean --force && \
-    rm -rf /var/lib/apt/lists/*
+# `startkde`/el x-session-manager ya los fija Desktop-KDE. Node24+CLIs IA
+# también vienen heredados de la base (DevTools-Base).
 
 # Visual Studio Code
 RUN install -m 0755 -d /etc/apt/keyrings && \
@@ -134,25 +56,7 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
     apt-get install -y --no-install-recommends code && \
     rm -rf /var/lib/apt/lists/*
 
-# OpenCode Desktop
-ARG OPENCODE_DESKTOP_URL=https://opencode.ai/es/download/stable/linux-x64-deb
-RUN set -e; \
-    curl -fsSL "$OPENCODE_DESKTOP_URL" -o /tmp/opencode-desktop.deb; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends /tmp/opencode-desktop.deb; \
-    rm -rf /var/lib/apt/lists/* /tmp/opencode-desktop.deb
-
-# Normalizar el lanzador que instala el .deb de OpenCode Desktop.
-RUN set -e; \
-    if [ -x /opt/OpenCode/ai.opencode.desktop ]; then \
-      mv /opt/OpenCode/ai.opencode.desktop /opt/OpenCode/ai.opencode.desktop.real; \
-      printf "%s\n" "#!/bin/sh" "exec /opt/OpenCode/ai.opencode.desktop.real --no-sandbox --disable-gpu-sandbox --disable-setuid-sandbox --disable-seccomp-filter-sandbox --no-zygote --disable-gpu \"\$@\"" > /opt/OpenCode/ai.opencode.desktop; \
-      chmod +x /opt/OpenCode/ai.opencode.desktop; \
-    fi; \
-    if [ -f /usr/share/applications/ai.opencode.desktop.desktop ]; then \
-      ln -sf /usr/share/applications/ai.opencode.desktop.desktop /usr/share/applications/OpenCode.desktop; \
-    fi
-
+# OpenCode Desktop y Claude Desktop ya vienen de la base (Desktop-KDE).
 
 # Android SDK commandline tools + componentes principales
 ENV ANDROID_HOME=/home/coder/Android/Sdk \
@@ -221,7 +125,7 @@ Type=Application
 Categories=Development;IDE;
 EOF
 RUN chmod +x /usr/share/applications/android-studio.desktop && \
-    for app in android-studio.desktop code.desktop OpenCode.desktop firefox.desktop google-chrome.desktop; do \
+    for app in android-studio.desktop com.microsoft.VSCode.desktop OpenCode.desktop firefox.desktop google-chrome.desktop; do \
       if [ -f "/usr/share/applications/${app}" ]; then \
         ln -sf "/usr/share/applications/${app}" "/etc/skel/Desktop/${app}"; \
       fi; \
@@ -234,9 +138,8 @@ RUN curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSIO
     ln -sfn "/opt/gradle/gradle-${GRADLE_VERSION}" /opt/gradle/latest && \
     rm /tmp/gradle.zip
 
-# Electron sandbox workaround for VS Code
-ENV ELECTRON_DISABLE_SANDBOX=1 \
-    ELECTRON_OZONE_PLATFORM_HINT=auto
+# Electron sandbox workaround for VS Code (ELECTRON_DISABLE_SANDBOX/
+# ELECTRON_OZONE_PLATFORM_HINT ya son ENV globales de Desktop-KDE)
 RUN <<'EOSH'
 set -e
 wrap() {

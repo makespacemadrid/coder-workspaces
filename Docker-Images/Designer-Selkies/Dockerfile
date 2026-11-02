@@ -280,6 +280,20 @@ done
 rm -rf /var/lib/apt/lists/*
 EOSH
 
+# Los MCPs comunitarios aún no son compatibles con Python 3.14, que es la
+# versión de la base Webtop actual. Se hornea Python 3.13 gestionado por uv para
+# crear sus entornos sin compilar dependencias ni descargarse otro intérprete en
+# cada perfil.
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+RUN <<'EOSH'
+set -eux
+uv python install 3.13
+chmod -R a+rX /opt/uv-python
+apt-get update
+apt-get install -y --no-install-recommends libcairo2-dev libgirepository-2.0-dev
+rm -rf /var/lib/apt/lists/*
+EOSH
+
 # MCP oficial de Blender fijado y preparado en la imagen.
 ARG BLENDER_MCP_REVISION=dbbf836ad4b1025f14a2b3b504c43903f39e0b04
 RUN <<'EOSH'
