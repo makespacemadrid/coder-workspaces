@@ -17,7 +17,8 @@ Template experimental para comparar Selkies con el escritorio KasmVNC del templa
 - Diseño 2D: Inkscape, GIMP, Krita, ImageMagick, FFmpeg, ExifTool, Pandoc y FontForge.
 - Electrónica: KiCad, Fritzing, SimulIDE y Freerouting.
 - Láser: VisiCut y LaserGRBL mediante Wine.
-- Desarrollo: VS Code, Geany, Node.js 24, Codex, Claude Code, OpenCode CLI/Desktop, Claude Desktop, uv y Blender MCP.
+- Desarrollo: VS Code, Geany, Node.js 24, Codex, Claude Code, OpenCode CLI/Desktop, Claude Desktop y uv.
+- MCPs Maker preconfigurados para Codex, Claude Code, Claude Desktop y OpenCode: Blender, FreeCAD, KiCad, OpenSCAD, Inkscape, GIMP y PrusaSlicer.
 - Utilidades: AppImage Pool, ADMesh, Assimp, avrdude, dfu-util, usbutils, Mesa/Vulkan tools y Firefox.
 
 El perfil completo vive en `/config`; ahí se guardan el escritorio, los perfiles de los laminadores, `Projects` y `Downloads`.
@@ -30,6 +31,10 @@ El perfil completo vive en `/config`; ahí se guardan el escritorio, los perfile
 - **Persistir perfil en el host**: opcional. Sin activarlo se utiliza un volumen Docker persistente.
 
 Selkies se publica como una app privada del propietario a través del proxy autenticado de Coder. La primera prueba usa WebSocket/WebCodecs y no abre puertos del contenedor en el host. WebRTC se deja fuera de esta fase porque requiere un camino UDP directo o TURN.
+
+La preparación de MCPs se ejecuta al arrancar y conserva la configuración existente. Consulta `~/Desktop/MCPS-README.md` para los pasos que requieren activar el servidor dentro de la aplicación gráfica.
+
+Si existe `$TF_VAR_users_storage/_provisioning`, el template monta de solo lectura los perfiles privados de OrcaSlicer y PrusaSlicer y el fondo de escritorio de Designer. Los perfiles y conexiones compartidos se sincronizan en cada arranque; las preferencias personales existentes se conservan. Las credenciales no forman parte del template, de la imagen ni del estado de Terraform.
 
 ## Comprobaciones dentro del escritorio
 

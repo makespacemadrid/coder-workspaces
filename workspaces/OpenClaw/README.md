@@ -1,6 +1,6 @@
 ---
 display_name: OpenClaw
-description: "Workspace OpenClaw con escritorio básico (KasmVNC), Chrome y Docker in Docker"
+description: "Workspace OpenClaw sin escritorio: gateway headless y Docker in Docker"
 icon: icon.svg
 maintainer_github: makespacemadrid
 tags: [openclaw, agents, docker, dind, workspace, ocabra]
@@ -8,39 +8,38 @@ tags: [openclaw, agents, docker, dind, workspace, ocabra]
 
 # OpenClaw (Inicial)
 
-Template inicial para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid/coder-mks-developer:latest`, con escritorio básico XFCE en KasmVNC, Chrome y Docker in Docker.
+Template para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid/coder-mks-developer:latest`, sin escritorio gráfico y sin nada que no haga falta para OpenClaw. OpenClaw es un gateway headless por diseño (pensado para `systemd`/`launchd`, sin necesidad de X11) y su propia herramienta de navegador corre headless por defecto, así que no hace falta KasmVNC ni Chrome instalados en el workspace. Tampoco se gestiona configuración de Codex/OpenCode ni se instala `gh`: ese tooling vive en otros templates (`Developer`, `Maker`...), no es necesario para que OpenClaw funcione.
 
 ## Cuándo usarlo
-- Quieres un workspace orientado a agentes/OpenClaw con escritorio básico web.
+- Quieres un workspace orientado solo a agentes/OpenClaw accesible por terminal, sin el coste de un escritorio gráfico ni de tooling de otros CLIs de IA.
 - Necesitas ajustar puerto/directorio de OpenClaw por proyecto.
 
 ## Qué incluye
-- Imagen `ghcr.io/makespacemadrid/coder-mks-developer:latest` con escritorio y tooling dev.
-- Escritorio XFCE con módulo `kasmvnc`.
-- Navegador Chrome (con fallback a Chromium si no está disponible el paquete).
+- Imagen `ghcr.io/makespacemadrid/coder-mks-developer:latest` (sin arrancar su escritorio ni el navegador de sistema).
 - Docker instalado al iniciar y ejecutando DinD (dockerd dentro del contenedor).
-- Node.js actualizado automáticamente a `>=22.12` cuando hace falta (requisito de OpenClaw).
-- Homebrew instalado en `~/.linuxbrew` (persistente en `/home/coder`) para facilitar instalación de skills/plugins opcionales.
+- Node.js actualizado automáticamente a `>=24.22.1` cuando hace falta (requisito actual de OpenClaw; antes era `>=22.12`, la documentación oficial subió el mínimo).
+- Homebrew instalado en `~/.linuxbrew` (persistente en `/home/coder`) para facilitar instalación de skills/plugins opcionales de OpenClaw.
 - Parámetros de OpenClaw: autoarranque, puerto y directorio.
 - Instalación oficial de OpenClaw en primer arranque (`curl -fsSL https://openclaw.ai/install.sh | bash`) en modo no interactivo.
 - Script `~/.local/bin/start-openclaw` y logs en `~/.local/state/openclaw/openclaw.log`.
-- App dedicada `OpenClaw UI` en Coder (reverse proxy al puerto configurado).
+- App dedicada `OpenClaw UI` en Coder (reverse proxy al puerto configurado); se abre en el navegador del propio usuario, no necesita un escritorio dentro del workspace.
 - Home persistente en `/home/coder` (volumen o bind mount según parámetros) y datos de Docker en `/var/lib/docker`.
+- Limpieza automática semanal del Docker interno: caché de build sin uso durante 7 días e imágenes sin contenedores asociadas de más de 30 días.
 - Labels `com.centurylinklabs.watchtower.*` para actualizaciones con Watchtower.
 
 ## Creación rápida en Coder
-- Puedes entrar por KasmVNC (escritorio) o terminal.
+- Entras por terminal (SSH/consola web); no hay escritorio gráfico ni code-server en este template.
 - `[OpenClaw] Auto-iniciar servicio`: arranca OpenClaw al iniciar.
 - `[OpenClaw] Directorio de trabajo`: directorio desde el que se ejecuta OpenClaw.
 - `[OpenClaw] Modelo por defecto`: `auto` por defecto para elegir el modelo de mayor capacidad del catálogo vivo; también acepta `provider/model`.
+- `[Maintenance] Limpieza automática de Docker`: activa por defecto; no elimina volúmenes ni contenedores y se puede desactivar.
 - `Provisionar API key Ocabra automáticamente`: genera una key de 30 días si no aportas una.
 - `Provisionar API key FreeAPI automáticamente`: genera y precarga una key de FreeAPI al crear el workspace.
 - `TF_VAR_ocabra_endpoint_base_url`: base URL OpenAI-compatible de Ocabra por defecto.
 - `TF_VAR_freeapi_base_url` + `TF_VAR_freeapi_key_endpoint`: endpoint OpenAI-compatible y endpoint de provisionado para FreeAPI.
 
 ## Notas
-- El arranque de OpenClaw es síncrono en startup: intenta dejar el gateway arriba antes de finalizar el arranque del workspace.
-- Durante startup se muestra un aviso indicando que, aunque KasmVNC ya esté listo, la instalación/configuración de OpenClaw puede tardar 2-3 minutos adicionales.
+- El arranque de OpenClaw es síncrono en startup: intenta dejar el gateway arriba antes de finalizar el arranque del workspace, lo que puede añadir 2-3 minutos al primer arranque del workspace.
 - El template sube límites de `inotify` (`max_user_watches/max_user_instances/max_queued_events`) para reducir errores `EMFILE` en watchers de OpenClaw.
 - Si `openclaw` no está instalado y el autoarranque está activo, el template intenta instalarlo automáticamente con el instalador oficial.
 - Tras el autoarranque, el template prueba salud operativa con `openclaw health` (best-effort) para detectar fallos tempranos del gateway.
@@ -53,7 +52,7 @@ Template inicial para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid
 - El template configura `gateway.controlUi.allowedOrigins` para permitir el acceso de la UI a través de subdominios de Coder y evitar `origin not allowed`.
 - Importante: no usar `gateway.controlUi.allowedOrigins="*"` (ni `["*"]`) en este template. En práctica causa rechazos de origen y desconexiones (`1006`). Deben usarse orígenes explícitos de Coder.
 - El template activa `gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true` para compatibilidad con subdominios dinámicos de Coder.
-- El template configura `gateway.trustedProxies` para aceptar headers de proxy de Coder y evitar rechazos por origen detrás del reverse proxy.
+- El template fija `gateway.trustedProxies=["127.0.0.1","::1"]`: el tráfico siempre llega vía el túnel del agente de Coder, reenviado a `127.0.0.1` dentro del propio contenedor. Un wildcard (`"*"`) no es un valor válido y OpenClaw lo rechaza con `proxy_attribution_required` al abrir la UI.
 - El template desactiva el pairing de dispositivos (`gateway.controlUi.dangerouslyDisableDeviceAuth=true`) para entrar directamente con token.
 - El template puede autoprovisionar 2 credenciales API (si hay endpoints): Ocabra (`OCABRA_KEY`) y FreeAPI (`FREEAPI_KEY_ENDPOINT`), cada una con su propio toggle en el formulario.
 - El template crea `auth-profiles.json` con perfiles `ocabra:manual` y/o `freeapi:manual`.
@@ -71,6 +70,7 @@ Template inicial para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid
 - Puedes relanzar manualmente con `~/.local/bin/start-openclaw`.
 - Si ejecutas `openclaw dashboard` en una terminal sin GUI, es normal ver "No GUI detected"; en Coder abre directamente el app `OpenClaw UI`.
 - El contenedor se ejecuta en modo `privileged` para soportar Docker in Docker.
+- `Docker auto-prune` se ejecuta los domingos a las 04:30 mientras el workspace está encendido. También comprueba la última ejecución al arrancar para recuperar semanas en las que estuviera apagado; los resultados aparecen en los logs de scripts de Coder.
 - Tras merge a `main`, ejecuta `coder templates push` para publicar el template en Coder.
 
 ### Limitaciones de DinD

@@ -18,28 +18,22 @@ variable "users_storage" {
   type        = string
 }
 
-variable "default_repo_url" {
-  default     = ""
-  description = "Repositorio Git que se clonara opcionalmente."
-  type        = string
-}
-
-data "coder_parameter" "enable_gpu" {
-  name         = "01_enable_gpu"
-  display_name = "[Compute] GPU NVIDIA"
-  description  = "Expone NVIDIA para Selkies, Android Studio y emulacion grafica."
-  type         = "bool"
-  default      = true
+data "coder_parameter" "graphics_acceleration" {
+  name         = "01_graphics_acceleration"
+  display_name = "[Compute] Aceleración gráfica"
+  description  = "Software: todo por CPU, sin GPU. GPU NVIDIA: pasa la GPU completa al contenedor para Selkies, Android Studio y el emulador."
+  type         = "string"
+  default      = "gpu"
+  order        = 10
   mutable      = true
-}
-
-data "coder_parameter" "enable_dri" {
-  name         = "01_enable_dri"
-  display_name = "[Compute] DRI (/dev/dri)"
-  description  = "Expone DRM para EGL, Vulkan y zero-copy."
-  type         = "bool"
-  default      = true
-  mutable      = true
+  option {
+    name  = "Software (CPU)"
+    value = "software"
+  }
+  option {
+    name  = "GPU NVIDIA (NVENC/CUDA)"
+    value = "gpu"
+  }
 }
 
 data "coder_parameter" "display_backend" {
@@ -70,24 +64,16 @@ data "coder_parameter" "persist_config_storage" {
   mutable      = true
 }
 
-data "coder_parameter" "git_repo_url" {
-  name         = "03_git_repo_url"
-  display_name = "[Code] Repositorio Git (opcional)"
-  description  = "Clona un repositorio inicial en ~/Projects."
-  type         = "string"
-  default      = var.default_repo_url
-  mutable      = true
-}
-
 locals {
   username               = data.coder_workspace_owner.me.name
   workspace_image        = "ghcr.io/makespacemadrid/coder-mks-developer-android-selkies:latest"
-  enable_gpu             = data.coder_parameter.enable_gpu.value
-  enable_dri             = data.coder_parameter.enable_dri.value
+  enable_gpu             = data.coder_parameter.graphics_acceleration.value == "gpu"
+  enable_dri             = local.enable_gpu
   use_wayland            = data.coder_parameter.display_backend.value == "wayland"
   workspace_storage_root = trimspace(var.users_storage)
   config_mount_host_path = data.coder_parameter.persist_config_storage.value && local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}" : ""
   config_volume_name     = "coder-${data.coder_workspace.me.id}-android-selkies-config"
+  wallpaper_path         = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/_provisioning/desktop/wallpapers" : ""
   agent_init_script      = replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")
 }
 
@@ -173,14 +159,78 @@ resource "coder_app" "selkies" {
   }
 }
 
-module "git-clone" {
-  count    = data.coder_parameter.git_repo_url.value != "" ? data.coder_workspace.me.start_count : 0
-  source   = "registry.coder.com/coder/git-clone/coder"
-  version  = "~> 1.2"
-  agent_id = coder_agent.main.id
-  url      = data.coder_parameter.git_repo_url.value
-  base_dir = "/config/Projects"
+# Aplica el fondo de escritorio compartido si el montaje de solo lectura
+# _provisioning/desktop/wallpapers esta disponible; conserva el fondo si el
+# usuario lo ha cambiado despues.
+resource "coder_script" "setup_wallpaper" {
+  agent_id           = coder_agent.main.id
+  display_name       = "Fondo de escritorio MakeSpace"
+  icon               = "/icon/desktop.svg"
+  run_on_start       = true
+  start_blocks_login = false
+  timeout            = 120
+  script             = <<-EOT
+    #!/usr/bin/env bash
+    set -u
+
+    wallpaper_source="/opt/makespace-provisioning/wallpapers/developer.png"
+    if [ ! -r "$wallpaper_source" ]; then
+      echo ">> Fondo privado de Developer no disponible; se omite."
+      exit 0
+    fi
+
+    wallpaper_dir="$HOME/.local/share/wallpapers/MakeSpace"
+    wallpaper="$wallpaper_dir/developer.png"
+    helper="$HOME/.local/bin/makespace-apply-wallpaper"
+    autostart="$HOME/.config/autostart/makespace-wallpaper.desktop"
+
+    install -d -m 0700 "$wallpaper_dir" "$HOME/.local/bin" "$HOME/.config/autostart"
+    install -m 0644 "$wallpaper_source" "$wallpaper"
+
+    cat > "$helper" <<'EOF'
+#!/usr/bin/env bash
+set -u
+
+wallpaper="$HOME/.local/share/wallpapers/MakeSpace/developer.png"
+marker_dir="$HOME/.local/state/makespace"
+marker="$marker_dir/wallpaper-developer.sha256"
+
+[ -r "$wallpaper" ] || exit 0
+expected="$(sha256sum "$wallpaper" | awk '{print $1}')"
+[ "$(cat "$marker" 2>/dev/null || true)" != "$expected" ] || exit 0
+
+for _attempt in $(seq 1 30); do
+  if command -v plasma-apply-wallpaperimage >/dev/null 2>&1 && \
+     plasma-apply-wallpaperimage "$wallpaper" >/dev/null 2>&1; then
+    install -d -m 0700 "$marker_dir"
+    printf '%s\n' "$expected" > "$marker"
+    exit 0
+  fi
+  sleep 2
+done
+
+exit 0
+EOF
+    chmod 0700 "$helper"
+
+    cat > "$autostart" <<EOF
+[Desktop Entry]
+Type=Application
+Name=MakeSpace Wallpaper
+Exec=$helper
+Terminal=false
+OnlyShowIn=KDE;
+X-KDE-autostart-after=panel
+EOF
+    chmod 0600 "$autostart"
+
+    # Si Plasma ya esta levantado, aplica el fondo ahora. El autostart cubre
+    # los casos en los que el escritorio se abre despues del script de Coder.
+    nohup "$helper" >/dev/null 2>&1 &
+    echo ">> Fondo de escritorio MakeSpace preparado."
+  EOT
 }
+
 
 resource "docker_volume" "config" {
   count = local.config_mount_host_path == "" ? 1 : 0
@@ -260,6 +310,15 @@ resource "docker_container" "workspace" {
     content {
       container_path = "/config"
       volume_name    = volumes.value
+    }
+  }
+
+  dynamic "volumes" {
+    for_each = local.wallpaper_path != "" ? [local.wallpaper_path] : []
+    content {
+      container_path = "/opt/makespace-provisioning/wallpapers"
+      host_path      = volumes.value
+      read_only      = true
     }
   }
 

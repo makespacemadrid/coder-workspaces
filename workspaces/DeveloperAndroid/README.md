@@ -21,6 +21,7 @@ Workspace gráfico KDE/KasmVNC con toolchain Android preinstalado. Usa la imagen
 - Autoprovisiona una key de IA Ocabra (30 días) si dejas activa la casilla `[AI/OpenCode] Provisionar API key Ocabra automáticamente` y el endpoint está configurado por entorno.
 - `OpenCode Web` se inicia automáticamente y aparece como app privada del propietario en Coder.
 - Antigravity auto-updater (`antigravity`) preinstalado.
+- Si existe `$TF_VAR_users_storage/_provisioning/desktop/wallpapers`, se monta de solo lectura y aplica el fondo de escritorio compartido en el primer arranque; no sobrescribe un fondo que ya hayas cambiado.
 
 ## Creación rápida en Coder
 - `GPU`: viene activada por defecto; desactívala si no la necesitas.

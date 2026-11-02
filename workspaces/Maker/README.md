@@ -23,6 +23,11 @@ Template con escritorio KDE/KasmVNC 1.5.0 y herramientas de diseño 2D/3D + elec
 - Blender MCP oficial de Blender Lab, con servidor y add-on fijados a una revisión reproducible e instalados sin depender de la red durante el arranque.
 
 - `OpenCode Web` se inicia automáticamente y aparece como app privada del propietario en Coder.
+
+## Perfiles compartidos de impresión 3D
+
+Si existe `$TF_VAR_users_storage/_provisioning`, el template monta de solo lectura los perfiles privados de OrcaSlicer y PrusaSlicer y el fondo de escritorio de Designer. Los perfiles y conexiones compartidos se sincronizan en cada arranque; las preferencias personales existentes se conservan. Las credenciales no forman parte del template, de la imagen ni del estado de Terraform.
+
 ## Creación rápida en Coder
 - `Habilitar GPUs`: actívalo si lo necesitas.
 - `Persistir home en el host`: monta `/home/coder` en `TF_VAR_users_storage/<usuario>/<workspace>`.

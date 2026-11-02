@@ -16,3 +16,5 @@ audio y aplicaciones preinstaladas.
 
 El perfil se guarda en `/config`; puede usar un volumen Docker o storage del
 host mediante `TF_VAR_users_storage`.
+
+Si existe `$TF_VAR_users_storage/_provisioning/desktop/wallpapers`, se monta de solo lectura y aplica el fondo de escritorio compartido en el primer arranque; no sobrescribe un fondo que ya hayas cambiado.

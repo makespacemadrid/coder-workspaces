@@ -24,28 +24,22 @@ variable "users_storage" {
   type        = string
 }
 
-variable "default_repo_url" {
-  default     = ""
-  description = "Repositorio Git que se clonara opcionalmente al crear el workspace."
-  type        = string
-}
-
-data "coder_parameter" "enable_gpu" {
-  name         = "01_enable_gpu"
-  display_name = "[Compute] GPU NVIDIA"
-  description  = "Expone la GPU NVIDIA para renderizado y codificacion NVENC."
-  type         = "bool"
-  default      = true
+data "coder_parameter" "graphics_acceleration" {
+  name         = "01_graphics_acceleration"
+  display_name = "[Compute] Aceleración gráfica"
+  description  = "Software: todo por CPU, sin GPU. GPU NVIDIA: pasa la GPU completa al contenedor, habilita NVENC/CUDA (recomendado para Selkies/CAD)."
+  type         = "string"
+  default      = "gpu"
+  order        = 10
   mutable      = true
-}
-
-data "coder_parameter" "enable_dri" {
-  name         = "01_enable_dri"
-  display_name = "[Compute] DRI (/dev/dri)"
-  description  = "Expone los nodos DRM que Selkies usa para EGL, Vulkan y zero-copy."
-  type         = "bool"
-  default      = true
-  mutable      = true
+  option {
+    name  = "Software (CPU)"
+    value = "software"
+  }
+  option {
+    name  = "GPU NVIDIA (NVENC/CUDA)"
+    value = "gpu"
+  }
 }
 
 data "coder_parameter" "display_backend" {
@@ -76,26 +70,19 @@ data "coder_parameter" "persist_config_storage" {
   mutable      = true
 }
 
-data "coder_parameter" "git_repo_url" {
-  name         = "03_git_repo_url"
-  display_name = "[Files] Repositorio Git (opcional)"
-  description  = "Clona un repositorio inicial en ~/Projects."
-  type         = "string"
-  default      = var.default_repo_url
-  mutable      = true
-}
-
 locals {
   username                 = data.coder_workspace_owner.me.name
   workspace_image          = "ghcr.io/makespacemadrid/coder-mks-design-selkies:latest"
-  enable_gpu               = data.coder_parameter.enable_gpu.value
-  enable_dri               = data.coder_parameter.enable_dri.value
+  enable_gpu               = data.coder_parameter.graphics_acceleration.value == "gpu"
+  enable_dri               = local.enable_gpu
   use_wayland              = data.coder_parameter.display_backend.value == "wayland"
   persist_config_storage   = data.coder_parameter.persist_config_storage.value
   workspace_storage_root   = trimspace(var.users_storage)
   workspace_storage_config = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/${local.username}/${lower(data.coder_workspace.me.name)}" : ""
   config_mount_host_path   = local.persist_config_storage && local.workspace_storage_root != "" ? local.workspace_storage_config : ""
   config_volume_name       = "coder-${data.coder_workspace.me.id}-selkies-config"
+  maker_provisioning_path  = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/_provisioning/maker" : ""
+  wallpaper_path           = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/_provisioning/desktop/wallpapers" : ""
   agent_init_script = replace(
     coder_agent.main.init_script,
     "/localhost|127\\.0\\.0\\.1/",
@@ -186,14 +173,26 @@ resource "coder_app" "selkies" {
   }
 }
 
-module "git-clone" {
-  count    = data.coder_parameter.git_repo_url.value != "" ? data.coder_workspace.me.start_count : 0
-  source   = "registry.coder.com/coder/git-clone/coder"
-  version  = "~> 1.2"
-  agent_id = coder_agent.main.id
-  url      = data.coder_parameter.git_repo_url.value
-  base_dir = "/config/Projects"
+resource "coder_script" "setup_maker_mcps" {
+  agent_id           = coder_agent.main.id
+  display_name       = "Setup Maker MCPs"
+  icon               = "/icon/terminal.svg"
+  script             = file("${path.module}/scripts/setup-maker-mcps.sh")
+  run_on_start       = true
+  start_blocks_login = false
+  timeout            = 1800
 }
+
+resource "coder_script" "setup_maker_provisioning" {
+  agent_id           = coder_agent.main.id
+  display_name       = "Perfiles de impresion 3D"
+  icon               = "/emojis/1f5a8.png"
+  script             = file("${path.module}/scripts/setup-maker-provisioning.sh")
+  run_on_start       = true
+  start_blocks_login = false
+  timeout            = 300
+}
+
 
 resource "docker_volume" "config" {
   count = local.config_mount_host_path == "" ? 1 : 0
@@ -274,6 +273,24 @@ resource "docker_container" "workspace" {
     content {
       container_path = "/config"
       volume_name    = volumes.value
+    }
+  }
+
+  dynamic "volumes" {
+    for_each = local.maker_provisioning_path != "" ? [local.maker_provisioning_path] : []
+    content {
+      container_path = "/opt/makespace-provisioning/maker"
+      host_path      = volumes.value
+      read_only      = true
+    }
+  }
+
+  dynamic "volumes" {
+    for_each = local.wallpaper_path != "" ? [local.wallpaper_path] : []
+    content {
+      container_path = "/opt/makespace-provisioning/wallpapers"
+      host_path      = volumes.value
+      read_only      = true
     }
   }
 

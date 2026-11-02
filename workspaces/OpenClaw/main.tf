@@ -49,18 +49,37 @@ variable "freeapi_key_endpoint" {
   type        = string
 }
 
-data "coder_parameter" "autoprovision_ocabra_key" {
-  name         = "04_autoprovision_ocabra_key"
-  display_name = "[AI/OpenCode] Provisionar API key Ocabra automáticamente"
-  description  = "Genera y precarga una API key Ocabra (30 días)."
-  type         = "bool"
-  default      = true
+data "coder_parameter" "ocabra_key_mode" {
+  name         = "60_ocabra_key_mode"
+  display_name = "[AI] Clave Ocabra"
+  description  = "Auto-aprovisionar una API key Ocabra nueva (30 días), o usar una que ya tengas."
+  type         = "string"
+  default      = "auto"
+  order        = 60
+  mutable      = true
+  option {
+    name  = "Auto-aprovisionar"
+    value = "auto"
+  }
+  option {
+    name  = "Usar mi propia clave"
+    value = "manual"
+  }
+}
+
+data "coder_parameter" "ocabra_key_value" {
+  name         = "61_ocabra_key_value"
+  display_name = "[AI] Clave Ocabra manual"
+  description  = "Solo se usa si arriba elegiste 'Usar mi propia clave'."
+  type         = "string"
+  default      = ""
+  order        = 61
   mutable      = true
 }
 
 data "coder_parameter" "autoprovision_freeapi_key" {
   name         = "04_autoprovision_freeapi_key"
-  display_name = "[AI/OpenCode] Provisionar API key FreeAPI automáticamente"
+  display_name = "[AI/OpenClaw] Provisionar API key FreeAPI automáticamente"
   description  = "Genera y precarga una API key FreeAPI."
   type         = "bool"
   default      = true
@@ -94,11 +113,18 @@ data "coder_parameter" "openclaw_default_model" {
   mutable      = true
 }
 
+data "coder_parameter" "docker_auto_prune" {
+  name         = "03_docker_auto_prune"
+  display_name = "[Maintenance] Limpieza automática de Docker"
+  description  = "Limpia semanalmente la caché de compilación sin uso durante 7 días y las imágenes sin contenedores asociadas de más de 30 días. No elimina volúmenes ni contenedores."
+  type         = "bool"
+  default      = true
+  mutable      = true
+}
+
 locals {
   username                     = data.coder_workspace_owner.me.name
   workspace_image              = "ghcr.io/makespacemadrid/coder-mks-developer:latest"
-  enable_gpu                   = false
-  enable_dri                   = false
   home_mount_host_path         = ""
   host_mount_path              = ""
   host_mount_uid               = "1000"
@@ -108,8 +134,10 @@ locals {
   freeapi_base_url             = trimspace(var.freeapi_base_url)
   freeapi_key_endpoint         = trimspace(var.freeapi_key_endpoint)
   openai_base_url              = local.ocabra_endpoint_base_url
-  openai_api_key               = ""
-  auto_provision_ocabra_key    = data.coder_parameter.autoprovision_ocabra_key.value
+  ocabra_key_mode               = data.coder_parameter.ocabra_key_mode.value
+  ocabra_key_value               = trimspace(data.coder_parameter.ocabra_key_value.value)
+  openai_api_key               = local.ocabra_key_mode == "manual" ? local.ocabra_key_value : ""
+  auto_provision_ocabra_key    = local.ocabra_key_mode == "auto"
   auto_provision_freeapi_key   = data.coder_parameter.autoprovision_freeapi_key.value
   openclaw_autostart           = data.coder_parameter.openclaw_autostart.value
   openclaw_port                = 3333
@@ -141,144 +169,19 @@ resource "coder_agent" "main" {
   arch = data.coder_provisioner.me.arch
   os   = "linux"
 
+  # Sin escritorio ni IDE instalado en este template: solo tiene sentido el
+  # acceso por terminal/SSH, no el botón de VS Code Desktop.
+  display_apps {
+    vscode          = false
+    vscode_insiders = false
+  }
+
   startup_script = <<-EOT
     set -e
-
-    # Levantar dbus (necesario para apps Electron/navegadores en entorno grafico)
-    if ! pgrep -x dbus-daemon >/dev/null 2>&1; then
-      sudo mkdir -p /run/dbus
-      sudo dbus-daemon --system --fork || true
-    fi
-
-    # Audio basico para sesiones KasmVNC
-    sudo usermod -aG audio "$USER" || true
-    mkdir -p ~/.config/pulse
-    if [ ! -f ~/.config/pulse/client.conf ]; then
-      cat > ~/.config/pulse/client.conf <<'PULSECFG'
-autospawn = yes
-daemon-binary = /usr/bin/pulseaudio
-enable-shm = false
-PULSECFG
-    fi
-    if ! pgrep -u "$USER" pulseaudio >/dev/null 2>&1; then
-      pulseaudio --start --exit-idle-time=-1 || true
-    fi
-    # Cargar null-sink virtual para que KasmVNC pueda capturar audio
-    # (en contenedores Docker no hay hardware de audio; el null-sink actua como sink por defecto)
-    for _pa_try in 1 2 3; do
-      if pactl load-module module-null-sink sink_name=vcable sink_properties=device.description="VirtualCable" 2>/dev/null; then
-        pactl set-default-sink vcable 2>/dev/null || true
-        break
-      fi
-      sleep 1
-    done
-    unset _pa_try
-
-    # El repo comunitario de Claude Desktop ha empezado a redirigir HTTPS a HTTP,
-    # lo que rompe `apt-get update` en runtime. El paquete ya viene dentro de la imagen;
-    # desactivamos el source heredado para no bloquear el arranque del workspace.
-    if [ -f /etc/apt/sources.list.d/claude-desktop.list ] && \
-      grep -q 'aaddrick.github.io/claude-desktop-debian' /etc/apt/sources.list.d/claude-desktop.list 2>/dev/null; then
-      sudo mv /etc/apt/sources.list.d/claude-desktop.list /etc/apt/sources.list.d/claude-desktop.list.disabled || true
-    fi
-
-    # Configurar Claude Desktop cowork VM para usar HostBackend en Docker
-    # COWORK_VM_BACKEND=host evita que Claude Desktop use bwrap (que falla en contenedores)
-    # El contenedor Docker ya provee el aislamiento necesario
-    COWORK_TAG="# managed-by-openclaw-template: cowork-vm-backend"
-    for cowork_file in "$HOME/.xsessionrc" "$HOME/.profile"; do
-      if ! grep -qF "$COWORK_TAG" "$cowork_file" 2>/dev/null; then
-        printf '%s\nexport COWORK_VM_BACKEND=host\n' "$COWORK_TAG" >> "$cowork_file"
-      fi
-    done
-    mkdir -p "$HOME/.config/environment.d"
-    cat > "$HOME/.config/environment.d/claude-cowork.conf" <<EOF
-$${COWORK_TAG}
-COWORK_VM_BACKEND=host
-EOF
-    CLAUDE_WRAP_TAG="# managed-by-openclaw-template: claude-desktop-wrapper"
-    # claude-desktop: /usr/bin/claude-desktop es un symlink al binario Electron en
-    # /usr/lib. Escribir el wrapper con 'tee' sobre el symlink machacaria el binario
-    # real (RPATH=$ORIGIN), dejando un self-exec en bucle. Por eso: (1) solo actuar si
-    # el binario real esta intacto, (2) borrar el symlink antes de escribir, (3) crear
-    # un fichero regular que ejecuta el binario real con flags de render por software
-    # (KasmVNC no tiene GPU).
-    if [ -x /usr/lib/claude-desktop/claude-desktop ] && [ "$(stat -c%s /usr/lib/claude-desktop/claude-desktop 2>/dev/null || echo 0)" -gt 1000000 ]; then
-      sudo rm -f /usr/bin/claude-desktop /usr/bin/claude-desktop.real
-      sudo tee /usr/bin/claude-desktop >/dev/null <<'CLAUDEWRAP'
-#!/bin/sh
-exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT=auto COWORK_VM_BACKEND=host \
-  /usr/lib/claude-desktop/claude-desktop \
-  --no-sandbox --disable-gpu-sandbox --use-gl=angle --use-angle=swiftshader \
-  --enable-unsafe-swiftshader --ignore-gpu-blocklist --disable-dev-shm-usage --password-store=basic "$@"
-CLAUDEWRAP
-      sudo chmod 0755 /usr/bin/claude-desktop
-    fi
 
     # Asegurar /home/coder como HOME efectivo incluso si se ejecuta como root
     sudo mkdir -p /home/coder
     sudo chown "$USER:$USER" /home/coder || true
-
-    if [ "${tostring(local.enable_dri)}" = "true" ]; then
-      # Alinear grupos para /dev/dri (rendering GPU) sin tocar permisos del host
-      for dev in /dev/dri/renderD128 /dev/dri/card0; do
-        if [ -e "$dev" ]; then
-          dev_gid=$(stat -c '%g' "$dev" 2>/dev/null || echo "")
-          if [ -n "$dev_gid" ]; then
-            dev_group=$(getent group "$dev_gid" | cut -d: -f1)
-            if [ -z "$dev_group" ]; then
-              dev_group="hostgpu_$dev_gid"
-              if ! getent group "$dev_group" >/dev/null; then
-                sudo groupadd -g "$dev_gid" "$dev_group" || true
-              fi
-            fi
-            sudo usermod -aG "$dev_group" "$USER" || true
-          fi
-          if command -v setfacl >/dev/null 2>&1; then
-            sudo setfacl -m "u:$USER:rw" "$dev" 2>/dev/null || true
-          fi
-        fi
-      done
-
-      # Activar aceleracion 3D en KasmVNC solo cuando la ruta GBM/DRI es viable.
-      # Nota: con driver NVIDIA propietario suele fallar con "Failed to create gbm".
-      mkdir -p "$HOME/.vnc"
-      KASM_USER_CFG="$HOME/.vnc/kasmvnc.yaml"
-      KASM_MANAGED_TAG="# managed-by-openclaw-template: kasmvnc-hw3d"
-      HAS_RENDER_NODE=false
-      if [ -e /dev/dri/renderD128 ] && [ -r /dev/dri/renderD128 ] && [ -w /dev/dri/renderD128 ]; then
-        HAS_RENDER_NODE=true
-      fi
-      HAS_NVIDIA=false
-      if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
-        HAS_NVIDIA=true
-      fi
-
-      if [ "$HAS_RENDER_NODE" = "true" ] && [ "$HAS_NVIDIA" = "false" ]; then
-        cat > "$KASM_USER_CFG" <<'KASMGPUCFG'
-# managed-by-openclaw-template: kasmvnc-hw3d
-desktop:
-  gpu:
-    hw3d: true
-    drinode: /dev/dri/renderD128
-KASMGPUCFG
-      elif [ "$HAS_NVIDIA" = "true" ]; then
-        # NVIDIA propietario: hw3d no soporta DRI3/GBM; configurar Zink (OpenGL→Vulkan→GPU)
-        if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
-          rm -f "$KASM_USER_CFG"
-        fi
-        ZINK_TAG="# managed-by-openclaw-template: zink-nvidia"
-        if ! grep -qF "$ZINK_TAG" "$HOME/.xsessionrc" 2>/dev/null; then
-          printf '%s\nexport MESA_LOADER_DRIVER_OVERRIDE=zink\nexport GALLIUM_DRIVER=zink\n' \
-            "$ZINK_TAG" >> "$HOME/.xsessionrc"
-        fi
-      else
-        # Sin render node accesible: limpiar config gestionada
-        if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
-          rm -f "$KASM_USER_CFG"
-        fi
-      fi
-    fi
 
     # Configurar PATH para .local/bin (siempre útil)
     mkdir -p /home/coder/.local/bin
@@ -296,190 +199,6 @@ KASMGPUCFG
     fi
 
     mkdir -p ~/Projects
-    python3 - <<'PY'
-import json
-import os
-
-paths = [
-    os.path.expanduser("~/Projects/.vscode/settings.json"),
-    os.path.expanduser("~/.vscode-server/data/Machine/settings.json"),
-]
-for path in paths:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    data = {}
-    if os.path.exists(path):
-        try:
-            with open(path) as f:
-                data = json.load(f)
-        except Exception:
-            data = {}
-    data["terminal.integrated.cwd"] = "/home/coder/Projects"
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
-PY
-    mkdir -p "$HOME/.codex"
-    touch "$HOME/.codex/config.toml"
-    codex_config="$HOME/.codex/config.toml"
-    codex_config_previous="$HOME/.codex/config.toml.template-prev"
-    cp -p "$codex_config" "$codex_config_previous" 2>/dev/null || true
-
-    # Reparar el residuo exacto dejado por la migracion antigua de chrome-devtools:
-    # un array ["-lc", "...chrome-devtools-mcp..."] sin clave ni cabecera TOML.
-    python3 - "$codex_config" <<'PY' || echo "WARN: fallo la reparacion preventiva de config.toml; se conserva el archivo anterior" >&2
-import os
-import stat
-import sys
-import tempfile
-import tomllib
-
-path = sys.argv[1]
-with open(path, encoding="utf-8") as f:
-    content = f.read()
-lines = content.splitlines()
-out = []
-i = 0
-repaired = False
-while i < len(lines):
-    if lines[i].strip() == "[":
-        j = i + 1
-        while j < len(lines) and lines[j].strip() != "]":
-            j += 1
-        if j < len(lines):
-            fragment = "\n".join(lines[i:j + 1])
-            if '"-lc"' in fragment and "chrome-devtools-mcp" in fragment:
-                end = j + 1
-                if end < len(lines) and lines[end].strip() in ("enabled = true", "enabled = false"):
-                    end += 1
-                if end < len(lines) and not lines[end].strip():
-                    end += 1
-                repaired = True
-                i = end
-                continue
-    out.append(lines[i])
-    i += 1
-
-if repaired:
-    candidate = "\n".join(out).rstrip("\n")
-    candidate = (candidate + "\n") if candidate else ""
-    try:
-        tomllib.loads(candidate)
-    except tomllib.TOMLDecodeError as exc:
-        print(f"WARN: no se pudo reparar config.toml de Codex de forma segura: {exc}", file=sys.stderr)
-    else:
-        mode = stat.S_IMODE(os.stat(path).st_mode)
-        fd, tmp = tempfile.mkstemp(prefix=".config.toml.", dir=os.path.dirname(path), text=True)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(candidate)
-            os.chmod(tmp, mode)
-            os.replace(tmp, path)
-            print("Reparado config.toml de Codex dañado por la migracion antigua")
-        finally:
-            if os.path.exists(tmp):
-                os.unlink(tmp)
-PY
-
-    if python3 -c 'import sys,tomllib; tomllib.load(open(sys.argv[1], "rb"))' "$codex_config" 2>/dev/null; then
-
-    # Migrar config antigua de chrome-devtools (formato bash -lc) si existe
-    python3 - <<'PY'
-import os
-path = os.path.expanduser("~/.codex/config.toml")
-try:
-    with open(path, encoding="utf-8") as f:
-        content = f.read()
-except FileNotFoundError:
-    content = ""
-if "[mcp_servers.chrome-devtools]" in content and '"bash"' in content:
-    lines = content.splitlines()
-    cleaned = []
-    i = 0
-    removed = False
-    while i < len(lines):
-        if lines[i].strip() == "[mcp_servers.chrome-devtools]":
-            j = i + 1
-            block = [lines[i]]
-            while j < len(lines) and not lines[j].lstrip().startswith("["):
-                block.append(lines[j])
-                j += 1
-            if '"bash"' in "\n".join(block):
-                removed = True
-                i = j
-                continue
-        cleaned.append(lines[i])
-        i += 1
-    if removed:
-        content = "\n".join(cleaned).rstrip("\n")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write((content + "\n") if content else "")
-PY
-    if ! grep -q '^\[mcp_servers\.chrome-devtools\]' "$HOME/.codex/config.toml" 2>/dev/null; then
-      cat >> "$HOME/.codex/config.toml" <<'CODEXCFG'
-
-[mcp_servers.chrome-devtools]
-command = "npx"
-args = [
-  "-y",
-  "chrome-devtools-mcp@latest",
-  "--chrome-arg=--use-gl=angle",
-  "--chrome-arg=--use-angle=swiftshader",
-  "--chrome-arg=--enable-unsafe-swiftshader",
-  "--chrome-arg=--no-sandbox",
-  "--chrome-arg=--disable-gpu-sandbox",
-  "--chrome-arg=--disable-setuid-sandbox",
-  "--chrome-arg=--disable-dev-shm-usage",
-]
-env = { DISPLAY=":1", XAUTHORITY="/home/coder/.Xauthority" }
-enabled = true
-CODEXCFG
-    fi
-    # MCP docker retirado: si quedó de una versión anterior, se elimina del config.toml
-    if grep -q '^\[mcp_servers\.docker\]' "$HOME/.codex/config.toml" 2>/dev/null; then
-      python3 - <<'PY'
-import os
-path = os.path.expanduser("~/.codex/config.toml")
-try:
-    with open(path, encoding="utf-8") as f:
-        lines = f.read().splitlines()
-except FileNotFoundError:
-    lines = []
-out, i, removed = [], 0, False
-while i < len(lines):
-    if lines[i].strip() == "[mcp_servers.docker]":
-        i += 1
-        while i < len(lines) and not lines[i].lstrip().startswith("["):
-            i += 1
-        removed = True
-        continue
-    out.append(lines[i]); i += 1
-if removed:
-    content = "\n".join(out).rstrip("\n")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write((content + "\n") if content else "")
-PY
-    fi
-    else
-      echo "WARN: $codex_config contiene TOML invalido; se omiten cambios automaticos de MCP" >&2
-    fi
-
-    # Nunca dejar un config.toml peor que el que habia al iniciar el script.
-    if ! python3 -c 'import sys,tomllib; tomllib.load(open(sys.argv[1], "rb"))' "$codex_config" 2>/dev/null; then
-      cp -p "$codex_config_previous" "$codex_config" 2>/dev/null || true
-      echo "WARN: cambios de MCP revertidos porque config.toml no supero la validacion TOML" >&2
-    fi
-
-    mkdir -p ~/.opencode ~/.config/opencode
-    if [ ! -f ~/.config/opencode/opencode.json ]; then
-      if [ -f ~/.opencode/opencode.json ]; then
-        cp ~/.opencode/opencode.json ~/.config/opencode/opencode.json
-      else
-        cat > ~/.config/opencode/opencode.json <<'JSONCFG'
-{}
-JSONCFG
-      fi
-    fi
-    ln -sf ~/.config/opencode/opencode.json ~/.opencode/opencode.json || true
-    ln -sf ~/.config/opencode/opencode.json ~/.opencode/config.json || true
 
     # Asegurar permisos de pipx para el usuario actual
     sudo mkdir -p /opt/pipx /opt/pipx/bin
@@ -491,7 +210,7 @@ JSONCFG
       touch ~/.init_done
     fi
 
-    # Autoprovisionar clave OpenCode Ocabra si está habilitado
+    # Autoprovisionar clave Ocabra para OpenClaw si está habilitado
     auto_flag="$${AUTO_PROVISION_OCABRA_API_KEY:-true}"
     if [ -z "$${OPENCODE_PROVIDER_URL:-}" ] && [ -n "$${OCABRA_ENDPOINT_BASE_URL:-}" ]; then
       OCABRA_OPENAI_BASE_URL="$${OCABRA_ENDPOINT_BASE_URL%/}"
@@ -517,9 +236,6 @@ JSONCFG
             export OPENCODE_API_KEY
             OCABRA_API_KEY="$key"
             export OCABRA_API_KEY
-            mkdir -p /home/coder/.opencode
-            printf "%s" "$key" > /home/coder/.opencode/.latest_ocabra_key || true
-            printf "%s" "$payload" > /home/coder/.opencode/.latest_ocabra_request || true
           fi
         fi
       fi
@@ -527,11 +243,6 @@ JSONCFG
         export OPENCODE_API_KEY
         OCABRA_API_KEY="$${OCABRA_API_KEY:-$OPENCODE_API_KEY}"
         export OCABRA_API_KEY
-        mkdir -p /home/coder/.opencode
-        if [ -n "$payload" ] && [ -n "$${OPENCODE_API_KEY:-}" ]; then
-          printf "%s" "$${OPENCODE_API_KEY:-}" > /home/coder/.opencode/.latest_ocabra_key || true
-          printf "%s" "$payload" > /home/coder/.opencode/.latest_ocabra_request || true
-        fi
       fi
     fi
     freeapi_auto_flag="$${AUTO_PROVISION_FREEAPI_API_KEY:-true}"
@@ -551,25 +262,17 @@ JSONCFG
           if [ -n "$freeapi_key" ]; then
             FREEAPI_API_KEY="$freeapi_key"
             export FREEAPI_API_KEY
-            mkdir -p /home/coder/.opencode
-            printf "%s" "$freeapi_key" > /home/coder/.opencode/.latest_freeapi_key || true
-            printf "%s" "$freeapi_payload" > /home/coder/.opencode/.latest_freeapi_request || true
           fi
         fi
       fi
     fi
 
-    # Sincronizar OpenCode y dejar disponible el mismo descubridor para OpenClaw.
-    mkdir -p /home/coder/.local/bin /home/coder/.opencode /home/coder/.config/opencode
+    # Descubridor de modelos vivos (Ocabra/FreeAPI) que usa OpenClaw.
+    mkdir -p /home/coder/.local/bin
     cat > /home/coder/.local/bin/sync-llm-models <<'PY'
 ${local.llm_model_sync_script}
 PY
     chmod 0755 /home/coder/.local/bin/sync-llm-models
-    /home/coder/.local/bin/sync-llm-models \
-      --opencode /home/coder/.config/opencode/opencode.json || \
-      echo "WARN: no se pudo sincronizar el catálogo de OpenCode; se conserva la configuración anterior" >&2
-    ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/opencode.json || true
-    ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/config.json || true
 
     # Propagar variables a nuevas shells interactivas
     if [ -n "$${OPENCODE_PROVIDER_URL:-}" ]; then
@@ -579,9 +282,6 @@ PY
       export OPENAI_BASE_URL
       if ! grep -q "OCABRA_BASE_URL=" ~/.bashrc 2>/dev/null; then
         echo "export OCABRA_BASE_URL=\"$OCABRA_BASE_URL\"" >> ~/.bashrc
-      fi
-      if ! grep -q "OPENCODE_PROVIDER_URL=" ~/.bashrc 2>/dev/null; then
-        echo "export OPENCODE_PROVIDER_URL=\"$OPENCODE_PROVIDER_URL\"" >> ~/.bashrc
       fi
       if ! grep -q "OPENAI_BASE_URL=" ~/.bashrc 2>/dev/null; then
         echo "export OPENAI_BASE_URL=\"$OPENAI_BASE_URL\"" >> ~/.bashrc
@@ -599,9 +299,6 @@ PY
       export OPENAI_API_KEY
       if ! grep -q "OCABRA_API_KEY=" ~/.bashrc 2>/dev/null; then
         echo "export OCABRA_API_KEY=\"$OCABRA_API_KEY\"" >> ~/.bashrc
-      fi
-      if ! grep -q "OPENCODE_API_KEY=" ~/.bashrc 2>/dev/null; then
-        echo "export OPENCODE_API_KEY=\"$OPENCODE_API_KEY\"" >> ~/.bashrc
       fi
       if ! grep -q "OPENAI_API_KEY=" ~/.bashrc 2>/dev/null; then
         echo "export OPENAI_API_KEY=\"$OPENAI_API_KEY\"" >> ~/.bashrc
@@ -635,18 +332,6 @@ PY
         mv "$HOME/.openclaw/.env.tmp2" "$HOME/.openclaw/.env.tmp"
       fi
       mv "$HOME/.openclaw/.env.tmp" "$HOME/.openclaw/.env"
-    fi
-
-    # GitHub CLI (instalar si falta)
-    if ! command -v gh >/dev/null 2>&1; then
-      echo ">> Installing GitHub CLI (gh)..."
-      sudo install -m 0755 -d /etc/apt/keyrings
-      curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg
-      sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-        | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-      sudo apt-get update -y
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gh
     fi
 
     # Docker Engine: instalar si falta y arrancar dockerd (DinD)
@@ -685,42 +370,22 @@ PY
       done
     fi
 
-    # Navegador para escritorio basico (preferencia: Google Chrome)
-    if ! command -v google-chrome >/dev/null 2>&1 && ! command -v chromium >/dev/null 2>&1 && ! command -v chromium-browser >/dev/null 2>&1; then
-      echo ">> Installing browser for desktop session..."
-      sudo apt-get update -y || true
-      sudo apt-get install -y ca-certificates curl gnupg || true
-      if [ ! -f /etc/apt/keyrings/google-chrome.gpg ]; then
-        sudo install -d -m 0755 /etc/apt/keyrings
-        curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg || true
-        sudo chmod a+r /etc/apt/keyrings/google-chrome.gpg || true
-      fi
-      if [ ! -f /etc/apt/sources.list.d/google-chrome.list ]; then
-        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
-          | sudo tee /etc/apt/sources.list.d/google-chrome.list >/dev/null || true
-      fi
-      sudo apt-get update -y || true
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y google-chrome-stable || \
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y chromium-browser || \
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y chromium || true
-    fi
-
-    # OpenClaw requiere Node >= 22.12.0
-    ensure_node22=false
+    # OpenClaw requiere Node >= 24.22.1 (o >= 26.12.1)
+    ensure_node24=false
     if ! command -v node >/dev/null 2>&1; then
-      ensure_node22=true
+      ensure_node24=true
     else
       node_ver=$(node -p 'process.versions.node' 2>/dev/null || echo "0.0.0")
-      min_node_ver="22.12.0"
+      min_node_ver="24.22.1"
       if [ "$(printf '%s\n%s\n' "$min_node_ver" "$node_ver" | sort -V | head -n1)" != "$min_node_ver" ]; then
-        ensure_node22=true
+        ensure_node24=true
       fi
     fi
-    if [ "$ensure_node22" = "true" ]; then
-      echo ">> Installing/upgrading Node.js 22.x (required by OpenClaw)..."
+    if [ "$ensure_node24" = "true" ]; then
+      echo ">> Installing/upgrading Node.js 24.x (required by OpenClaw)..."
       sudo apt-get update -y
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg
-      curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+      curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
       hash -r || true
       node -v || true
@@ -773,7 +438,7 @@ PY
     fi
     if [ "$${OPENCLAW_AUTOSTART:-false}" = "true" ] && ! command -v openclaw >/dev/null 2>&1; then
       echo ">> Installing OpenClaw (official installer)..."
-      if ! OPENCLAW_NO_PROMPT=1 OPENCLAW_NO_ONBOARD=1 OPENCLAW_USE_GUM=0 curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-prompt --no-onboard --no-gum; then
+      if ! OPENCLAW_NO_PROMPT=1 OPENCLAW_NO_ONBOARD=1 curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-prompt --no-onboard; then
         echo "WARN: instalación de OpenClaw falló. Revisa red/permisos y relanza el workspace." >&2
       fi
       export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"
@@ -791,16 +456,18 @@ PY
         . "$HOME/.openclaw/.env"
         set +a
       fi
+      openclaw config set gateway.mode local >/dev/null 2>&1 || true
       openclaw config set gateway.port "$${OPENCLAW_PORT:-3333}" >/dev/null 2>&1 || true
       openclaw config set gateway.auth.mode token >/dev/null 2>&1 || true
       openclaw config set gateway.auth.token "$${OPENCLAW_GATEWAY_TOKEN:-}" >/dev/null 2>&1 || true
-      openclaw config set gateway.controlUi.dangerouslyDisableDeviceAuth true >/dev/null 2>&1 || true
       # Coder abre la app por subdominio y también por host principal (path mode).
       # OpenClaw exige orígenes completos aquí; '*' no evita "origin not allowed".
       openclaw config set gateway.controlUi.allowedOrigins '["${local.openclaw_ui_origin_subdomain}","${local.openclaw_ui_origin_coder}"]' >/dev/null 2>&1 || true
       openclaw config set gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback true >/dev/null 2>&1 || true
-      openclaw config set gateway.trustedProxies '["*"]' >/dev/null 2>&1 || \
-      openclaw config set gateway.trustedProxies "*" >/dev/null 2>&1 || true
+      # El gateway solo recibe trafico vía el tunel del agente de Coder, que lo
+      # reenvia a 127.0.0.1 dentro del propio contenedor; no hay wildcard
+      # valido para trustedProxies (lo rechaza con "proxy_attribution_required").
+      openclaw config set gateway.trustedProxies '["127.0.0.1","::1"]' >/dev/null 2>&1 || true
       if [ -n "$${OPENAI_API_KEY:-}" ] || [ -n "$${FREEAPI_API_KEY:-}" ]; then
         mkdir -p "$HOME/.openclaw/agents/main/agent"
         cat > "$HOME/.openclaw/agents/main/agent/auth-profiles.json" <<AUTHPROFILES
@@ -846,7 +513,7 @@ with open(path, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2)
 PY
       fi
-      # OpenClaw consume exactamente los mismos catálogos vivos que OpenCode.
+      # OpenClaw consume el catálogo vivo descubierto por sync-llm-models.
       for provider_id in ocabra freeapi; do
         case "$provider_id" in
           ocabra) provider_base="$${OPENAI_BASE_URL:-}" ;;
@@ -914,6 +581,12 @@ PY
           fi
         fi
       fi
+
+      # Migra auth-profiles.json (legacy) al almacén SQLite y retira claves de
+      # config retiradas; sin esto, "openclaw onboard"/el Control UI piden
+      # AUTH_PROFILE_MIGRATION_REQUIRED. Debe correr antes de arrancar el
+      # gateway (si ya está vivo, el doctor no puede tomar el lock de estado).
+      openclaw doctor --fix >/dev/null 2>&1 || true
     fi
 
     # Persistir configuración de OpenClaw para invocaciones manuales posteriores
@@ -1023,13 +696,70 @@ OPENCLAWSTART
   }
 }
 
-module "kasmvnc" {
-  count               = data.coder_workspace.me.start_count
-  source              = "registry.coder.com/coder/kasmvnc/coder"
-  version             = "~> 1.2"
-  agent_id            = coder_agent.main.id
-  desktop_environment = "xfce"
-  subdomain           = true
+# El cron solo corre con el workspace encendido. La ejecución al arrancar y el
+# marcador persistente recuperan la limpieza semanal si estaba apagado.
+resource "coder_script" "docker_auto_prune" {
+  count              = data.coder_parameter.docker_auto_prune.value ? 1 : 0
+  agent_id           = coder_agent.main.id
+  display_name       = "Docker auto-prune"
+  icon               = "/icon/docker.svg"
+  cron               = "0 30 4 * * 0"
+  run_on_start       = true
+  start_blocks_login = false
+  timeout            = 1800
+  script             = <<-EOT
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    state_dir="$HOME/.local/state/coder-maintenance"
+    last_run_file="$state_dir/docker-prune.last"
+    lock_file="$state_dir/docker-prune.lock"
+    min_interval=$((7 * 24 * 60 * 60))
+    now=$(date +%s)
+    mkdir -p "$state_dir"
+
+    exec 9>"$lock_file"
+    if ! flock -n 9; then
+      echo ">> Docker auto-prune: ya hay otra limpieza en curso; se omite."
+      exit 0
+    fi
+
+    last_run=$(cat "$last_run_file" 2>/dev/null || echo 0)
+    case "$last_run" in
+      ''|*[!0-9]*) last_run=0 ;;
+    esac
+    if [ "$last_run" -gt 0 ] && [ "$now" -ge "$last_run" ] && [ $((now - last_run)) -lt "$min_interval" ]; then
+      echo ">> Docker auto-prune: la última limpieza fue hace menos de 7 días; se omite."
+      exit 0
+    fi
+
+    docker_ready=false
+    for _ in $(seq 1 120); do
+      if sudo docker info >/dev/null 2>&1; then
+        docker_ready=true
+        break
+      fi
+      sleep 1
+    done
+    if [ "$docker_ready" != "true" ]; then
+      echo ">> Docker auto-prune: dockerd no está disponible después de 120 segundos." >&2
+      exit 1
+    fi
+
+    echo ">> Uso de Docker antes de la limpieza:"
+    sudo docker system df || true
+
+    if sudo docker buildx version >/dev/null 2>&1; then
+      sudo docker buildx prune --all --force --filter "until=168h"
+    else
+      sudo docker builder prune --all --force --filter "until=168h"
+    fi
+    sudo docker image prune --all --force --filter "until=720h"
+
+    date +%s > "$last_run_file"
+    echo ">> Uso de Docker después de la limpieza:"
+    sudo docker system df || true
+  EOT
 }
 
 resource "coder_app" "openclaw_ui" {
@@ -1116,16 +846,6 @@ resource "docker_container" "workspace" {
     "-c",
     <<-EOT
       set -e
-      mkdir -p /home/coder/.opencode /home/coder/.config/opencode
-      if [ ! -f /home/coder/.config/opencode/opencode.json ]; then
-        if [ -f /home/coder/.opencode/opencode.json ]; then
-          cp /home/coder/.opencode/opencode.json /home/coder/.config/opencode/opencode.json
-        else
-          printf '{}' > /home/coder/.config/opencode/opencode.json
-        fi
-      fi
-      ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/opencode.json || true
-      ln -sf /home/coder/.config/opencode/opencode.json /home/coder/.opencode/config.json || true
       ${replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")}
     EOT
   ]

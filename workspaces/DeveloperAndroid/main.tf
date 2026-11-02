@@ -27,12 +27,6 @@ variable "users_storage" {
   type        = string
 }
 
-variable "default_repo_url" {
-  default     = ""
-  description = "Repositorio Git por defecto (ej. $TF_VAR_default_repo_url)."
-  type        = string
-}
-
 variable "ocabra_endpoint_base_url" {
   default     = ""
   description = "Base URL OpenAI-compatible por defecto (si no se define en parámetros)."
@@ -57,95 +51,96 @@ variable "freeapi_key_endpoint" {
   type        = string
 }
 # Parámetros
-data "coder_parameter" "enable_gpu" {
-  name         = "01_enable_gpu"
-  display_name = "[Compute] GPU"
-  description  = "Activa --gpus all en el contenedor."
-  type         = "bool"
-  default      = false
-  mutable      = true
-}
-
-data "coder_parameter" "enable_dri" {
-  name         = "01_enable_dri"
-  display_name = "[Compute] DRI (/dev/dri)"
-  description  = "Mapea /dev/dri para aceleracion grafica (Intel/AMD o NVIDIA via EGL/GL)."
-  type         = "bool"
-  default      = true
-  mutable      = true
-}
-
-data "coder_parameter" "enable_host_network" {
-  name         = "02_00_enable_host_network"
-  display_name = "[Network] Usar red del host (network_mode=host)"
-  description  = "Conecta el contenedor directamente a la red del host (sin mapeo de puertos)."
-  type         = "bool"
-  default      = false
-  mutable      = true
-}
-
-data "coder_parameter" "git_repo_url" {
-  name         = "03_git_repo_url"
-  display_name = "[Code] Repositorio Git (opcional)"
-  description  = "URL para clonar en ~/Projects/<repo> en el primer arranque."
+data "coder_parameter" "graphics_acceleration" {
+  # Sin nivel DRI intermedio: confirmado en vivo que no da aceleración NVIDIA
+  # real sin --gpus all (Mesa cae a LLVMpipe/software igualmente).
+  name         = "01_graphics_acceleration"
+  display_name = "[Compute] Aceleración gráfica"
+  description  = "Software: todo por CPU (Mesa LLVMpipe), sin GPU. GPU NVIDIA: pasa la GPU completa al contenedor (--gpus all), habilita NVENC/CUDA."
   type         = "string"
-  default      = var.default_repo_url
+  default      = "software"
+  order        = 10
   mutable      = true
+  option {
+    name  = "Software (CPU)"
+    value = "software"
+  }
+  option {
+    name  = "GPU NVIDIA (NVENC/CUDA)"
+    value = "gpu"
+  }
 }
 
-data "coder_parameter" "persist_home_storage" {
-  name         = "02_01_persist_home_storage"
-  display_name = "[Storage] Persistir home en el host"
-  description  = "Monta /home/coder en TF_VAR_users_storage/<usuario>/<workspace>. Si no lo activas, /home/coder se guarda en un volumen Docker; si el workspace esta apagado y se limpia Docker en el host, ese volumen puede desaparecer."
-  type         = "bool"
-  default      = false
+data "coder_parameter" "storage_mode" {
+  name         = "20_storage_mode"
+  display_name = "[Storage] Persistencia"
+  description  = "Ninguna: todo en volumen Docker (se puede perder si se limpia Docker en el host estando el workspace apagado). Home completo: monta /home/coder en el host. Solo Projects: monta solo /home/coder/Projects en el host."
+  type         = "string"
+  default      = "none"
+  order        = 20
   mutable      = true
+  option {
+    name  = "Ninguna (volumen Docker)"
+    value = "none"
+  }
+  option {
+    name  = "Home completo en el host"
+    value = "home"
+  }
+  option {
+    name  = "Solo ~/Projects en el host"
+    value = "projects_only"
+  }
 }
 
-data "coder_parameter" "persist_projects_storage" {
-  name         = "02_02_persist_projects_storage"
-  display_name = "[Storage] Persistir solo ~/Projects"
-  description  = "Monta /home/coder/Projects en TF_VAR_users_storage/<usuario>/<workspace>/Projects."
-  type         = "bool"
-  default      = false
+data "coder_parameter" "ocabra_key_mode" {
+  name         = "60_ocabra_key_mode"
+  display_name = "[AI] Clave Ocabra"
+  description  = "Auto-aprovisionar una API key Ocabra nueva, o usar una que ya tengas."
+  type         = "string"
+  default      = "auto"
+  order        = 60
   mutable      = true
+  option {
+    name  = "Auto-aprovisionar"
+    value = "auto"
+  }
+  option {
+    name  = "Usar mi propia clave"
+    value = "manual"
+  }
 }
 
-data "coder_parameter" "autoprovision_ocabra_key" {
-  name         = "04_autoprovision_ocabra_key"
-  display_name = "[AI/Ocabra] Provisionar API key Ocabra automáticamente"
-  description  = "Genera y precarga una API key Ocabra. La API de Ocabra es privada en los servidores de Ocabra."
-  type         = "bool"
-  default      = true
+data "coder_parameter" "ocabra_key_value" {
+  name         = "61_ocabra_key_value"
+  display_name = "[AI] Clave Ocabra manual"
+  description  = "Solo se usa si arriba elegiste 'Usar mi propia clave'."
+  type         = "string"
+  default      = ""
+  order        = 61
   mutable      = true
 }
 
 data "coder_parameter" "autoprovision_freeapi_key" {
-  name         = "04_autoprovision_freeapi_key"
-  display_name = "[AI/FreeAPI] Provisionar API key automáticamente"
+  name         = "62_autoprovision_freeapi_key"
+  display_name = "[AI] Provisionar API key FreeAPI automáticamente"
   description  = "Generar automaticamente una key con acceso a recursos gratis externos que pueden no ser privados."
   type         = "bool"
   default      = true
-  mutable      = true
-}
-
-data "coder_parameter" "claude_token" {
-  name         = "04_claude_token"
-  display_name = "[AI/Claude] Token"
-  description  = "Token de Claude (oauth). Si se rellena se usa Claude y se omite el módulo OpenCode. Obténlo con `claude setup-token`."
-  type         = "string"
-  default      = ""
+  order        = 62
   mutable      = true
 }
 
 locals {
   username                   = data.coder_workspace_owner.me.name
   workspace_image            = "ghcr.io/makespacemadrid/coder-mks-developer-android:latest"
-  enable_gpu                 = data.coder_parameter.enable_gpu.value
-  enable_dri                 = data.coder_parameter.enable_dri.value
-  enable_host_network        = data.coder_parameter.enable_host_network.value
-  persist_home_storage       = data.coder_parameter.persist_home_storage.value
-  persist_projects_storage   = data.coder_parameter.persist_projects_storage.value
+  graphics_acceleration      = data.coder_parameter.graphics_acceleration.value
+  enable_gpu                 = local.graphics_acceleration == "gpu"
+  enable_dri                 = local.graphics_acceleration == "gpu"
+  enable_host_network        = false
+  storage_mode               = data.coder_parameter.storage_mode.value
+  persist_home_storage       = local.storage_mode == "home"
+  persist_projects_storage   = local.storage_mode == "projects_only"
   host_mount_path            = ""
   host_mount_uid             = "1000"
   workspace_storage_root     = trimspace(var.users_storage)
@@ -159,15 +154,14 @@ locals {
   freeapi_base_url           = trimspace(var.freeapi_base_url)
   freeapi_key_endpoint       = trimspace(var.freeapi_key_endpoint)
   home_volume_resolved       = "coder-${data.coder_workspace.me.id}-home"
-  repo_url                   = trimspace(data.coder_parameter.git_repo_url.value)
-  repo_name                  = local.repo_url != "" ? trimsuffix(basename(local.repo_url), ".git") : ""
-  default_repo_path          = local.repo_name != "" ? "/home/coder/Projects/${local.repo_name}" : "/home/coder/Projects"
+  default_repo_path          = "/home/coder/Projects"
   openai_base_url            = ""
-  openai_api_key             = ""
-  auto_provision_ocabra_key  = data.coder_parameter.autoprovision_ocabra_key.value
+  ocabra_key_mode            = data.coder_parameter.ocabra_key_mode.value
+  ocabra_key_value           = trimspace(data.coder_parameter.ocabra_key_value.value)
+  openai_api_key             = local.ocabra_key_mode == "manual" ? local.ocabra_key_value : ""
+  auto_provision_ocabra_key  = local.ocabra_key_mode == "auto"
   auto_provision_freeapi_key = data.coder_parameter.autoprovision_freeapi_key.value
-  claude_token               = trimspace(data.coder_parameter.claude_token.value)
-  install_claude             = local.claude_token != ""
+  install_claude             = false
   continue_default_config    = file("${path.module}/continue-config.yaml")
   llm_model_sync_script      = file("${path.module}/sync_llm_models.py")
 }
@@ -545,6 +539,25 @@ JSONCFG
     ln -sf ~/.config/opencode/opencode.json ~/.opencode/opencode.json || true
     ln -sf ~/.config/opencode/opencode.json ~/.opencode/config.json || true
 
+    # chunkTimeout=false + timeout largo: evita que OpenCode corte respuestas
+    # largas de los modelos locales/lentos. No pisa si el usuario ya lo cambió.
+    python3 - <<'PY'
+import json, os
+path = os.path.expanduser("~/.config/opencode/opencode.json")
+data = {}
+if os.path.exists(path):
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+settings = data.setdefault("settings", {})
+settings.setdefault("chunkTimeout", False)
+settings.setdefault("timeout", 2100000)
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+PY
+
     # KasmVNC busca startkde; en Plasma moderno es startplasma-x11
     if [ -x /usr/bin/startplasma-x11 ] && [ ! -x /usr/bin/startkde ]; then
       sudo ln -sf /usr/bin/startplasma-x11 /usr/bin/startkde
@@ -561,7 +574,7 @@ JSONCFG
     if [ -f /usr/share/applications/ai.opencode.desktop.desktop ]; then
       ln -sfn /usr/share/applications/ai.opencode.desktop.desktop "$HOME/Desktop/OpenCode.desktop"
     fi
-    for f in android-studio.desktop code.desktop OpenCode.desktop firefox.desktop google-chrome.desktop; do
+    for f in android-studio.desktop com.microsoft.VSCode.desktop OpenCode.desktop firefox.desktop google-chrome.desktop; do
       src="/usr/share/applications/$f"
       if [ -f "$src" ] && [ ! -e "$HOME/Desktop/$f" ]; then
         ln -sf "$src" "$HOME/Desktop/$f"
@@ -589,8 +602,8 @@ OpenAI, Google y otros proveedores usan el catálogo actual de OpenCode/models.d
 y sus variantes de razonamiento. La plantilla no duplica esos modelos, así que
 las altas y retiradas no requieren volver a publicar el workspace.
 
-Antigravity no se instala automáticamente: el antiguo plugin quedó archivado y
-el reemplazo no oficial advierte de posibles bloqueos de cuentas de Google.
+Antigravity está instalado en la imagen (menú de aplicaciones del escritorio),
+aunque este template no añade un botón dedicado en la barra de apps de Coder.
 
 Usa `/models` dentro de OpenCode para consultar el catálogo vivo y seleccionar
 un modelo. La configuración existente del usuario se fusiona y no se reemplaza.
@@ -803,20 +816,13 @@ module "code-server" {
 }
 
 module "git-config" {
-  count    = data.coder_workspace.me.start_count
-  source   = "registry.coder.com/coder/git-config/coder"
-  version  = "~> 1.0"
-  agent_id = coder_agent.main.id
+  count                  = data.coder_workspace.me.start_count
+  source                 = "registry.coder.com/coder/git-config/coder"
+  version                = "~> 1.0"
+  agent_id               = coder_agent.main.id
+  allow_username_change  = false
 }
 
-module "git-clone" {
-  count    = data.coder_parameter.git_repo_url.value != "" ? data.coder_workspace.me.start_count : 0
-  source   = "registry.coder.com/coder/git-clone/coder"
-  version  = "~> 2.0"
-  agent_id = coder_agent.main.id
-  url      = data.coder_parameter.git_repo_url.value
-  base_dir = "~/Projects"
-}
 
 module "coder-login" {
   count    = data.coder_workspace.me.start_count
@@ -957,76 +963,6 @@ EOF
     nohup "$helper" >/dev/null 2>&1 &
     echo ">> Fondo de escritorio MakeSpace preparado."
   EOT
-}
-
-# UI web nativa de OpenCode, además de la integración AgentAPI del módulo.
-resource "coder_script" "opencode_web" {
-  count              = local.install_claude ? 0 : 1
-  agent_id           = coder_agent.main.id
-  display_name       = "Start OpenCode Web"
-  icon               = "/icon/opencode.svg"
-  run_on_start       = true
-  start_blocks_login = false
-  script             = <<-EOT
-    #!/usr/bin/env bash
-    set -euo pipefail
-    port=4096
-    health_url="http://127.0.0.1:$port/global/health"
-    log_dir="$HOME/.opencode"
-    log_file="$log_dir/opencode-web.log"
-    export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
-    for _ in $(seq 1 120); do
-      if command -v opencode >/dev/null 2>&1; then break; fi
-      sleep 1
-    done
-    opencode_bin="$(command -v opencode || true)"
-    if [ -z "$opencode_bin" ]; then
-      echo "OpenCode no se instaló en dos minutos; consulta ~/.opencode-module" >&2
-      exit 1
-    fi
-    if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
-    mkdir -p "$log_dir"
-    cd /home/coder
-    nohup "$opencode_bin" serve --hostname 127.0.0.1 --port "$port" >>"$log_file" 2>&1 &
-    for _ in $(seq 1 30); do
-      if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then exit 0; fi
-      sleep 1
-    done
-    echo "OpenCode Web no respondió en $health_url; consulta $log_file" >&2
-    exit 1
-  EOT
-  depends_on         = [module.opencode]
-}
-
-resource "coder_app" "opencode_web" {
-  count        = local.install_claude ? 0 : 1
-  agent_id     = coder_agent.main.id
-  slug         = "opencode-web"
-  display_name = "OpenCode Web"
-  icon         = "/icon/opencode.svg"
-  url          = "http://127.0.0.1:4096"
-  share        = "owner"
-  subdomain    = true
-  open_in      = "tab"
-  healthcheck {
-    url       = "http://127.0.0.1:4096/global/health"
-    interval  = 5
-    threshold = 6
-  }
-  depends_on = [coder_script.opencode_web]
-}
-
-module "claude-code" {
-  count  = local.install_claude ? 1 : 0
-  source = "registry.coder.com/coder/claude-code/coder"
-  # v5 elimina report_tasks/task_app_id, que esta plantilla sigue utilizando.
-  version                 = ">= 4.7.5, < 5.0.0"
-  agent_id                = coder_agent.main.id
-  workdir                 = "/home/coder/Projects"
-  claude_code_oauth_token = local.claude_token
-  subdomain               = false
-  report_tasks            = true
-  depends_on              = [module.opencode]
 }
 
 # HOME PERSISTENTE

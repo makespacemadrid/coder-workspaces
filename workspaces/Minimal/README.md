@@ -20,6 +20,7 @@ Workspace ligero basado en la imagen oficial fijada a Ubuntu 24.04 LTS (`coderco
 - Docker instalado al iniciar y ejecutando DinD (dockerd dentro del contenedor).
 - OpenCode/Claude opcionales para asistentes de IA (con autoprovision de key Ocabra si se activa).
 - Home persistente en `/home/coder` (volumen o bind mount según parámetros) y datos de Docker en `/var/lib/docker`.
+- Limpieza automática semanal del Docker interno: caché de build sin uso durante 7 días e imágenes sin contenedores asociadas de más de 30 días.
 - `OpenCode Web`: interfaz web nativa arrancada automáticamente y expuesta como app privada del propietario en Coder.
 - Labels `com.centurylinklabs.watchtower.*` para actualizaciones con Watchtower.
 
@@ -31,12 +32,14 @@ Workspace ligero basado en la imagen oficial fijada a Ubuntu 24.04 LTS (`coderco
 - `Montar ruta host en ~/host`: monta una ruta del host en `/home/coder/host`.
 - `Especificar UID para montar la ruta host`: UID para ejecutar el contenedor cuando montas `/home/coder/host` (por defecto 1000).
 - `Repositorio Git`: clona en `~/Projects` al primer arranque.
+- `[Maintenance] Limpieza automática de Docker`: activa por defecto; no elimina volúmenes ni contenedores y se puede desactivar.
 - `OpenCode Base URL` + `OpenCode API key`: configura proveedor OpenAI-compatible.
 - `Provisionar API key Ocabra automáticamente`: genera una key de 30 días si no aportas una.
 - `Claude Token`: usa Claude y omite OpenCode (genera el token con `claude setup-token`).
 
 ## Notas
 - El contenedor se ejecuta en modo `privileged` para soportar Docker in Docker.
+- `Docker auto-prune` se ejecuta los domingos a las 04:30 mientras el workspace está encendido. También comprueba la última ejecución al arrancar para recuperar semanas en las que estuviera apagado; los resultados aparecen en los logs de scripts de Coder.
 - No hay escritorio gráfico; conéctate vía code-server o la terminal del workspace.
 - Tras merge a `main`, ejecuta `coder templates push` para publicar el template en Coder.
 
