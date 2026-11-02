@@ -8,7 +8,7 @@ tags: [design, cad, 3d, electronics, ocabra]
 
 # Ocabra Maker
 
-Template con escritorio KDE/KasmVNC 1.5.0 y herramientas de diseño 2D/3D + electrónica usando la imagen `ghcr.io/makespacemadrid/coder-mks-design:latest`.
+Template con escritorio KDE real vía Selkies (streaming WebRTC) y herramientas de diseño 2D/3D + electrónica usando la imagen `ghcr.io/makespacemadrid/coder-mks-design:latest`.
 
 ## Apps incluidas (imagen base)
 - 2D: Inkscape, GIMP 3.2.6, Krita 5.3.4
@@ -19,7 +19,7 @@ Template con escritorio KDE/KasmVNC 1.5.0 y herramientas de diseño 2D/3D + elec
 - Navegación y utilidades: Firefox (.deb, sin snap), Geany, OpenCode Desktop, AppImage Pool (tienda/gestor de AppImage)
 - Media/imagen: ImageMagick, FFmpeg, ExifTool
 - Docs/tipografía: Pandoc, FontForge
-- Módulos Coder: KasmVNC, Filebrowser, OpenCode. RDP aplica solo a workspaces Windows según [las docs de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops); esta imagen Linux usa KasmVNC.
+- Módulos Coder: Selkies (escritorio), Filebrowser, OpenCode. RDP aplica solo a workspaces Windows según [las docs de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops); esta imagen Linux usa Selkies.
 - Blender MCP oficial de Blender Lab, con servidor y add-on fijados a una revisión reproducible e instalados sin depender de la red durante el arranque.
 
 - `OpenCode Web` se inicia automáticamente y aparece como app privada del propietario en Coder.
@@ -29,18 +29,15 @@ Template con escritorio KDE/KasmVNC 1.5.0 y herramientas de diseño 2D/3D + elec
 Si existe `$TF_VAR_users_storage/_provisioning`, el template monta de solo lectura los perfiles privados de OrcaSlicer y PrusaSlicer y el fondo de escritorio de Designer. Los perfiles y conexiones compartidos se sincronizan en cada arranque; las preferencias personales existentes se conservan. Las credenciales no forman parte del template, de la imagen ni del estado de Terraform.
 
 ## Creación rápida en Coder
-- `Habilitar GPUs`: actívalo si lo necesitas.
-- `Persistir home en el host`: monta `/home/coder` en `TF_VAR_users_storage/<usuario>/<workspace>`.
-- `Persistir solo ~/Projects`: monta `/home/coder/Projects` en `TF_VAR_users_storage/<usuario>/<workspace>/Projects`.
-- `Montar ruta host en ~/host`: monta una ruta del host en `/home/coder/host`.
-- `Especificar UID para montar la ruta host`: UID para ejecutar el contenedor cuando montas `/home/coder/host` (por defecto 1000).
-- `Repositorio Git`: clona en `~/Projects` al primer arranque.
-- `OpenCode`: deja activo el checkbox `OpenCode: provisionar API key Ocabra automáticamente` para generar una key Ocabra de 30 días y configurar Continue; requiere `TF_VAR_ocabra_endpoint_base_url` y `TF_VAR_ocabra_key`.
+- [Compute] Aceleración gráfica: `Software` (CPU) o `GPU NVIDIA` (NVENC/CUDA).
+- [Storage] Persistencia: `Ninguna` (volumen Docker), `Home completo` o `Solo ~/Projects` en el host.
+- [AI] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
+- [AI] Provisionar API key FreeAPI automáticamente: activo por defecto.
+- [AI] Modelo por defecto de OpenCode.
 
 ## Notas
 - Home persistente en `/home/coder` (volumen o bind mount según parámetros). Escritorio con accesos directos a las apps clave.
-- KasmVNC 1.5.0 para escritorio gráfico, con el nuevo modo de vídeo H.264/H.265/AV1 y detección NVENC; incluye code-server y filebrowser por si necesitas editar assets/scripts.
-- La versión se fija en el módulo para que los workspaces nuevos instalen exactamente 1.5.0. Un workspace que ya tenga KasmVNC instalado debe recrearse para realizar la actualización.
+- Escritorio KDE real vía Selkies (streaming WebRTC/H.264 con detección NVENC); incluye code-server y filebrowser por si necesitas editar assets/scripts.
 - Labels `com.centurylinklabs.watchtower.*` para que Watchtower pueda actualizar si usas `--label-enable`.
 - Si necesitas más programas (Cura, QCAD, LightBurn, simuladores SPICE), avisa y se añaden a la imagen.
 

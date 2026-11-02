@@ -14,26 +14,22 @@ Lee esto antes de tocar plantillas o imágenes. Para notas privadas, usa `AGENTS
 - `ghcr.io/makespacemadrid/coder-mks-developer-cli:latest` (Docker-Images/DeveloperCLI/Dockerfile): `DevTools-Base` sin nada propio; code-server/JupyterLab se instalan vía módulo de Coder en runtime. La usa el template `Developer`.
 - `ghcr.io/makespacemadrid/coder-mks-desktop-kde:latest` (Docker-Images/Desktop-KDE/Dockerfile): `DevTools-Base` + KDE Plasma real, Firefox/Chrome, Claude Desktop, OpenCode Desktop. Base de escritorio compartida por `DeveloperDesktop`, `Designer` y `DeveloperAndroid`.
 - `ghcr.io/makespacemadrid/coder-mks-developer-desktop:latest` (Docker-Images/DeveloperDesktop/Dockerfile): `Desktop-KDE` + VS Code, GitHub Desktop, Antigravity, AppImage Pool. La usa el template `DeveloperDesktop` (Selkies).
-- `ghcr.io/makespacemadrid/coder-mks-developer:latest` (Docker-Images/Developer/Dockerfile): escritorio XFCE/KasmVNC (imagen heredada, en migración); la usan todavía `DeveloperRE`, `OpenClaw` y `Hermes`.
+- `ghcr.io/makespacemadrid/coder-mks-developer:latest` (Docker-Images/Developer/Dockerfile): escritorio XFCE/KasmVNC (imagen heredada, en migración pendiente); la usan todavía `DeveloperRE`, `OpenClaw` y `Hermes`.
 - `ghcr.io/makespacemadrid/coder-mks-developer-re:latest` (Docker-Images/DeveloperRE/Dockerfile): `coder-mks-developer` + toolchain gratuita de ingeniería inversa (Ghidra, JADX, apktool, GDB+pwndbg, binwalk, unblob, pwntools, mitmproxy, tshark, sigrok, WABT, rizin) para usar con rea.
-- `ghcr.io/makespacemadrid/coder-mks-design:latest` (Docker-Images/Designer/Dockerfile): `Desktop-KDE` + stack de diseño 2D/3D y electrónica (Inkscape, GIMP, Krita, Blender, FreeCAD, OpenSCAD, PrusaSlicer, OrcaSlicer, MeshLab, LibreCAD, KiCad, Fritzing, SimulIDE, LaserGRBL via Wine) + AppImage Pool y Geany.
-- `ghcr.io/makespacemadrid/coder-mks-developer-android:latest` (Docker-Images/DeveloperAndroid/Dockerfile): `Desktop-KDE` + Android SDK/Studio/Gradle/JetBrains Toolbox.
-- `ghcr.io/makespacemadrid/coder-mks-design-selkies:latest` (Docker-Images/Designer-Selkies/Dockerfile): stack Maker sobre `linuxserver/webtop:ubuntu-kde` (base distinta, candidata a retirarse cuando se confirme el cutover a Selkies sobre `Desktop-KDE`), perfil en `/config` y NVIDIA/NVENC.
-- `ghcr.io/makespacemadrid/coder-mks-developer-android-selkies:latest` (Docker-Images/DeveloperAndroid-Selkies/Dockerfile): capa Android Studio/SDK/emulador sobre la imagen Maker Selkies.
+- `ghcr.io/makespacemadrid/coder-mks-design:latest` (Docker-Images/Designer/Dockerfile): `Desktop-KDE` + stack de diseño 2D/3D y electrónica (Inkscape, GIMP, Krita, Blender, FreeCAD, OpenSCAD, PrusaSlicer, OrcaSlicer, MeshLab, LibreCAD, KiCad, Fritzing, SimulIDE, LaserGRBL via Wine) + AppImage Pool y Geany. La usa `Maker`, con Selkies como backend de escritorio.
+- `ghcr.io/makespacemadrid/coder-mks-developer-android:latest` (Docker-Images/DeveloperAndroid/Dockerfile): `Desktop-KDE` + Android SDK/Studio/Gradle/JetBrains Toolbox. Backend de escritorio Selkies.
 
 ## Templates Coder
 - `Developer` (DinD): workspace general **headless** con Docker-in-Docker, CLIs de IA y JupyterLab; GPU opcional solo para cómputo (CUDA/NVENC, no hay escritorio que acelerar). Sustituye a `Minimal`.
 - `DeveloperDesktop` (DinD): igual que `Developer` pero con escritorio KDE real vía Selkies; VS Code, GitHub Desktop, Claude Desktop, OpenCode Desktop, Antigravity.
 - `DeveloperRE`: imagen `coder-mks-developer-re` (escritorio XFCE/KasmVNC, en migración pendiente) con toolchain de ingeniería inversa para usar con rea (morluto/rea).
-- `DeveloperAndroid`: escritorio KDE real con toolchain Android (SDK/CLI), Node 24 y VS Code base.
-- `DeveloperAndroidSelkies`: variante de prueba KDE/Selkies del entorno Android; hereda la imagen Maker Selkies, añade Android Studio/SDK/emulador y monta `/dev/kvm`.
-- `Maker`: escritorio KDE real con herramientas de diseño/CAD/EDA; GPUs opcionales; home persistente; módulo OpenCode. RDP aplica solo a workspaces Windows según [la guía de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops).
-- `MakerSelkies`: variante experimental KDE/Selkies orientada a impresión 3D y NVIDIA NVENC; perfil persistente en `/config` y acceso como app privada de Coder.
+- `DeveloperAndroid`: escritorio KDE real vía Selkies con toolchain Android (SDK/CLI), Node 24 y VS Code base.
+- `Maker`: escritorio KDE real vía Selkies con herramientas de diseño/CAD/EDA; GPUs opcionales; home persistente; módulo OpenCode. RDP aplica solo a workspaces Windows según [la guía de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops).
 - `Minimal`: **en retirada**, sustituido por `Developer` headless; queda solo por un workspace pendiente de migrar (no crear workspaces nuevos aquí).
 - `OpenClaw`: template headless (sin escritorio) para agentes/OpenClaw: gateway OpenClaw + DinD, arranque configurable (`[OpenClaw] Auto-iniciar servicio`, puerto, directorio y comando).
 - `Hermes`: template headless (sin escritorio) para el agente [Hermes](https://hermes-agent.nousresearch.com/) de Nous Research; dashboard web propio, directorio de trabajo y modelo por defecto configurables.
 
-`AdvancedHostDANGER` y el spike `developer-selkies-spike` se han retirado (sin reemplazo y fusionado en `DeveloperDesktop` respectivamente).
+`AdvancedHostDANGER`, el spike `developer-selkies-spike`, y las variantes experimentales `MakerSelkies`/`DeveloperAndroidSelkies` (incluida la base `linuxserver/webtop:ubuntu-kde`) se han retirado: Maker y DeveloperAndroid ya corren Selkies de forma nativa sobre `Desktop-KDE`, igual que `DeveloperDesktop`.
 
 ## OpenClaw: regla de origen (importante)
 - No configures `gateway.controlUi.allowedOrigins` con `*` en OpenClaw: termina en errores de conexión (`origin not allowed` / `disconnected (1006)`).

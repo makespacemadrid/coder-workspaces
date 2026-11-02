@@ -8,7 +8,7 @@ tags: [android, mobile, kde, workspace, ocabra]
 
 # Developer Android
 
-Workspace gráfico KDE/KasmVNC con toolchain Android preinstalado. Usa la imagen `ghcr.io/makespacemadrid/coder-mks-developer-android:latest`.
+Workspace gráfico KDE real vía Selkies (streaming WebRTC) con toolchain Android preinstalado. Usa la imagen `ghcr.io/makespacemadrid/coder-mks-developer-android:latest`.
 
 ## Qué incluye
 - Android SDK CLI en `/home/coder/Android/Sdk` con `platform-tools`, emulator y `cmdline-tools;latest` (instala tus propias plataformas/ build-tools según el proyecto).
@@ -17,28 +17,23 @@ Workspace gráfico KDE/KasmVNC con toolchain Android preinstalado. Usa la imagen
 - VS Code listo para personalizar tus extensiones (sin bundle preinstalado) y soporte C/C++ vía paquetes base.
 - JetBrains Toolbox + módulo JetBrains de Coder para lanzar IntelliJ IDEA remoto (instala el plugin Android) vía JetBrains Gateway/Coder Desktop.
 - Google Chrome, Firefox y OpenCode Desktop preinstalados.
-- Módulos Coder: KasmVNC (KDE), code-server, Filebrowser, OpenCode, git-config, tmux.
-- Autoprovisiona una key de IA Ocabra (30 días) si dejas activa la casilla `[AI/OpenCode] Provisionar API key Ocabra automáticamente` y el endpoint está configurado por entorno.
-- `OpenCode Web` se inicia automáticamente y aparece como app privada del propietario en Coder.
+- Módulos Coder: Selkies (KDE), code-server, Filebrowser, OpenCode, git-config, tmux, JetBrains.
+- Autoprovisiona una key de IA Ocabra (30 días) por defecto; configurable en `[AI] Clave Ocabra`.
 - Antigravity auto-updater (`antigravity`) preinstalado.
 - Si existe `$TF_VAR_users_storage/_provisioning/desktop/wallpapers`, se monta de solo lectura y aplica el fondo de escritorio compartido en el primer arranque; no sobrescribe un fondo que ya hayas cambiado.
 
 ## Creación rápida en Coder
-- `GPU`: viene activada por defecto; desactívala si no la necesitas.
-- `Usar red del host`: conecta el workspace a la red del host (network_mode=host) y no publica puertos.
-- `Persistir home en el host`: monta `/home/coder` en `TF_VAR_users_storage/<usuario>/<workspace>`.
-- `Persistir solo ~/Projects`: monta `/home/coder/Projects` en `TF_VAR_users_storage/<usuario>/<workspace>/Projects`.
-- `Montar ruta host en ~/host`: monta una ruta del host en `/home/coder/host`.
-- `Especificar UID para montar la ruta host`: UID para ejecutar el contenedor cuando montas `/home/coder/host` (por defecto 1000).
-- `Repositorio Git`: clona en `~/Projects` al primer arranque.
-- `OpenCode`: deja activa la casilla `[AI/OpenCode] Provisionar API key Ocabra automáticamente` para generar una key Ocabra de 30 días; requiere `TF_VAR_ocabra_endpoint_base_url` y `TF_VAR_ocabra_key`.
+- [Compute] Aceleración gráfica: `Software` (CPU) o `GPU NVIDIA` (NVENC/CUDA).
+- [Storage] Persistencia: `Ninguna` (volumen Docker), `Home completo` o `Solo ~/Projects` en el host.
+- [AI] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
+- [AI] Provisionar API key FreeAPI automáticamente: activo por defecto.
 
 ## Utilidades extra
 - Android: `adb` y `scrcpy`.
 - CLI: `httpie`, `yq`, `xmlstarlet`, `sqlite3`.
 
 ## Notas
-- Escritorio KDE vía KasmVNC; VS Code (web y desktop) listo para configurar a tu gusto.
+- Escritorio KDE real vía Selkies; VS Code (web y desktop) listo para configurar a tu gusto.
 - El SDK Android canónico del workspace es `/home/coder/Android/Sdk`; `/opt/android-sdk` queda como compatibilidad para tooling heredado.
 - El emulador Android usa `-gpu swiftshader` por defecto para evitar cierres con `-gpu host` en escritorios remotos; puedes sobrescribirlo con `ANDROID_EMULATOR_DEFAULT_GPU` o pasando `-gpu` manualmente.
 - Bloqueo de pantalla/ahorro de energía deshabilitado para no interrumpir builds largos.

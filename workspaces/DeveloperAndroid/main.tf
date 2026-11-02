@@ -837,13 +837,59 @@ module "tmux" {
   agent_id = coder_agent.main.id
 }
 
-module "kasmvnc" {
-  count               = data.coder_workspace.me.start_count
-  source              = "registry.coder.com/coder/kasmvnc/coder"
-  version             = "~> 1.2"
-  agent_id            = coder_agent.main.id
-  desktop_environment = "kde"
+module "selkies" {
+  # Vendorizado en ./modules/selkies (el módulo selkies-project/selkies aún no
+  # está mergeado en registry.coder.com, PR coder/registry#1149 abierto). Se
+  # vendoriza en vez de referenciar el fork remoto para poder personalizar
+  # display_name/icon: el módulo original hardcodea icon="/icon/selkies.svg",
+  # que no existe en este servidor Coder (404 confirmado) -> botón roto.
+  count    = data.coder_workspace.me.start_count
+  source   = "./modules/selkies"
+  agent_id = coder_agent.main.id
+  # El keyword "kde" intenta ejecutar un binario literal llamado `kde`, que no
+  # existe en Debian/Ubuntu (solo hay startplasma-x11/startkde) -> confirmado
+  # con el error real: "dbus-run-session: failed to exec 'kde'". Se pasa el
+  # comando real, tal como documenta el propio módulo ("or gives a command to run").
+  desktop_environment = "startplasma-x11"
   subdomain           = true
+  display_name        = "Desktop"
+  icon                 = "/icon/desktop.svg"
+}
+
+resource "coder_script" "selkies_audio_fix" {
+  # El drop-in /etc/pulse/default.pa.d/10-null-sink.pa de la imagen (pensado
+  # para que KasmVNC capturase audio del sink "vcable") deja "vcable" como sink
+  # por defecto en CUALQUIER pulseaudio que arranque, incluido el que Selkies
+  # lanza para sí mismo -> el audio de las apps nunca llega al sink "output"
+  # que Selkies realmente captura. Forzamos aquí el sink correcto tras arrancar
+  # Selkies, hasta que se retire del todo esa preconfig de la imagen (solo
+  # cuando KasmVNC ya no se use en ningún template).
+  count              = data.coder_workspace.me.start_count
+  agent_id           = coder_agent.main.id
+  display_name       = "Fix Selkies default audio sink"
+  run_on_start       = true
+  start_blocks_login = false
+  script             = <<-EOT
+    #!/usr/bin/env bash
+    set -uo pipefail
+    # Con GPU/NVENC real, Selkies tarda más en inicializar que en modo software;
+    # 300 intentos de 1s da margen de sobra en ambos casos.
+    for i in $(seq 1 300); do
+      sock=$(ls -t /tmp/selkies-session-*/pulse/native 2>/dev/null | head -1)
+      if [ -n "$sock" ]; then
+        export PULSE_SERVER="unix:$sock"
+        if pactl list short sinks 2>/dev/null | grep -q '\boutput\b' \
+          && pactl set-default-sink output 2>/dev/null; then
+          pactl set-sink-mute output 0 2>/dev/null || true
+          echo "Selkies: sink por defecto fijado a 'output' (intento $i)"
+          exit 0
+        fi
+      fi
+      sleep 1
+    done
+    echo "No se pudo fijar el sink por defecto de Selkies a 'output' tras 300s" >&2
+  EOT
+  depends_on         = [module.selkies]
 }
 
 module "filebrowser" {

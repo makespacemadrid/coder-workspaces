@@ -12,13 +12,17 @@ build() {
   docker build -t "${tag}" "${ROOT_DIR}/${context}"
 }
 
-build "Docker-Images/Desktop" "ghcr.io/makespacemadrid/coder-mks-desktop:latest"
+# Orden de dependencias: DevTools-Base -> {DeveloperCLI, Desktop-KDE} -> {Designer, DeveloperAndroid, DeveloperDesktop}
+build "Docker-Images/DevTools-Base" "ghcr.io/makespacemadrid/coder-mks-devtools-base:latest"
+build "Docker-Images/DeveloperCLI" "ghcr.io/makespacemadrid/coder-mks-developer-cli:latest"
 build "Docker-Images/Desktop-KDE" "ghcr.io/makespacemadrid/coder-mks-desktop-kde:latest"
-build "Docker-Images/Developer" "ghcr.io/makespacemadrid/coder-mks-developer:latest"
-build "Docker-Images/DeveloperAndroid" "ghcr.io/makespacemadrid/coder-mks-developer-android:latest"
 build "Docker-Images/Designer" "ghcr.io/makespacemadrid/coder-mks-design:latest"
-build "Docker-Images/Designer-Selkies" "ghcr.io/makespacemadrid/coder-mks-design-selkies:latest"
-# DeveloperAndroid-Selkies hereda Designer-Selkies; debe construirse después.
-build "Docker-Images/DeveloperAndroid-Selkies" "ghcr.io/makespacemadrid/coder-mks-developer-android-selkies:latest"
+build "Docker-Images/DeveloperAndroid" "ghcr.io/makespacemadrid/coder-mks-developer-android:latest"
+build "Docker-Images/DeveloperDesktop" "ghcr.io/makespacemadrid/coder-mks-developer-desktop:latest"
+
+# Cadena heredada (MATE/KasmVNC), todavía en uso por DeveloperRE/OpenClaw/Hermes.
+build "Docker-Images/Desktop" "ghcr.io/makespacemadrid/coder-mks-desktop:latest"
+build "Docker-Images/Developer" "ghcr.io/makespacemadrid/coder-mks-developer:latest"
+build "Docker-Images/DeveloperRE" "ghcr.io/makespacemadrid/coder-mks-developer-re:latest"
 
 echo "Done."
