@@ -316,45 +316,42 @@ CLAUDEWRAP
         fi
       done
 
-      # Activar aceleracion 3D en KasmVNC solo cuando la ruta GBM/DRI es viable.
-      # Nota: con driver NVIDIA propietario suele fallar con "Failed to create gbm".
-      mkdir -p "$HOME/.vnc"
-      KASM_USER_CFG="$HOME/.vnc/kasmvnc.yaml"
-      KASM_MANAGED_TAG="# managed-by-developer-template: kasmvnc-hw3d"
-      HAS_RENDER_NODE=false
-      if [ -e /dev/dri/renderD128 ] && [ -r /dev/dri/renderD128 ] && [ -w /dev/dri/renderD128 ]; then
-        HAS_RENDER_NODE=true
-      fi
-      HAS_NVIDIA=false
-      if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
-        HAS_NVIDIA=true
-      fi
-
-      if [ "$HAS_RENDER_NODE" = "true" ] && [ "$HAS_NVIDIA" = "false" ]; then
-        cat > "$KASM_USER_CFG" <<'KASMGPUCFG'
-# managed-by-developer-template: kasmvnc-hw3d
-desktop:
-  gpu:
-    hw3d: true
-    drinode: /dev/dri/renderD128
-KASMGPUCFG
-      elif [ "$HAS_NVIDIA" = "true" ]; then
-        # NVIDIA propietario: hw3d no soporta DRI3/GBM; configurar Zink (OpenGL→Vulkan→GPU)
-        if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
-          rm -f "$KASM_USER_CFG"
-        fi
-        ZINK_TAG="# managed-by-developer-template: zink-nvidia"
-        if ! grep -qF "$ZINK_TAG" "$HOME/.xsessionrc" 2>/dev/null; then
-          printf '%s\nexport MESA_LOADER_DRIVER_OVERRIDE=zink\nexport GALLIUM_DRIVER=zink\n' \
-            "$ZINK_TAG" >> "$HOME/.xsessionrc"
-        fi
-      else
-        # Sin render node accesible: limpiar config gestionada
-        if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
-          rm -f "$KASM_USER_CFG"
-        fi
-      fi
     fi
+
+    # Revertir config gestionada de hw3d/zink en workspaces existentes (de
+    # cuando este template usaba KasmVNC; con Selkies no se usa ninguna de
+    # las dos).
+    KASM_USER_CFG="$HOME/.vnc/kasmvnc.yaml"
+    KASM_MANAGED_TAG="# managed-by-developer-template: kasmvnc-hw3d"
+    if [ -f "$KASM_USER_CFG" ] && grep -qF "$KASM_MANAGED_TAG" "$KASM_USER_CFG"; then
+      rm -f "$KASM_USER_CFG"
+    fi
+    python3 - <<'PY'
+import os
+
+path = os.path.expanduser("~/.xsessionrc")
+tag = "# managed-by-developer-template: zink-nvidia"
+try:
+    with open(path, encoding="utf-8") as f:
+        lines = f.readlines()
+except FileNotFoundError:
+    lines = []
+
+if lines:
+    cleaned = []
+    skip = 0
+    for line in lines:
+        if skip:
+            skip -= 1
+            continue
+        if line.rstrip("\n") == tag:
+            skip = 2
+            continue
+        cleaned.append(line)
+    if cleaned != lines:
+        with open(path, "w", encoding="utf-8") as f:
+            f.writelines(cleaned)
+PY
 
     # Asegurar permisos de pipx para el usuario actual
     sudo mkdir -p /opt/pipx /opt/pipx/bin
@@ -1248,13 +1245,59 @@ module "tmux" {
   agent_id = coder_agent.main.id
 }
 
-module "kasmvnc" {
-  count               = data.coder_workspace.me.start_count
-  source              = "registry.coder.com/coder/kasmvnc/coder"
-  version             = "~> 1.2"
-  agent_id            = coder_agent.main.id
-  desktop_environment = "xfce"
+module "selkies" {
+  # Vendorizado en ./modules/selkies (el módulo selkies-project/selkies aún no
+  # está mergeado en registry.coder.com, PR coder/registry#1149 abierto). Se
+  # vendoriza en vez de referenciar el fork remoto para poder personalizar
+  # display_name/icon: el módulo original hardcodea icon="/icon/selkies.svg",
+  # que no existe en este servidor Coder (404 confirmado) -> botón roto.
+  count    = data.coder_workspace.me.start_count
+  source   = "./modules/selkies"
+  agent_id = coder_agent.main.id
+  # El keyword "kde" intenta ejecutar un binario literal llamado `kde`, que no
+  # existe en Debian/Ubuntu (solo hay startplasma-x11/startkde) -> confirmado
+  # con el error real: "dbus-run-session: failed to exec 'kde'". Se pasa el
+  # comando real, tal como documenta el propio módulo ("or gives a command to run").
+  desktop_environment = "startplasma-x11"
   subdomain           = true
+  display_name        = "Desktop"
+  icon                 = "/icon/desktop.svg"
+}
+
+resource "coder_script" "selkies_audio_fix" {
+  # El drop-in /etc/pulse/default.pa.d/10-null-sink.pa de la imagen (pensado
+  # para que KasmVNC capturase audio del sink "vcable") deja "vcable" como sink
+  # por defecto en CUALQUIER pulseaudio que arranque, incluido el que Selkies
+  # lanza para sí mismo -> el audio de las apps nunca llega al sink "output"
+  # que Selkies realmente captura. Forzamos aquí el sink correcto tras arrancar
+  # Selkies, hasta que se retire del todo esa preconfig de la imagen (solo
+  # cuando KasmVNC ya no se use en ningún template).
+  count              = data.coder_workspace.me.start_count
+  agent_id           = coder_agent.main.id
+  display_name       = "Fix Selkies default audio sink"
+  run_on_start       = true
+  start_blocks_login = false
+  script             = <<-EOT
+    #!/usr/bin/env bash
+    set -uo pipefail
+    # Con GPU/NVENC real, Selkies tarda más en inicializar que en modo software;
+    # 300 intentos de 1s da margen de sobra en ambos casos.
+    for i in $(seq 1 300); do
+      sock=$(ls -t /tmp/selkies-session-*/pulse/native 2>/dev/null | head -1)
+      if [ -n "$sock" ]; then
+        export PULSE_SERVER="unix:$sock"
+        if pactl list short sinks 2>/dev/null | grep -q '\boutput\b' \
+          && pactl set-default-sink output 2>/dev/null; then
+          pactl set-sink-mute output 0 2>/dev/null || true
+          echo "Selkies: sink por defecto fijado a 'output' (intento $i)"
+          exit 0
+        fi
+      fi
+      sleep 1
+    done
+    echo "No se pudo fijar el sink por defecto de Selkies a 'output' tras 300s" >&2
+  EOT
+  depends_on         = [module.selkies]
 }
 
 module "opencode" {

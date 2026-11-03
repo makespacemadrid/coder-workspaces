@@ -8,7 +8,7 @@ tags: [docker, dind, gpu, workspace, ocabra, reverse-engineering]
 
 # DeveloperRE (Developer + ingeniería inversa)
 
-Workspace de escritorio (Docker in Docker) con una capa adicional de herramientas de ingeniería inversa, pensado para trabajar con [rea](https://github.com/morluto/rea) ("Reverse Engineer Anything"). Usa la imagen `ghcr.io/makespacemadrid/coder-mks-developer-re:latest`, construida sobre `DeveloperDesktop` (KDE real, VS Code, GitHub Desktop, Antigravity, Claude/OpenCode Desktop) con escritorio accesible vía KasmVNC.
+Workspace de escritorio (Docker in Docker) con una capa adicional de herramientas de ingeniería inversa, pensado para trabajar con [rea](https://github.com/morluto/rea) ("Reverse Engineer Anything"). Usa la imagen `ghcr.io/makespacemadrid/coder-mks-developer-re:latest`, construida sobre `DeveloperDesktop` (KDE real, VS Code, GitHub Desktop, Antigravity, Claude/OpenCode Desktop) con escritorio accesible vía Selkies.
 
 ## Para qué sirve
 - Analizar binarios nativos, APKs, apps JS/Electron, firmware, capturas de red o señales lógicas con `rea` como MCP/CLI.
@@ -26,7 +26,7 @@ El workspace registra rea automáticamente en cada arranque con **todos los agen
 - **Señales lógicas**: sigrok-cli.
 - **WebAssembly**: WABT (wasm2wat, wat2wasm, etc.).
 - **Web/Electron**: Chrome (ya incluido en la base) para el análisis con navegador headless de rea.
-- Todo lo demás de `DeveloperDesktop`: Docker Engine interno (DinD), escritorio KDE vía KasmVNC, Node.js, CLIs de IA, VS Code, GitHub Desktop, Antigravity, etc. — ver `workspaces/DeveloperDesktop/README.md`.
+- Todo lo demás de `DeveloperDesktop`: Docker Engine interno (DinD), escritorio KDE vía Selkies, Node.js, CLIs de IA, VS Code, GitHub Desktop, Antigravity, etc. — ver `workspaces/DeveloperDesktop/README.md`.
 
 ## Qué NO incluye (licencia comercial o sin confirmar)
 rea también sabe hablar con estas herramientas, pero no se instalan por requerir una licencia que no podemos redistribuir. Si tienes una, instálalas tú mismo dentro del workspace:

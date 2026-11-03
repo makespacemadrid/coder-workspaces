@@ -22,7 +22,7 @@ Lee esto antes de tocar plantillas o imágenes. Para notas privadas, usa `AGENTS
 ## Templates Coder
 - `Developer` (DinD): workspace general **headless** con Docker-in-Docker, CLIs de IA y JupyterLab; GPU opcional solo para cómputo (CUDA/NVENC, no hay escritorio que acelerar). Sustituye a `Minimal`.
 - `DeveloperDesktop` (DinD): igual que `Developer` pero con escritorio KDE real vía Selkies; VS Code, GitHub Desktop, Claude Desktop, OpenCode Desktop, Antigravity.
-- `DeveloperRE`: imagen `coder-mks-developer-re` (sobre `DeveloperDesktop`, escritorio KDE real vía KasmVNC) con toolchain de ingeniería inversa para usar con rea (morluto/rea).
+- `DeveloperRE`: imagen `coder-mks-developer-re` (sobre `DeveloperDesktop`, escritorio KDE real vía Selkies) con toolchain de ingeniería inversa para usar con rea (morluto/rea).
 - `DeveloperAndroid`: imagen sobre `DeveloperDesktop`, escritorio KDE real vía Selkies con toolchain Android (SDK/CLI), Node 24 y VS Code base.
 - `Maker`: escritorio KDE real vía Selkies con herramientas de diseño/CAD/EDA; GPUs opcionales; home persistente; módulo OpenCode. RDP aplica solo a workspaces Windows según [la guía de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops).
 - `Minimal`: **en retirada**, sustituido por `Developer` headless; queda solo por un workspace pendiente de migrar (no crear workspaces nuevos aquí).
