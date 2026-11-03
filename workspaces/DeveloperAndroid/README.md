@@ -20,11 +20,14 @@ Workspace gráfico KDE real vía Selkies (streaming WebRTC) con toolchain Androi
 - Módulos Coder: Selkies (KDE), code-server, Filebrowser, OpenCode, git-config, tmux, JetBrains.
 - Autoprovisiona una key de IA Ocabra (30 días) por defecto; configurable en `[AI] Clave Ocabra`.
 - Antigravity auto-updater (`antigravity`) preinstalado.
+- Docker Engine interno (DinD) y limpieza automática semanal configurable en `[Maintenance] Limpieza automática de Docker`.
 - Si existe `$TF_VAR_users_storage/_provisioning/desktop/wallpapers`, se monta de solo lectura y aplica el fondo de escritorio compartido en el primer arranque; no sobrescribe un fondo que ya hayas cambiado.
 
 ## Creación rápida en Coder
 - [Compute] Aceleración gráfica: `Software` (CPU) o `GPU NVIDIA` (NVENC/CUDA).
 - [Storage] Persistencia: `Ninguna` (volumen Docker), `Home completo` o `Solo ~/Projects` en el host.
+- [Network] Exponer puertos al host: usa el rango de puertos para publicar servicios.
+- [Maintenance] Limpieza automática de Docker: activa por defecto; no elimina volúmenes ni contenedores y se puede desactivar.
 - [AI] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
 - [AI] Provisionar API key FreeAPI automáticamente: activo por defecto.
 

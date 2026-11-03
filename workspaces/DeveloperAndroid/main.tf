@@ -93,6 +93,46 @@ data "coder_parameter" "storage_mode" {
   }
 }
 
+data "coder_parameter" "expose_ports" {
+  name         = "30_expose_ports"
+  display_name = "[Network] Exponer puertos del host"
+  description  = "Mapea un rango de puertos del host hacia el workspace. Elige un rango alto y raro para evitar colisiones."
+  type         = "bool"
+  default      = false
+  order        = 30
+  mutable      = true
+}
+
+data "coder_parameter" "port_range_start" {
+  name         = "31_port_range_start"
+  display_name = "[Network] Puerto inicial a exponer"
+  description  = "Puerto inicial del rango publicado cuando expones puertos."
+  type         = "number"
+  default      = 15000
+  order        = 31
+  mutable      = true
+}
+
+data "coder_parameter" "port_range_end" {
+  name         = "32_port_range_end"
+  display_name = "[Network] Puerto final a exponer"
+  description  = "Puerto final (incluido) del rango publicado cuando expones puertos."
+  type         = "number"
+  default      = 15050
+  order        = 32
+  mutable      = true
+}
+
+data "coder_parameter" "docker_auto_prune" {
+  name         = "90_docker_auto_prune"
+  display_name = "[Maintenance] Limpieza automática de Docker"
+  description  = "Limpia semanalmente la caché de compilación sin uso durante 7 días y las imágenes sin contenedores asociadas de más de 30 días. No elimina volúmenes ni contenedores."
+  type         = "bool"
+  default      = true
+  order        = 90
+  mutable      = true
+}
+
 data "coder_parameter" "ocabra_key_mode" {
   name         = "60_ocabra_key_mode"
   display_name = "[AI] Clave Ocabra"
@@ -134,6 +174,8 @@ data "coder_parameter" "autoprovision_freeapi_key" {
 locals {
   username                   = data.coder_workspace_owner.me.name
   workspace_image            = "ghcr.io/makespacemadrid/coder-mks-developer-android:latest"
+  port_range                 = data.coder_parameter.expose_ports.value ? range(data.coder_parameter.port_range_start.value, data.coder_parameter.port_range_end.value + 1) : []
+  docker_data_volume_name    = "coder-${data.coder_workspace.me.id}-docker-data"
   graphics_acceleration      = data.coder_parameter.graphics_acceleration.value
   enable_gpu                 = local.graphics_acceleration == "gpu"
   enable_dri                 = local.graphics_acceleration == "gpu"
@@ -756,6 +798,40 @@ CONTINUECFG
         sed -i "s|OCABRA_API_KEY_PLACEHOLDER|$${OCABRA_API_KEY}|g" ~/.continue/config.yaml
       fi
     fi
+
+    # --------------------------------------------------------------------------------
+    # Docker in Docker: preparar cgroup v2 para anidar contenedores con límites
+    # --------------------------------------------------------------------------------
+    if [ -f /sys/fs/cgroup/cgroup.controllers ]; then
+      echo ">> Enabling cgroup v2 delegation for DinD..."
+      sudo mkdir -p /sys/fs/cgroup/init
+      if [ ! -w /sys/fs/cgroup/init/cgroup.procs ] || [ ! -w /sys/fs/cgroup/cgroup.subtree_control ]; then
+        echo ">> cgroup v2 not writable; skipping delegation (likely already handled by host)"
+      else
+        for _ in $(seq 1 20); do
+          sudo xargs -rn1 < /sys/fs/cgroup/cgroup.procs > /sys/fs/cgroup/init/cgroup.procs 2>/dev/null || true
+          if sudo sh -c 'sed -e "s/ / +/g" -e "s/^/+/" < /sys/fs/cgroup/cgroup.controllers > /sys/fs/cgroup/cgroup.subtree_control'; then
+            break
+          fi
+          sleep 0.1
+        done
+      fi
+    fi
+
+    # --------------------------------------------------------------------------------
+    # Docker in Docker: arrancar dockerd si no está corriendo
+    # --------------------------------------------------------------------------------
+    if ! pgrep dockerd >/dev/null 2>&1; then
+      echo ">> Starting dockerd (DinD)..."
+      sudo dockerd --host=unix:///var/run/docker.sock --storage-driver=overlay2 >/tmp/dockerd.log 2>&1 &
+      for i in $(seq 1 30); do
+        if sudo docker info >/dev/null 2>&1; then
+          echo ">> dockerd ready"
+          break
+        fi
+        sleep 1
+      done
+    fi
   EOT
 
   env = {
@@ -890,6 +966,72 @@ resource "coder_script" "selkies_audio_fix" {
     echo "No se pudo fijar el sink por defecto de Selkies a 'output' tras 300s" >&2
   EOT
   depends_on         = [module.selkies]
+}
+
+# El cron solo corre con el workspace encendido. La ejecución al arrancar y el
+# marcador persistente recuperan la limpieza semanal si estaba apagado.
+resource "coder_script" "docker_auto_prune" {
+  count              = data.coder_parameter.docker_auto_prune.value ? 1 : 0
+  agent_id           = coder_agent.main.id
+  display_name       = "Docker auto-prune"
+  icon               = "/icon/docker.svg"
+  cron               = "0 30 4 * * 0"
+  run_on_start       = true
+  start_blocks_login = false
+  timeout            = 1800
+  script             = <<-EOT
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    state_dir="$HOME/.local/state/coder-maintenance"
+    last_run_file="$state_dir/docker-prune.last"
+    lock_file="$state_dir/docker-prune.lock"
+    min_interval=$((7 * 24 * 60 * 60))
+    now=$(date +%s)
+    mkdir -p "$state_dir"
+
+    exec 9>"$lock_file"
+    if ! flock -n 9; then
+      echo ">> Docker auto-prune: ya hay otra limpieza en curso; se omite."
+      exit 0
+    fi
+
+    last_run=$(cat "$last_run_file" 2>/dev/null || echo 0)
+    case "$last_run" in
+      ''|*[!0-9]*) last_run=0 ;;
+    esac
+    if [ "$last_run" -gt 0 ] && [ "$now" -ge "$last_run" ] && [ $((now - last_run)) -lt "$min_interval" ]; then
+      echo ">> Docker auto-prune: la última limpieza fue hace menos de 7 días; se omite."
+      exit 0
+    fi
+
+    docker_ready=false
+    for _ in $(seq 1 120); do
+      if sudo docker info >/dev/null 2>&1; then
+        docker_ready=true
+        break
+      fi
+      sleep 1
+    done
+    if [ "$docker_ready" != "true" ]; then
+      echo ">> Docker auto-prune: dockerd no está disponible después de 120 segundos." >&2
+      exit 1
+    fi
+
+    echo ">> Uso de Docker antes de la limpieza:"
+    sudo docker system df || true
+
+    if sudo docker buildx version >/dev/null 2>&1; then
+      sudo docker buildx prune --all --force --filter "until=168h"
+    else
+      sudo docker builder prune --all --force --filter "until=168h"
+    fi
+    sudo docker image prune --all --force --filter "until=720h"
+
+    date +%s > "$last_run_file"
+    echo ">> Uso de Docker después de la limpieza:"
+    sudo docker system df || true
+  EOT
 }
 
 module "filebrowser" {
@@ -1038,6 +1180,31 @@ resource "docker_volume" "home_volume" {
   }
 }
 
+resource "docker_volume" "docker_data" {
+  name = local.docker_data_volume_name
+
+  lifecycle {
+    ignore_changes = all
+  }
+
+  labels {
+    label = "coder.owner"
+    value = data.coder_workspace_owner.me.name
+  }
+  labels {
+    label = "coder.owner_id"
+    value = data.coder_workspace_owner.me.id
+  }
+  labels {
+    label = "coder.workspace_id"
+    value = data.coder_workspace.me.id
+  }
+  labels {
+    label = "coder.workspace_name_at_creation"
+    value = data.coder_workspace.me.name
+  }
+}
+
 resource "null_resource" "ensure_host_paths" {
   count = (local.home_mount_host_path != "" || local.projects_mount_host_path != "" || local.host_mount_path != "") ? 1 : 0
   triggers = {
@@ -1105,6 +1272,16 @@ resource "docker_container" "workspace" {
   ]
   gpus = local.enable_gpu ? "all" : null
 
+  # Solo mapea puertos si expose_ports = true
+  dynamic "ports" {
+    for_each = local.port_range
+    content {
+      internal = ports.value
+      external = ports.value
+      ip       = "0.0.0.0"
+    }
+  }
+
   shm_size = 8 * 1024 * 1024 * 1024
   # Permitir FUSE/SSHFS y montajes remotos
   capabilities {
@@ -1162,6 +1339,14 @@ resource "docker_container" "workspace" {
       target = "/home/coder/host"
       type   = "bind"
       source = mounts.value
+    }
+  }
+
+  dynamic "volumes" {
+    for_each = [local.docker_data_volume_name]
+    content {
+      container_path = "/var/lib/docker"
+      volume_name    = volumes.value
     }
   }
 
