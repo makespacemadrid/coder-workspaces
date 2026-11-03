@@ -1,12 +1,12 @@
 ---
-display_name: Ocabra Maker
+display_name: Maker
 description: Entorno gráfico para diseño 2D/3D y electrónica (autoprovisiona key IA Ocabra si activas OpenCode)
 icon: icon.svg
 maintainer_github: makespacemadrid
 tags: [design, cad, 3d, electronics, ocabra]
 ---
 
-# Ocabra Maker
+# Maker
 
 Template con escritorio KDE real vía Selkies (streaming WebRTC) y herramientas de diseño 2D/3D + electrónica usando la imagen `ghcr.io/makespacemadrid/coder-mks-design:latest`.
 
