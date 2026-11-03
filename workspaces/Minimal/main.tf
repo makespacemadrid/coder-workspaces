@@ -706,6 +706,12 @@ resource "null_resource" "ensure_host_paths" {
 }
 
 resource "docker_container" "workspace" {
+  # count (no must_run: must_run=false en este provider significa "no
+  # forzar que siga corriendo", NO "pararlo" -- confirmado en vivo que un
+  # stop con must_run=false deja el contenedor corriendo igual). Con count
+  # el contenedor se destruye de verdad al parar y se recrea al arrancar;
+  # los volumes ya tienen ignore_changes=all para sobrevivir a eso.
+  count      = data.coder_workspace.me.start_count
   depends_on = [null_resource.ensure_host_paths]
   image      = local.workspace_image
   restart    = "unless-stopped"
