@@ -1212,6 +1212,92 @@ module "opencode" {
   EOT
 }
 
+# Aplica el fondo de escritorio compartido si el montaje de solo lectura
+# _provisioning/desktop/wallpapers esta disponible; conserva el fondo si el
+# usuario lo ha cambiado despues.
+resource "coder_script" "setup_wallpaper" {
+  agent_id           = coder_agent.main.id
+  display_name       = "Fondo de escritorio MakeSpace"
+  icon               = "/icon/desktop.svg"
+  run_on_start       = true
+  start_blocks_login = false
+  timeout            = 120
+  script             = <<-EOT
+    #!/usr/bin/env bash
+    set -u
+
+    wallpaper_source="/opt/makespace-provisioning/wallpapers/designer.png"
+    if [ ! -r "$wallpaper_source" ]; then
+      echo ">> Fondo privado de Designer no disponible; se omite."
+      exit 0
+    fi
+
+    wallpaper_dir="$HOME/.local/share/wallpapers/MakeSpace"
+    wallpaper="$wallpaper_dir/designer.png"
+    helper="$HOME/.local/bin/makespace-apply-wallpaper"
+    autostart="$HOME/.config/autostart/makespace-wallpaper.desktop"
+
+    install -d -m 0700 "$wallpaper_dir" "$HOME/.local/bin" "$HOME/.config/autostart"
+    install -m 0644 "$wallpaper_source" "$wallpaper"
+
+    cat > "$helper" <<'EOF'
+#!/usr/bin/env bash
+set -u
+
+wallpaper="$HOME/.local/share/wallpapers/MakeSpace/designer.png"
+marker_dir="$HOME/.local/state/makespace"
+marker="$marker_dir/wallpaper-designer.sha256"
+
+[ -r "$wallpaper" ] || exit 0
+expected="$(sha256sum "$wallpaper" | awk '{print $1}')"
+[ "$(cat "$marker" 2>/dev/null || true)" != "$expected" ] || exit 0
+
+for _attempt in $(seq 1 30); do
+  # plasma-apply-wallpaperimage necesita DBUS_SESSION_BUS_ADDRESS/DISPLAY de
+  # la sesion real de Plasma -- el coder_script corre desligado de esa sesion
+  # y sin esto falla en silencio ("Not connected to D-Bus server"), aunque el
+  # comando exista. Se descubren leyendo el entorno de un proceso de la
+  # sesion ya viva.
+  session_pid="$(pgrep -u "$(id -u)" -x plasmashell | head -1)"
+  if [ -n "$session_pid" ] && [ -r "/proc/$session_pid/environ" ]; then
+    unset DBUS_SESSION_BUS_ADDRESS DISPLAY
+    while IFS= read -r envline; do
+      case "$envline" in
+        DBUS_SESSION_BUS_ADDRESS=*|DISPLAY=*) export "$envline" ;;
+      esac
+    done < <(tr '\0' '\n' < "/proc/$session_pid/environ")
+    if [ -n "$${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v plasma-apply-wallpaperimage >/dev/null 2>&1 && \
+       plasma-apply-wallpaperimage "$wallpaper" >/dev/null 2>&1; then
+      install -d -m 0700 "$marker_dir"
+      printf '%s\n' "$expected" > "$marker"
+      exit 0
+    fi
+  fi
+  sleep 2
+done
+
+exit 0
+EOF
+    chmod 0700 "$helper"
+
+    cat > "$autostart" <<EOF
+[Desktop Entry]
+Type=Application
+Name=MakeSpace Wallpaper
+Exec=$helper
+Terminal=false
+OnlyShowIn=KDE;
+X-KDE-autostart-after=panel
+EOF
+    chmod 0600 "$autostart"
+
+    # Si Plasma ya esta levantado, aplica el fondo ahora. El autostart cubre
+    # los casos en los que el escritorio se abre despues del script de Coder.
+    nohup "$helper" >/dev/null 2>&1 &
+    echo ">> Fondo de escritorio MakeSpace preparado."
+  EOT
+}
+
 resource "coder_script" "setup_maker_provisioning" {
   agent_id           = coder_agent.main.id
   display_name       = "Perfiles de impresion 3D"

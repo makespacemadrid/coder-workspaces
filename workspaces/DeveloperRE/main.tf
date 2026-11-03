@@ -1037,11 +1037,25 @@ expected="$(sha256sum "$wallpaper" | awk '{print $1}')"
 [ "$(cat "$marker" 2>/dev/null || true)" != "$expected" ] || exit 0
 
 for _attempt in $(seq 1 30); do
-  if command -v plasma-apply-wallpaperimage >/dev/null 2>&1 && \
-     plasma-apply-wallpaperimage "$wallpaper" >/dev/null 2>&1; then
-    install -d -m 0700 "$marker_dir"
-    printf '%s\n' "$expected" > "$marker"
-    exit 0
+  # plasma-apply-wallpaperimage necesita DBUS_SESSION_BUS_ADDRESS/DISPLAY de
+  # la sesion real de Plasma -- el coder_script corre desligado de esa sesion
+  # y sin esto falla en silencio ("Not connected to D-Bus server"), aunque el
+  # comando exista. Se descubren leyendo el entorno de un proceso de la
+  # sesion ya viva (mismo patron que antes se usaba para mate-session).
+  session_pid="$(pgrep -u "$(id -u)" -x plasmashell | head -1)"
+  if [ -n "$session_pid" ] && [ -r "/proc/$session_pid/environ" ]; then
+    unset DBUS_SESSION_BUS_ADDRESS DISPLAY
+    while IFS= read -r envline; do
+      case "$envline" in
+        DBUS_SESSION_BUS_ADDRESS=*|DISPLAY=*) export "$envline" ;;
+      esac
+    done < <(tr '\0' '\n' < "/proc/$session_pid/environ")
+    if [ -n "$${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v plasma-apply-wallpaperimage >/dev/null 2>&1 && \
+       plasma-apply-wallpaperimage "$wallpaper" >/dev/null 2>&1; then
+      install -d -m 0700 "$marker_dir"
+      printf '%s\n' "$expected" > "$marker"
+      exit 0
+    fi
   fi
   sleep 2
 done
