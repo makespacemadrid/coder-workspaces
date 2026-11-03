@@ -1040,21 +1040,11 @@ expected="$(sha256sum "$wallpaper" | awk '{print $1}')"
 [ "$(cat "$marker" 2>/dev/null || true)" != "$expected" ] || exit 0
 
 for _attempt in $(seq 1 30); do
-  session_pid="$(pgrep -u "$(id -u)" -x mate-session | head -1)"
-  if [ -n "$session_pid" ] && [ -r "/proc/$session_pid/environ" ] && command -v gsettings >/dev/null 2>&1; then
-    unset DBUS_SESSION_BUS_ADDRESS DISPLAY
-    while IFS= read -r envline; do
-      case "$envline" in
-        DBUS_SESSION_BUS_ADDRESS=*|DISPLAY=*) export "$envline" ;;
-      esac
-    done < <(tr '\0' '\n' < "/proc/$session_pid/environ")
-    if [ -n "$${DBUS_SESSION_BUS_ADDRESS:-}" ] && \
-       gsettings set org.mate.background picture-filename "$wallpaper" 2>/dev/null; then
-      gsettings set org.mate.background picture-options 'zoom' 2>/dev/null || true
-      install -d -m 0700 "$marker_dir"
-      printf '%s\n' "$expected" > "$marker"
-      exit 0
-    fi
+  if command -v plasma-apply-wallpaperimage >/dev/null 2>&1 && \
+     plasma-apply-wallpaperimage "$wallpaper" >/dev/null 2>&1; then
+    install -d -m 0700 "$marker_dir"
+    printf '%s\n' "$expected" > "$marker"
+    exit 0
   fi
   sleep 2
 done
@@ -1069,14 +1059,13 @@ Type=Application
 Name=MakeSpace Wallpaper
 Exec=$helper
 Terminal=false
-OnlyShowIn=MATE;
-X-GNOME-Autostart-Delay=5
+OnlyShowIn=KDE;
+X-KDE-autostart-after=panel
 EOF
     chmod 0600 "$autostart"
 
-    # El escritorio base es MATE (KasmVNC lo invoca via un wrapper "xfce" por
-    # compatibilidad). El autostart cubre el caso en el que la sesion se abre
-    # despues del script de Coder.
+    # Si Plasma ya esta levantado, aplica el fondo ahora. El autostart cubre
+    # los casos en los que el escritorio se abre despues del script de Coder.
     nohup "$helper" >/dev/null 2>&1 &
     echo ">> Fondo de escritorio MakeSpace preparado."
   EOT

@@ -5,7 +5,7 @@ Guía rápida para elegir template y rellenar los parámetros al crear un worksp
 ## Qué template usar
 - `Developer` (DinD): desarrollo general headless (sin escritorio), Docker in Docker, CLIs de IA, JupyterLab, puertos opcionales y GPU solo para cómputo (CUDA/NVENC). Sustituye a `Minimal`.
 - `DeveloperDesktop`: igual que `Developer` pero con escritorio KDE real vía **Selkies** (streaming WebRTC), VS Code, GitHub Desktop, Claude Desktop, Antigravity. Úsalo si necesitas GUI.
-- `DeveloperRE`: como `Developer` (desktop XFCE/KasmVNC, en migración pendiente) más toolchain gratuita de ingeniería inversa (Ghidra, JADX, apktool, GDB+pwndbg, binwalk, unblob, pwntools, mitmproxy, tshark, sigrok, WABT, rizin) para usar con [rea](https://github.com/morluto/rea).
+- `DeveloperRE`: como `DeveloperDesktop` (KDE real vía KasmVNC) más toolchain gratuita de ingeniería inversa (Ghidra, JADX, apktool, GDB+pwndbg, binwalk, unblob, pwntools, mitmproxy, tshark, sigrok, WABT, rizin) para usar con [rea](https://github.com/morluto/rea).
 - `DeveloperAndroid`: escritorio KDE real vía Selkies con toolchain Android (SDK/CLI), Node 24, VS Code base y JetBrains Toolbox (+ IntelliJ remoto vía Gateway).
 - `Maker`: entorno gráfico KDE real vía Selkies con suite de diseño 2D/3D, CAD y EDA. GPU opcional.
 - `Minimal`: en retirada (sustituido por `Developer` headless); solo queda por un workspace pendiente de migrar, no crear workspaces nuevos aquí.
@@ -16,7 +16,7 @@ Los templates con Docker in Docker (`Developer`, `DeveloperDesktop`, `Minimal` y
 
 Los dos templates Maker pueden cargar perfiles privados compartidos de OrcaSlicer y PrusaSlicer desde `$TF_VAR_users_storage/_provisioning`. El origen se monta de solo lectura y su contenido no se incluye en Git, las imágenes ni el estado de Terraform.
 
-Todos los templates con escritorio (`DeveloperDesktop`, `DeveloperAndroid`, `Maker`) aplican un fondo de pantalla compartido en el primer arranque si existe `$TF_VAR_users_storage/_provisioning/desktop/wallpapers`, sin sobrescribir un fondo que ya hayas cambiado. `Developer`, `Minimal`, `OpenClaw` y `Hermes` quedan fuera por no tener escritorio.
+Todos los templates con escritorio (`DeveloperDesktop`, `DeveloperRE`, `DeveloperAndroid`, `Maker`) aplican un fondo de pantalla compartido en el primer arranque si existe `$TF_VAR_users_storage/_provisioning/desktop/wallpapers`, sin sobrescribir un fondo que ya hayas cambiado. `Developer`, `Minimal`, `OpenClaw` y `Hermes` quedan fuera por no tener escritorio.
 
 ## Creación rápida en Coder
 1) Elige template y revisa su README (`workspaces/<Template>/README.md`) para ver qué incluye.

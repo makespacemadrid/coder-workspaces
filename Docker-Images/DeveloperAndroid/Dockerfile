@@ -1,8 +1,10 @@
-# Developer Android image with KDE desktop and Android SDK
-FROM ghcr.io/makespacemadrid/coder-mks-desktop-kde:latest
+# Developer Android: toolchain Android sobre DeveloperDesktop (KDE real,
+# VS Code, GitHub Desktop, Antigravity, Claude/OpenCode Desktop, AppImage Pool
+# ya vienen de la base; aquí solo se añade lo específico de Android).
+FROM ghcr.io/makespacemadrid/coder-mks-developer-desktop:latest
 
 LABEL org.opencontainers.image.title="coder-mks-developer-android" \
-      org.opencontainers.image.description="Coder Desktop KDE con toolchain Android (SDK/CLI), Node 24 y VS Code" \
+      org.opencontainers.image.description="Coder Developer Desktop con toolchain Android (SDK/CLI, Studio, Gradle, JetBrains Toolbox)" \
       org.opencontainers.image.source="https://github.com/makespacemadrid/coder-workspaces" \
       org.opencontainers.image.url="ghcr.io/makespacemadrid/coder-mks-developer-android:latest" \
       com.centurylinklabs.watchtower.enable="true" \
@@ -13,8 +15,8 @@ USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Paquetes específicos de Android (la base ya trae KDE, Firefox, Chrome, Docker
-# Engine, Node24+CLIs IA, Perl/VNC, vcable, pulseaudio y utilidades de consola)
+# Paquetes específicos de Android (la base ya trae KDE, VS Code, Antigravity,
+# GitHub Desktop, Claude/OpenCode Desktop, Node24+CLIs IA, Docker Engine)
 RUN dpkg --add-architecture i386 && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -30,33 +32,8 @@ RUN dpkg --add-architecture i386 && \
         qemu-kvm \
     && rm -rf /var/lib/apt/lists/*
 
-# Antigravity auto-updater
-RUN install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://us-central1-apt.pkg.dev/doc/repo-signing-key.gpg | gpg --dearmor --yes -o /etc/apt/keyrings/antigravity-repo-key.gpg && \
-    chmod a+r /etc/apt/keyrings/antigravity-repo-key.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/antigravity-repo-key.gpg] https://us-central1-apt.pkg.dev/projects/antigravity-auto-updater-dev/ antigravity-debian main" \
-      | tee /etc/apt/sources.list.d/antigravity.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends antigravity && \
-    rm -rf /var/lib/apt/lists/*
-
 # Añadir coder al grupo KVM para aceleración del emulador
 RUN usermod -aG kvm coder
-
-# `startkde`/el x-session-manager ya los fija Desktop-KDE. Node24+CLIs IA
-# también vienen heredados de la base (DevTools-Base).
-
-# Visual Studio Code
-RUN install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg && \
-    chmod a+r /etc/apt/keyrings/microsoft.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
-      | tee /etc/apt/sources.list.d/vscode.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends code && \
-    rm -rf /var/lib/apt/lists/*
-
-# OpenCode Desktop y Claude Desktop ya vienen de la base (Desktop-KDE).
 
 # Android SDK commandline tools + componentes principales
 ENV ANDROID_HOME=/home/coder/Android/Sdk \
@@ -112,7 +89,8 @@ RUN curl -fsSL "https://download.jetbrains.com/toolbox/jetbrains-toolbox-${JETBR
     chown -R coder:coder /opt/jetbrains-toolbox && \
     ln -sf /opt/jetbrains-toolbox/jetbrains-toolbox /usr/local/bin/jetbrains-toolbox
 
-# Accesos directos de escritorio (Android Studio + apps principales)
+# Acceso directo de escritorio para Android Studio (el resto de apps ya los
+# deja listos la base DeveloperDesktop en /etc/skel/Desktop).
 RUN install -d /etc/skel/Desktop && \
     cat <<'EOF' >/usr/share/applications/android-studio.desktop
 [Desktop Entry]
@@ -125,11 +103,7 @@ Type=Application
 Categories=Development;IDE;
 EOF
 RUN chmod +x /usr/share/applications/android-studio.desktop && \
-    for app in android-studio.desktop com.microsoft.VSCode.desktop OpenCode.desktop firefox.desktop google-chrome.desktop; do \
-      if [ -f "/usr/share/applications/${app}" ]; then \
-        ln -sf "/usr/share/applications/${app}" "/etc/skel/Desktop/${app}"; \
-      fi; \
-    done
+    ln -sf /usr/share/applications/android-studio.desktop /etc/skel/Desktop/android-studio.desktop
 
 # Gradle
 ARG GRADLE_VERSION=9.8.0
@@ -137,22 +111,3 @@ RUN curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSIO
     unzip -q /tmp/gradle.zip -d /opt/gradle && \
     ln -sfn "/opt/gradle/gradle-${GRADLE_VERSION}" /opt/gradle/latest && \
     rm /tmp/gradle.zip
-
-# Electron sandbox workaround for VS Code (ELECTRON_DISABLE_SANDBOX/
-# ELECTRON_OZONE_PLATFORM_HINT ya son ENV globales de Desktop-KDE)
-RUN <<'EOSH'
-set -e
-wrap() {
-  local name="$1"; local target="$2"; local extra="$3"
-  if [ -x "$target" ]; then
-    mv "$name" "${name}.real" || true
-    cat > "$name" <<SHWRAP
-#!/bin/sh
-exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT="${ELECTRON_OZONE_PLATFORM_HINT:-auto}" \
-  "$target" --no-sandbox --disable-gpu-sandbox --disable-setuid-sandbox --disable-seccomp-filter-sandbox --no-zygote $EXTRA_FLAGS "$@"
-SHWRAP
-    chmod +x "$name"
-  fi
-}
-TARGET_BIN=/usr/share/code/bin/code EXTRA_FLAGS="" wrap /usr/bin/code /usr/share/code/bin/code
-EOSH

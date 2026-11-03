@@ -1,4 +1,4 @@
-# Developer + toolchain de ingeniería inversa para trabajar con rea
+# DeveloperDesktop + toolchain de ingeniería inversa para trabajar con rea
 # (https://github.com/morluto/rea). Solo incluye motores/herramientas
 # GRATUITAS y de código abierto.
 #
@@ -8,7 +8,7 @@
 #   - Hopper (comercial; su demo es de tiempo/función limitada, no es gratis)
 #   - JEB (comercial)
 #   - Kuna (licencia no confirmada como libre)
-FROM ghcr.io/makespacemadrid/coder-mks-developer:latest
+FROM ghcr.io/makespacemadrid/coder-mks-developer-desktop:latest
 
 LABEL org.opencontainers.image.title="coder-mks-developer-re" \
       org.opencontainers.image.description="Coder Developer extendido con toolchain de ingenieria inversa gratuita (Ghidra, JADX, apktool, GDB+pwndbg, binwalk, unblob, pwntools, mitmproxy, tshark, sigrok, WABT, rizin) para usar con rea" \
