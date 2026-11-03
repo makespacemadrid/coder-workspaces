@@ -176,6 +176,18 @@ data "coder_parameter" "p05_autoprovision_freeapi_key" {
   mutable      = true
 }
 
+data "coder_parameter" "opencode_default_model" {
+  # opencode/glm-5.3-flash-free: modelo gratuito del catálogo de OpenCode Zen
+  # (confirmado en models.dev, distinto de glm-5.3-flash que es de pago).
+  name         = "63_opencode_default_model"
+  display_name = "[AI] Modelo por defecto de OpenCode"
+  description  = "'auto' elige el modelo de mayor capacidad descubierto en Ocabra/FreeAPI; también admite cualquier provider/model actual."
+  type         = "string"
+  default      = "opencode/glm-5.3-flash-free"
+  order        = 63
+  mutable      = true
+}
+
 locals {
   username                   = data.coder_workspace_owner.me.name
   workspace_image            = "ghcr.io/makespacemadrid/coder-mks-developer-re:latest"
@@ -207,6 +219,7 @@ locals {
   openai_api_key             = local.ocabra_key_mode == "manual" ? local.ocabra_key_value : ""
   auto_provision_ocabra_key  = local.ocabra_key_mode == "auto"
   auto_provision_freeapi_key = data.coder_parameter.p05_autoprovision_freeapi_key.value
+  opencode_default_model     = trimspace(data.coder_parameter.opencode_default_model.value)
   install_claude             = false
   continue_default_config    = file("${path.module}/continue-config.yaml")
   llm_model_sync_script      = file("${path.module}/sync_llm_models.py")
@@ -923,6 +936,7 @@ PY
     OCABRA_API_KEY                 = local.openai_api_key
     AUTO_PROVISION_OCABRA_API_KEY  = tostring(local.auto_provision_ocabra_key)
     AUTO_PROVISION_FREEAPI_API_KEY = tostring(local.auto_provision_freeapi_key)
+    OPENCODE_DEFAULT_MODEL         = local.opencode_default_model
     CODER_USER_EMAIL               = data.coder_workspace_owner.me.email
     CODER_WORKSPACE_NAME           = data.coder_workspace.me.name
     INSTALL_CLAUDE                 = tostring(local.install_claude)

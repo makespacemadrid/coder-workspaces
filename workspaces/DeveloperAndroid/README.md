@@ -30,6 +30,7 @@ Workspace gráfico KDE real vía Selkies (streaming WebRTC) con toolchain Androi
 - [Maintenance] Limpieza automática de Docker: activa por defecto; no elimina volúmenes ni contenedores y se puede desactivar.
 - [AI] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
 - [AI] Provisionar API key FreeAPI automáticamente: activo por defecto.
+- [AI] Modelo por defecto de OpenCode: `opencode/glm-5.3-flash-free` (gratuito); también acepta `auto` o cualquier `provider/model` del catálogo.
 
 ## Utilidades extra
 - Android: `adb` y `scrcpy`.
