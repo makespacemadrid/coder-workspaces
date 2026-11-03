@@ -11,7 +11,6 @@ WORKSPACES=(
   "DeveloperRE"
   "DeveloperAndroid"
   "Maker"
-  "Minimal"
   "OpenClaw"
   "Hermes"
   "ProxmoxVM"

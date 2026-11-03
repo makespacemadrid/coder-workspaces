@@ -20,12 +20,11 @@ Lee esto antes de tocar plantillas o imágenes. Para notas privadas, usa `AGENTS
 - `ghcr.io/makespacemadrid/coder-mks-developer-android:latest` (Docker-Images/DeveloperAndroid/Dockerfile): `DeveloperDesktop` + Android SDK/Studio/Gradle/JetBrains Toolbox. Backend de escritorio Selkies.
 
 ## Templates Coder
-- `Developer` (DinD): workspace general **headless** con Docker-in-Docker, CLIs de IA y JupyterLab; GPU opcional solo para cómputo (CUDA/NVENC, no hay escritorio que acelerar). Sustituye a `Minimal`.
+- `Developer` (DinD): workspace general **headless** con Docker-in-Docker, CLIs de IA y JupyterLab; GPU opcional solo para cómputo (CUDA/NVENC, no hay escritorio que acelerar).
 - `DeveloperDesktop` (DinD): igual que `Developer` pero con escritorio KDE real vía Selkies; VS Code, GitHub Desktop, Claude Desktop, OpenCode Desktop, Antigravity.
 - `DeveloperRE`: imagen `coder-mks-developer-re` (sobre `DeveloperDesktop`, escritorio KDE real vía Selkies) con toolchain de ingeniería inversa para usar con rea (morluto/rea).
 - `DeveloperAndroid`: imagen sobre `DeveloperDesktop`, escritorio KDE real vía Selkies con toolchain Android (SDK/CLI), Node 24 y VS Code base.
 - `Maker`: escritorio KDE real vía Selkies con herramientas de diseño/CAD/EDA; GPUs opcionales; home persistente; módulo OpenCode. RDP aplica solo a workspaces Windows según [la guía de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops).
-- `Minimal`: **en retirada**, sustituido por `Developer` headless; queda solo por un workspace pendiente de migrar (no crear workspaces nuevos aquí).
 - `OpenClaw`: template headless (sin escritorio) para agentes/OpenClaw: gateway OpenClaw + DinD, arranque configurable (`[OpenClaw] Auto-iniciar servicio`, puerto, directorio y comando).
 - `Hermes`: template headless (sin escritorio) para el agente [Hermes](https://hermes-agent.nousresearch.com/) de Nous Research; dashboard web propio, directorio de trabajo y modelo por defecto configurables.
 
@@ -40,6 +39,7 @@ Lee esto antes de tocar plantillas o imágenes. Para notas privadas, usa `AGENTS
 1) Merge a `main`.
 2) GitHub Actions ( `.github/workflows/build.yml` ) construye y publica imágenes en GHCR con tags `latest` y `sha`.
 3) Ejecuta `coder templates push` tras el merge para actualizar los templates en Coder (afecta solo a nuevos workspaces).
+4) **Usa `./push-templates.sh`, no `coder templates push` suelto**: cada `coder templates push` sobreescribe el icono del template con el valor literal de `icon: icon.svg` del front matter del README (una ruta relativa, no resoluble) — rompe el icono en la UI. `push-templates.sh` hace un segundo paso (`coder templates edit --icon <raw.githubusercontent.com URL>`) después de cada push para arreglarlo. Si haces un `coder templates push` manual, repite ese paso a mano o el icono queda roto.
 
 ## Operativa y mantenimiento
 - Todos los contenedores llevan labels `com.centurylinklabs.watchtower.*` para actualizaciones automáticas si lanzas Watchtower con `--label-enable` y `--scope coder-workspaces`.
