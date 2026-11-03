@@ -9,11 +9,11 @@ IMAGES=(
   "coder-mks-developer-cli"
   "coder-mks-desktop-kde"
   "coder-mks-design"
-  "coder-mks-developer-android"
   "coder-mks-developer-desktop"
+  "coder-mks-developer-re"
+  "coder-mks-developer-android"
   "coder-mks-desktop"
   "coder-mks-developer"
-  "coder-mks-developer-re"
 )
 
 for img in "${IMAGES[@]}"; do

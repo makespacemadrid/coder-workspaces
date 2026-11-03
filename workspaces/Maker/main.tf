@@ -132,11 +132,13 @@ data "coder_parameter" "autoprovision_freeapi_key" {
 }
 
 data "coder_parameter" "opencode_default_model" {
+  # opencode/glm-5.3-flash-free: modelo gratuito del catálogo de OpenCode Zen
+  # (confirmado en models.dev, distinto de glm-5.3-flash que es de pago).
   name         = "63_opencode_default_model"
   display_name = "[AI] Modelo por defecto de OpenCode"
   description  = "'auto' elige el modelo de mayor capacidad descubierto en Ocabra/FreeAPI; también admite cualquier provider/model actual."
   type         = "string"
-  default      = "auto"
+  default      = "opencode/glm-5.3-flash-free"
   order        = 63
   mutable      = true
 }
