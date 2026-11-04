@@ -18,7 +18,7 @@ Workspace gráfico KDE real vía Selkies (streaming WebRTC) con toolchain Androi
 - JetBrains Toolbox + módulo JetBrains de Coder para lanzar IntelliJ IDEA remoto (instala el plugin Android) vía JetBrains Gateway/Coder Desktop.
 - Google Chrome, Firefox y OpenCode Desktop preinstalados.
 - Módulos Coder: Selkies (KDE), code-server, Filebrowser, OpenCode, git-config, tmux, JetBrains.
-- Autoprovisiona una key de IA Ocabra (30 días) por defecto; configurable en `[AI] Clave Ocabra`.
+- Autoprovisiona una key de IA Ocabra (30 días) por defecto; configurable en `[AI MakeSpace] Clave Ocabra`.
 - Antigravity auto-updater (`antigravity`) preinstalado.
 - Docker Engine interno (DinD) y limpieza automática semanal configurable en `[Maintenance] Limpieza automática de Docker`.
 - Si existe `$TF_VAR_users_storage/_provisioning/desktop/wallpapers`, se monta de solo lectura y aplica el fondo de escritorio compartido en el primer arranque; no sobrescribe un fondo que ya hayas cambiado.
@@ -28,9 +28,10 @@ Workspace gráfico KDE real vía Selkies (streaming WebRTC) con toolchain Androi
 - [Storage] Persistencia: `Ninguna` (volumen Docker), `Home completo` o `Solo ~/Projects` en el host.
 - [Network] Exponer puertos al host: usa el rango de puertos para publicar servicios.
 - [Maintenance] Limpieza automática de Docker: activa por defecto; no elimina volúmenes ni contenedores y se puede desactivar.
-- [AI] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
-- [AI] Provisionar API key FreeAPI automáticamente: activo por defecto.
+- [AI MakeSpace] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
 - [AI] Modelo por defecto de OpenCode: `opencode/glm-5.3-flash-free` (gratuito); también acepta `auto` o cualquier `provider/model` del catálogo.
+- [AI] Modelos gratuitos de OpenCode (Zen): activos por defecto; desactívalo si no quieres que aparezcan en el selector.
+- [AI externa] Ollama Cloud / NVIDIA (build.nvidia.com): campos opcionales para tu propia API key; si la rellenas, OpenCode añade ese proveedor con su catálogo vivo.
 
 ## Utilidades extra
 - Android: `adb` y `scrcpy`.

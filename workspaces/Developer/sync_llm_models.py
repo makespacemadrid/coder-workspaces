@@ -13,6 +13,12 @@ from pathlib import Path
 from typing import Any
 
 
+PROVIDER_DISPLAY_NAMES = {
+    "ocabra": "Ocabra",
+    "ollama": "Ollama Cloud",
+    "nvidia": "NVIDIA NIM",
+}
+
 RETIRED_TEMPLATE_MODELS = {
     "gemini-2.5-flash",
     "gemini-2.5-pro",
@@ -489,7 +495,7 @@ def sync_opencode(
             continue
         provider = providers.setdefault(provider_id, {})
         provider["package"] = "@ai-sdk/openai-compatible"
-        provider["name"] = "FreeAPI" if provider_id == "freeapi" else "Ocabra"
+        provider["name"] = PROVIDER_DISPLAY_NAMES.get(provider_id, provider_id.capitalize())
         settings = provider.setdefault("settings", {})
         settings["baseURL"] = base_url
         if api_key:
@@ -497,7 +503,24 @@ def sync_opencode(
         if catalogs.get(provider_id):
             provider["models"] = opencode_models(catalogs[provider_id])
 
+    # Modelos gratuitos del catálogo Zen de OpenCode (provider id "opencode"):
+    # controlados por un parámetro propio, no por una clave de usuario.
+    enable_free_flag = os.environ.get("ENABLE_OPENCODE_FREE_MODELS", "true").strip()
+    enable_free = enable_free_flag.lower() in ("1", "true", "yes", "on")
+    disabled = data.get("disabled_providers")
+    disabled = [p for p in disabled if p != "opencode"] if isinstance(disabled, list) else []
+    if not enable_free:
+        disabled.append("opencode")
+    if disabled:
+        data["disabled_providers"] = disabled
+    elif "disabled_providers" in data:
+        data.pop("disabled_providers")
+
     requested = os.environ.get("OPENCODE_DEFAULT_MODEL", "").strip()
+    if not enable_free and requested.startswith("opencode/"):
+        # El default pedido es un modelo Zen pero los modelos gratuitos están
+        # desactivados -- no dejar "model" apuntando a un provider deshabilitado.
+        requested = "auto"
     selected = choose_default(catalogs, requested)
     if selected:
         data["model"] = selected
@@ -612,7 +635,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--opencode", type=Path)
     parser.add_argument("--continue-config", type=Path)
-    parser.add_argument("--openclaw-provider", choices=("ocabra", "freeapi"))
+    parser.add_argument("--openclaw-provider", choices=("ocabra",))
     parser.add_argument("--best-model", action="store_true")
     args = parser.parse_args()
 
@@ -664,21 +687,33 @@ def main() -> int:
                 or existing_option("ocabra", "apiKey")
             ).strip(),
         ),
-        "freeapi": (
+        "ollama": (
             (
-                os.environ.get("FREEAPI_BASE_URL")
-                or existing_option("freeapi", "baseURL")
-            ).strip().rstrip("/"),
+                "https://ollama.com/v1"
+                if (os.environ.get("OLLAMA_API_KEY") or existing_option("ollama", "apiKey"))
+                else ""
+            ),
             (
-                os.environ.get("FREEAPI_API_KEY")
-                or saved_key(".latest_freeapi_key")
-                or existing_option("freeapi", "apiKey")
+                os.environ.get("OLLAMA_API_KEY")
+                or existing_option("ollama", "apiKey")
+            ).strip(),
+        ),
+        "nvidia": (
+            (
+                "https://integrate.api.nvidia.com/v1"
+                if (os.environ.get("NVIDIA_API_KEY") or existing_option("nvidia", "apiKey"))
+                else ""
+            ),
+            (
+                os.environ.get("NVIDIA_API_KEY")
+                or existing_option("nvidia", "apiKey")
             ).strip(),
         ),
     }
     catalogs = {
         "ocabra": discover(*connections["ocabra"]),
-        "freeapi": discover(*connections["freeapi"], required_suffix="-ha"),
+        "ollama": discover(*connections["ollama"]),
+        "nvidia": discover(*connections["nvidia"]),
     }
     if args.opencode:
         sync_opencode(args.opencode, catalogs, connections)

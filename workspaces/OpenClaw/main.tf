@@ -37,18 +37,6 @@ variable "ocabra_key" {
   type        = string
 }
 
-variable "freeapi_base_url" {
-  default     = ""
-  description = "Base URL OpenAI-compatible para FreeAPI (ej. $TF_VAR_freeapi_base_url)."
-  type        = string
-}
-
-variable "freeapi_key_endpoint" {
-  default     = ""
-  description = "Endpoint para solicitar keys FreeAPI (autoprovision)."
-  type        = string
-}
-
 data "coder_parameter" "ocabra_key_mode" {
   name         = "60_ocabra_key_mode"
   display_name = "[AI] Clave Ocabra"
@@ -77,15 +65,6 @@ data "coder_parameter" "ocabra_key_value" {
   mutable      = true
 }
 
-data "coder_parameter" "autoprovision_freeapi_key" {
-  name         = "04_autoprovision_freeapi_key"
-  display_name = "[AI/OpenClaw] Provisionar API key FreeAPI automáticamente"
-  description  = "Genera y precarga una API key FreeAPI."
-  type         = "bool"
-  default      = true
-  mutable      = true
-}
-
 data "coder_parameter" "openclaw_autostart" {
   name         = "05_openclaw_autostart"
   display_name = "[OpenClaw] Auto-iniciar servicio"
@@ -107,7 +86,7 @@ data "coder_parameter" "openclaw_workdir" {
 data "coder_parameter" "openclaw_default_model" {
   name         = "05_openclaw_default_model"
   display_name = "[OpenClaw] Modelo por defecto"
-  description  = "Modelo por defecto de OpenClaw. 'auto' elige el modelo de mayor capacidad descubierto en Ocabra/FreeAPI; también admite provider/model o vacío."
+  description  = "Modelo por defecto de OpenClaw. 'auto' elige el modelo de mayor capacidad descubierto en Ocabra; también admite provider/model o vacío."
   type         = "string"
   default      = "auto"
   mutable      = true
@@ -131,14 +110,11 @@ locals {
   projects_mount_host_path     = ""
   ocabra_endpoint_base_url     = trimspace(var.ocabra_endpoint_base_url)
   ocabra_key                   = trimspace(var.ocabra_key)
-  freeapi_base_url             = trimspace(var.freeapi_base_url)
-  freeapi_key_endpoint         = trimspace(var.freeapi_key_endpoint)
   openai_base_url              = local.ocabra_endpoint_base_url
   ocabra_key_mode               = data.coder_parameter.ocabra_key_mode.value
   ocabra_key_value               = trimspace(data.coder_parameter.ocabra_key_value.value)
   openai_api_key               = local.ocabra_key_mode == "manual" ? local.ocabra_key_value : ""
   auto_provision_ocabra_key    = local.ocabra_key_mode == "auto"
-  auto_provision_freeapi_key   = data.coder_parameter.autoprovision_freeapi_key.value
   openclaw_autostart           = data.coder_parameter.openclaw_autostart.value
   openclaw_port                = 3333
   openclaw_gateway_token       = random_password.openclaw_gateway_token.result
@@ -245,29 +221,7 @@ resource "coder_agent" "main" {
         export OCABRA_API_KEY
       fi
     fi
-    freeapi_auto_flag="$${AUTO_PROVISION_FREEAPI_API_KEY:-true}"
-    if printf '%s' "$freeapi_auto_flag" | grep -Eq '^(1|true|TRUE|yes|on)$'; then
-      FREEAPI_BASE_URL="$${FREEAPI_BASE_URL:-}"
-      export FREEAPI_BASE_URL
-      freeapi_payload=""
-      if [ -z "$${FREEAPI_API_KEY:-}" ]; then
-        FREEAPI_ENDPOINT="$${FREEAPI_KEY_ENDPOINT:-}"
-        if [ -z "$FREEAPI_ENDPOINT" ]; then
-          echo "FREEAPI_KEY_ENDPOINT no configurado; omitiendo autoprovision de key FreeAPI" >&2
-        else
-          freeapi_alias="freeapi-$(tr -dc 0-9 </dev/urandom 2>/dev/null | head -c 8 | sed 's/^$/00000000/')"
-          freeapi_payload=$(printf '{"email":"%s","alias":"%s"}' "$${CODER_USER_EMAIL:-}" "$freeapi_alias")
-          freeapi_resp=$(curl -fsSL -X POST "$FREEAPI_ENDPOINT" -H "Content-Type: application/json" -d "$freeapi_payload" 2>/dev/null || true)
-          freeapi_key=$(printf '%s' "$freeapi_resp" | python3 -c 'import sys,json;x=json.load(sys.stdin);d=x if isinstance(x,dict) else {};dd=d.get("data") if isinstance(d.get("data"),dict) else {};print(d.get("key") or d.get("api_key") or d.get("apiKey") or dd.get("key") or dd.get("api_key") or dd.get("apiKey") or "")' 2>/dev/null || true)
-          if [ -n "$freeapi_key" ]; then
-            FREEAPI_API_KEY="$freeapi_key"
-            export FREEAPI_API_KEY
-          fi
-        fi
-      fi
-    fi
-
-    # Descubridor de modelos vivos (Ocabra/FreeAPI) que usa OpenClaw.
+    # Descubridor de modelos vivos (Ocabra) que usa OpenClaw.
     mkdir -p /home/coder/.local/bin
     cat > /home/coder/.local/bin/sync-llm-models <<'PY'
 ${local.llm_model_sync_script}
@@ -285,11 +239,6 @@ PY
       fi
       if ! grep -q "OPENAI_BASE_URL=" ~/.bashrc 2>/dev/null; then
         echo "export OPENAI_BASE_URL=\"$OPENAI_BASE_URL\"" >> ~/.bashrc
-      fi
-    fi
-    if [ -n "$${FREEAPI_BASE_URL:-}" ]; then
-      if ! grep -q "FREEAPI_BASE_URL=" ~/.bashrc 2>/dev/null; then
-        echo "export FREEAPI_BASE_URL=\"$FREEAPI_BASE_URL\"" >> ~/.bashrc
       fi
     fi
     if [ -n "$${OPENCODE_API_KEY:-}" ]; then
@@ -316,24 +265,6 @@ PY
       fi
       mv "$HOME/.openclaw/.env.tmp" "$HOME/.openclaw/.env"
     fi
-    if [ -n "$${FREEAPI_API_KEY:-}" ]; then
-      export FREEAPI_API_KEY
-      if ! grep -q "FREEAPI_API_KEY=" ~/.bashrc 2>/dev/null; then
-        echo "export FREEAPI_API_KEY=\"$FREEAPI_API_KEY\"" >> ~/.bashrc
-      fi
-      mkdir -p "$HOME/.openclaw"
-      touch "$HOME/.openclaw/.env"
-      chmod 600 "$HOME/.openclaw/.env"
-      grep -v '^FREEAPI_API_KEY=' "$HOME/.openclaw/.env" > "$HOME/.openclaw/.env.tmp" || true
-      printf 'FREEAPI_API_KEY=%s\n' "$FREEAPI_API_KEY" >> "$HOME/.openclaw/.env.tmp"
-      if [ -n "$${FREEAPI_BASE_URL:-}" ]; then
-        grep -v '^FREEAPI_BASE_URL=' "$HOME/.openclaw/.env.tmp" > "$HOME/.openclaw/.env.tmp2" || true
-        printf 'FREEAPI_BASE_URL=%s\n' "$FREEAPI_BASE_URL" >> "$HOME/.openclaw/.env.tmp2"
-        mv "$HOME/.openclaw/.env.tmp2" "$HOME/.openclaw/.env.tmp"
-      fi
-      mv "$HOME/.openclaw/.env.tmp" "$HOME/.openclaw/.env"
-    fi
-
     # Docker Engine: instalar si falta y arrancar dockerd (DinD)
     if ! command -v dockerd >/dev/null 2>&1; then
       echo ">> Installing Docker (docker.io)..."
@@ -450,7 +381,7 @@ PY
 
     if command -v openclaw >/dev/null 2>&1; then
       # Recuperar variables persistidas para asegurar providers incluso si
-      # el entorno de proceso no trae OPENAI/FREEAPI_* en este punto.
+      # el entorno de proceso no trae OPENAI_* en este punto.
       if [ -f "$HOME/.openclaw/.env" ]; then
         set -a
         . "$HOME/.openclaw/.env"
@@ -468,7 +399,7 @@ PY
       # reenvia a 127.0.0.1 dentro del propio contenedor; no hay wildcard
       # valido para trustedProxies (lo rechaza con "proxy_attribution_required").
       openclaw config set gateway.trustedProxies '["127.0.0.1","::1"]' >/dev/null 2>&1 || true
-      if [ -n "$${OPENAI_API_KEY:-}" ] || [ -n "$${FREEAPI_API_KEY:-}" ]; then
+      if [ -n "$${OPENAI_API_KEY:-}" ]; then
         mkdir -p "$HOME/.openclaw/agents/main/agent"
         cat > "$HOME/.openclaw/agents/main/agent/auth-profiles.json" <<AUTHPROFILES
 {
@@ -495,51 +426,27 @@ AUTHPROFILES
 }
 AUTHPROFILES
       fi
-      if [ -n "$${FREEAPI_API_KEY:-}" ]; then
-        python3 - <<'PY'
-import json, os
-path = os.path.expanduser("~/.openclaw/agents/main/agent/auth-profiles.json")
-with open(path, "r", encoding="utf-8") as f:
-    data = json.load(f)
-data.setdefault("profiles", {})
-data.setdefault("lastGood", {})
-data["profiles"]["freeapi:manual"] = {
-    "type": "api_key",
-    "provider": "freeapi",
-    "key": os.environ.get("FREEAPI_API_KEY", ""),
-}
-data["lastGood"]["freeapi"] = "freeapi:manual"
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2)
-PY
-      fi
       # OpenClaw consume el catálogo vivo descubierto por sync-llm-models.
-      for provider_id in ocabra freeapi; do
-        case "$provider_id" in
-          ocabra) provider_base="$${OPENAI_BASE_URL:-}" ;;
-          freeapi) provider_base="$${FREEAPI_BASE_URL:-}" ;;
-        esac
-        [ -n "$provider_base" ] || continue
-        provider_json=$(/home/coder/.local/bin/sync-llm-models --openclaw-provider "$provider_id" 2>/dev/null || echo "{}")
+      provider_base="$${OPENAI_BASE_URL:-}"
+      if [ -n "$provider_base" ]; then
+        provider_json=$(/home/coder/.local/bin/sync-llm-models --openclaw-provider ocabra 2>/dev/null || echo "{}")
         has_models=$(PROVIDER_JSON="$provider_json" python3 -c 'import json,os; data=json.loads(os.environ.get("PROVIDER_JSON", "{}")); print("1" if data.get("models") else "0")' 2>/dev/null || echo 0)
         if [ "$has_models" = "1" ]; then
-          openclaw config set "models.providers.$provider_id" "$provider_json" >/dev/null 2>&1 || true
+          openclaw config set "models.providers.ocabra" "$provider_json" >/dev/null 2>&1 || true
         fi
-      done
+      fi
 
       ocabra_provider_cfg_json=$(openclaw config get models.providers.ocabra --json 2>/dev/null || echo "{}")
-      freeapi_provider_cfg_json=$(openclaw config get models.providers.freeapi --json 2>/dev/null || echo "{}")
-      allowed_models_json=$(OCABRA_PROVIDER_CFG_JSON="$ocabra_provider_cfg_json" FREEAPI_PROVIDER_CFG_JSON="$freeapi_provider_cfg_json" python3 - <<'PY'
+      allowed_models_json=$(OCABRA_PROVIDER_CFG_JSON="$ocabra_provider_cfg_json" python3 - <<'PY'
 import json, os
 allowed = {}
-for provider_id, variable in (("ocabra", "OCABRA_PROVIDER_CFG_JSON"), ("freeapi", "FREEAPI_PROVIDER_CFG_JSON")):
-    try:
-        config = json.loads(os.environ.get(variable, "{}"))
-    except Exception:
-        config = {}
-    for model in config.get("models", []):
-        if isinstance(model, dict) and isinstance(model.get("id"), str):
-            allowed[f"{provider_id}/{model['id']}"] = {}
+try:
+    config = json.loads(os.environ.get("OCABRA_PROVIDER_CFG_JSON", "{}"))
+except Exception:
+    config = {}
+for model in config.get("models", []):
+    if isinstance(model, dict) and isinstance(model.get("id"), str):
+        allowed[f"ocabra/{model['id']}"] = {}
 print(json.dumps(allowed, separators=(",", ":")))
 PY
 )
@@ -680,12 +587,9 @@ OPENCLAWSTART
     OPENCODE_API_KEY               = local.openai_api_key
     OCABRA_ENDPOINT_BASE_URL       = local.ocabra_endpoint_base_url
     OCABRA_KEY                     = local.ocabra_key
-    FREEAPI_BASE_URL               = local.freeapi_base_url
-    FREEAPI_KEY_ENDPOINT           = local.freeapi_key_endpoint
     OCABRA_BASE_URL                = local.openai_base_url
     OCABRA_API_KEY                 = local.openai_api_key
     AUTO_PROVISION_OCABRA_API_KEY  = tostring(local.auto_provision_ocabra_key)
-    AUTO_PROVISION_FREEAPI_API_KEY = tostring(local.auto_provision_freeapi_key)
     CODER_USER_EMAIL               = data.coder_workspace_owner.me.email
     CODER_WORKSPACE_NAME           = data.coder_workspace.me.name
     OPENCLAW_AUTOSTART             = tostring(local.openclaw_autostart)

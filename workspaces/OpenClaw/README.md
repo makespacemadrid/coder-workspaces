@@ -34,9 +34,7 @@ Template para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid/coder-m
 - `[OpenClaw] Modelo por defecto`: `auto` por defecto para elegir el modelo de mayor capacidad del catálogo vivo; también acepta `provider/model`.
 - `[Maintenance] Limpieza automática de Docker`: activa por defecto; no elimina volúmenes ni contenedores y se puede desactivar.
 - `Provisionar API key Ocabra automáticamente`: genera una key de 30 días si no aportas una.
-- `Provisionar API key FreeAPI automáticamente`: genera y precarga una key de FreeAPI al crear el workspace.
 - `TF_VAR_ocabra_endpoint_base_url`: base URL OpenAI-compatible de Ocabra por defecto.
-- `TF_VAR_freeapi_base_url` + `TF_VAR_freeapi_key_endpoint`: endpoint OpenAI-compatible y endpoint de provisionado para FreeAPI.
 
 ## Notas
 - El arranque de OpenClaw es síncrono en startup: intenta dejar el gateway arriba antes de finalizar el arranque del workspace, lo que puede añadir 2-3 minutos al primer arranque del workspace.
@@ -54,9 +52,9 @@ Template para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid/coder-m
 - El template activa `gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true` para compatibilidad con subdominios dinámicos de Coder.
 - El template fija `gateway.trustedProxies=["127.0.0.1","::1"]`: el tráfico siempre llega vía el túnel del agente de Coder, reenviado a `127.0.0.1` dentro del propio contenedor. Un wildcard (`"*"`) no es un valor válido y OpenClaw lo rechaza con `proxy_attribution_required` al abrir la UI.
 - El template desactiva el pairing de dispositivos (`gateway.controlUi.dangerouslyDisableDeviceAuth=true`) para entrar directamente con token.
-- El template puede autoprovisionar 2 credenciales API (si hay endpoints): Ocabra (`OCABRA_KEY`) y FreeAPI (`FREEAPI_KEY_ENDPOINT`), cada una con su propio toggle en el formulario.
-- El template crea `auth-profiles.json` con perfiles `ocabra:manual` y/o `freeapi:manual`.
-- El template descubre el catálogo vivo de Ocabra y los modelos FreeAPI acabados en `-ha` mediante `/v1/models` o `/models`; no mantiene un roster estático.
+- El template puede autoprovisionar la credencial API de Ocabra (`OCABRA_KEY`), con su propio toggle en el formulario.
+- El template crea `auth-profiles.json` con el perfil `ocabra:manual`.
+- El template descubre el catálogo vivo de Ocabra mediante `/v1/models` o `/models`; no mantiene un roster estático.
 - Cuando está disponible `/model/info` (LiteLLM), enriquece automáticamente capacidades, tokens y costes por modelo.
 - El template rellena `agents.defaults.models` con esos modelos para que aparezcan en el selector de agentes.
 - El template asegura `agents.list` con entrada `id: "main"` para que los cambios de modelo en la UI de agentes se marquen como modificados y el botón `Save` se habilite.
@@ -64,7 +62,7 @@ Template para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid/coder-m
 - En modo `auto`, el modelo por defecto se elige entre los modelos realmente descubiertos priorizando las familias de mayor capacidad; también se puede indicar cualquier `provider/model` explícito.
 - Si `[OpenClaw] Modelo por defecto` no incluye prefijo de provider, el template asume `ocabra/<modelo>`.
 - Si el provider del modelo por defecto no está configurado (falta base URL), el template no fuerza ese modelo para evitar `Unknown model`.
-- El template persiste `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `FREEAPI_API_KEY` y `FREEAPI_BASE_URL` en `~/.openclaw/.env`.
+- El template persiste `OPENAI_API_KEY` y `OPENAI_BASE_URL` en `~/.openclaw/.env`.
 - El template deja Homebrew inicializado en `~/.profile` y `~/.bashrc` usando `eval "$($HOME/.linuxbrew/bin/brew shellenv)"`.
 - El template no parchea los assets de `control-ui`; usa el flujo nativo de OpenClaw para tomar `?token` y guardarlo en `localStorage`.
 - Puedes relanzar manualmente con `~/.local/bin/start-openclaw`.

@@ -30,9 +30,10 @@ Workspace de desarrollo general sin escritorio gráfico, con **Docker in Docker 
 - [Storage] Persistencia: `Ninguna` (volumen Docker), `Home completo` o `Solo ~/Projects` en el host.
 - [Network] Exponer puertos al host: usa el rango de puertos para publicar servicios.
 - [Maintenance] Limpieza automática de Docker: activa por defecto; no elimina volúmenes ni contenedores y se puede desactivar desde los parámetros del workspace.
-- [AI] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
-- [AI] Provisionar API key FreeAPI automáticamente: activo por defecto.
+- [AI MakeSpace] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
 - [AI] Modelo por defecto de OpenCode: `opencode/glm-5.3-flash-free` (gratuito); también acepta `auto` o cualquier `provider/model` del catálogo.
+- [AI] Modelos gratuitos de OpenCode (Zen): activos por defecto; desactívalo si no quieres que aparezcan en el selector.
+- [AI externa] Ollama Cloud / NVIDIA (build.nvidia.com): campos opcionales para tu propia API key; si la rellenas, OpenCode añade ese proveedor con su catálogo vivo.
 
 ## Notas de uso
 - El daemon Docker se arranca dentro del contenedor (`dockerd` con overlay2) y guarda datos en `/var/lib/docker`.

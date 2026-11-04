@@ -31,9 +31,10 @@ Si existe `$TF_VAR_users_storage/_provisioning`, el template monta de solo lectu
 ## Creación rápida en Coder
 - [Compute] Aceleración gráfica: `Software` (CPU) o `GPU NVIDIA` (NVENC/CUDA).
 - [Storage] Persistencia: `Ninguna` (volumen Docker), `Home completo` o `Solo ~/Projects` en el host.
-- [AI] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
-- [AI] Provisionar API key FreeAPI automáticamente: activo por defecto.
-- [AI] Modelo por defecto de OpenCode.
+- [AI MakeSpace] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
+- [AI] Modelo por defecto de OpenCode: `opencode/glm-5.3-flash-free` (gratuito) por defecto; también acepta `auto` o cualquier `provider/model` del catálogo.
+- [AI] Modelos gratuitos de OpenCode (Zen): activos por defecto; desactívalo si no quieres que aparezcan en el selector.
+- [AI externa] Ollama Cloud / NVIDIA (build.nvidia.com): campos opcionales para tu propia API key; si la rellenas, OpenCode añade ese proveedor con su catálogo vivo.
 
 ## Notas
 - Home persistente en `/home/coder` (volumen o bind mount según parámetros). Escritorio con accesos directos a las apps clave.

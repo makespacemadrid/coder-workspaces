@@ -39,18 +39,6 @@ variable "ocabra_key" {
   type        = string
 }
 
-variable "freeapi_base_url" {
-  default     = ""
-  description = "Base URL OpenAI-compatible para FreeAPI (ej. $TF_VAR_freeapi_base_url)."
-  type        = string
-}
-
-variable "freeapi_key_endpoint" {
-  default     = ""
-  description = "Endpoint para solicitar API keys de FreeAPI."
-  type        = string
-}
-
 data "coder_parameter" "graphics_acceleration" {
   # Sin nivel DRI intermedio: confirmado en vivo que no da aceleración NVIDIA
   # real sin --gpus all (Mesa cae a LLVMpipe/software igualmente).
@@ -135,7 +123,7 @@ data "coder_parameter" "docker_auto_prune" {
 
 data "coder_parameter" "ocabra_key_mode" {
   name         = "60_ocabra_key_mode"
-  display_name = "[AI] Clave Ocabra"
+  display_name = "[AI MakeSpace] Clave Ocabra"
   description  = "Auto-aprovisionar una API key Ocabra nueva, o usar una que ya tengas."
   type         = "string"
   default      = "auto"
@@ -153,21 +141,11 @@ data "coder_parameter" "ocabra_key_mode" {
 
 data "coder_parameter" "ocabra_key_value" {
   name         = "61_ocabra_key_value"
-  display_name = "[AI] Clave Ocabra manual"
+  display_name = "[AI MakeSpace] Clave Ocabra manual"
   description  = "Solo se usa si arriba elegiste 'Usar mi propia clave'."
   type         = "string"
   default      = ""
   order        = 61
-  mutable      = true
-}
-
-data "coder_parameter" "autoprovision_freeapi_key" {
-  name         = "62_autoprovision_freeapi_key"
-  display_name = "[AI] Provisionar API key FreeAPI automáticamente"
-  description  = "Generar automaticamente una key con acceso a recursos gratis externos que pueden no ser privados."
-  type         = "bool"
-  default      = true
-  order        = 62
   mutable      = true
 }
 
@@ -176,10 +154,40 @@ data "coder_parameter" "opencode_default_model" {
   # (confirmado en models.dev, distinto de glm-5.3-flash que es de pago).
   name         = "63_opencode_default_model"
   display_name = "[AI] Modelo por defecto de OpenCode"
-  description  = "'auto' elige el modelo de mayor capacidad descubierto en Ocabra/FreeAPI; también admite cualquier provider/model actual."
+  description  = "'auto' elige el modelo de mayor capacidad descubierto en Ocabra; también admite cualquier provider/model actual."
   type         = "string"
   default      = "opencode/glm-5.3-flash-free"
   order        = 63
+  mutable      = true
+}
+
+data "coder_parameter" "enable_opencode_free_models" {
+  name         = "64_enable_opencode_free_models"
+  display_name = "[AI] Modelos gratuitos de OpenCode (Zen)"
+  description  = "Desactivalo para que no aparezcan en el selector los modelos gratuitos integrados de OpenCode (glm-5.3-flash-free, etc.)."
+  type         = "bool"
+  default      = true
+  order        = 64
+  mutable      = true
+}
+
+data "coder_parameter" "ollama_api_key" {
+  name         = "70_ollama_api_key"
+  display_name = "[AI externa] Ollama Cloud (ollama.com)"
+  description  = "Opcional. Si la rellenas, se anade como provider OpenAI-compatible en OpenCode con el catalogo vivo de ollama.com."
+  type         = "string"
+  default      = ""
+  order        = 70
+  mutable      = true
+}
+
+data "coder_parameter" "nvidia_api_key" {
+  name         = "71_nvidia_api_key"
+  display_name = "[AI externa] NVIDIA (build.nvidia.com)"
+  description  = "Opcional. Si la rellenas, se anade como provider OpenAI-compatible en OpenCode con el catalogo vivo de integrate.api.nvidia.com."
+  type         = "string"
+  default      = ""
+  order        = 71
   mutable      = true
 }
 
@@ -202,15 +210,15 @@ locals {
   projects_mount_host_path   = local.persist_projects_storage && local.workspace_storage_root != "" ? local.workspace_storage_projects : ""
   ocabra_endpoint_base_url   = trimspace(var.ocabra_endpoint_base_url)
   ocabra_key                 = trimspace(var.ocabra_key)
-  freeapi_base_url           = trimspace(var.freeapi_base_url)
-  freeapi_key_endpoint       = trimspace(var.freeapi_key_endpoint)
   ocabra_key_mode            = data.coder_parameter.ocabra_key_mode.value
   ocabra_key_value           = trimspace(data.coder_parameter.ocabra_key_value.value)
   openai_base_url            = ""
   openai_api_key             = local.ocabra_key_mode == "manual" ? local.ocabra_key_value : ""
   auto_provision_ocabra_key  = local.ocabra_key_mode == "auto"
-  auto_provision_freeapi_key = data.coder_parameter.autoprovision_freeapi_key.value
   opencode_default_model     = trimspace(data.coder_parameter.opencode_default_model.value)
+  enable_opencode_free_models = data.coder_parameter.enable_opencode_free_models.value
+  ollama_api_key             = trimspace(data.coder_parameter.ollama_api_key.value)
+  nvidia_api_key             = trimspace(data.coder_parameter.nvidia_api_key.value)
   install_claude             = false
   continue_default_config    = file("${path.module}/continue-config.yaml")
   llm_model_sync_script      = file("${path.module}/sync_llm_models.py")
@@ -393,32 +401,6 @@ PY
       fi
     fi
 
-    # Autoprovisionar clave FreeAPI si está habilitado y hay endpoint/base URL
-    freeapi_auto_flag="$${AUTO_PROVISION_FREEAPI_API_KEY:-true}"
-    if printf '%s' "$freeapi_auto_flag" | grep -Eq '^(1|true|TRUE|yes|on)$'; then
-      FREEAPI_BASE_URL="$${FREEAPI_BASE_URL:-}"
-      export FREEAPI_BASE_URL
-      freeapi_payload=""
-      if [ -z "$${FREEAPI_API_KEY:-}" ]; then
-        FREEAPI_ENDPOINT="$${FREEAPI_KEY_ENDPOINT:-}"
-        if [ -z "$FREEAPI_ENDPOINT" ]; then
-          echo "FREEAPI_KEY_ENDPOINT no configurado; omitiendo autoprovision de key FreeAPI" >&2
-        else
-          freeapi_alias="freeapi-$(tr -dc 0-9 </dev/urandom 2>/dev/null | head -c 8 | sed 's/^$/00000000/')"
-          freeapi_payload=$(printf '{"email":"%s","alias":"%s"}' "$${CODER_USER_EMAIL:-}" "$freeapi_alias")
-          freeapi_resp=$(curl -fsSL -X POST "$FREEAPI_ENDPOINT" -H "Content-Type: application/json" -d "$freeapi_payload" 2>/dev/null || true)
-          freeapi_key=$(printf '%s' "$freeapi_resp" | python3 -c 'import sys,json;x=json.load(sys.stdin);d=x if isinstance(x,dict) else {};dd=d.get("data") if isinstance(d.get("data"),dict) else {};print(d.get("key") or d.get("api_key") or d.get("apiKey") or dd.get("key") or dd.get("api_key") or dd.get("apiKey") or "")' 2>/dev/null || true)
-          if [ -n "$freeapi_key" ]; then
-            FREEAPI_API_KEY="$freeapi_key"
-            export FREEAPI_API_KEY
-            mkdir -p /home/coder/.opencode
-            printf "%s" "$freeapi_key" > /home/coder/.opencode/.latest_freeapi_key || true
-            printf "%s" "$freeapi_payload" > /home/coder/.opencode/.latest_freeapi_request || true
-          fi
-        fi
-      fi
-    fi
-
     # Sincronizar catálogos vivos sin reemplazar la configuración del usuario.
     mkdir -p /home/coder/.local/bin /home/coder/.opencode /home/coder/.config/opencode /home/coder/.continue
     cat > /home/coder/.local/bin/sync-llm-models <<'PY'
@@ -454,17 +436,6 @@ PY
         echo "export OPENCODE_API_KEY=\"$OPENCODE_API_KEY\"" >> ~/.bashrc
       fi
     fi
-    if [ -n "$${FREEAPI_BASE_URL:-}" ]; then
-      if ! grep -q "FREEAPI_BASE_URL=" ~/.bashrc 2>/dev/null; then
-        echo "export FREEAPI_BASE_URL=\"$FREEAPI_BASE_URL\"" >> ~/.bashrc
-      fi
-    fi
-    if [ -n "$${FREEAPI_API_KEY:-}" ]; then
-      if ! grep -q "FREEAPI_API_KEY=" ~/.bashrc 2>/dev/null; then
-        echo "export FREEAPI_API_KEY=\"$FREEAPI_API_KEY\"" >> ~/.bashrc
-      fi
-    fi
-
     # Configuración de Continue solo cuando la key OpenAI se autoprovisiona
     if printf '%s' "$${AUTO_PROVISION_OCABRA_API_KEY:-false}" | grep -Eq '^(1|true|TRUE|yes|on)$' \
       && [ -n "$${OCABRA_API_KEY:-}" ] && [ -n "$${OCABRA_BASE_URL:-}" ]; then
@@ -522,14 +493,14 @@ CONTINUECFG
     OPENCODE_API_KEY               = local.openai_api_key
     OCABRA_ENDPOINT_BASE_URL       = local.ocabra_endpoint_base_url
     OCABRA_KEY                     = local.ocabra_key
-    FREEAPI_BASE_URL               = local.freeapi_base_url
-    FREEAPI_KEY_ENDPOINT           = local.freeapi_key_endpoint
     OCABRA_BASE_URL                = local.openai_base_url
     OCABRA_API_KEY                 = local.openai_api_key
     AUTO_PROVISION_OCABRA_API_KEY  = tostring(local.auto_provision_ocabra_key)
-    AUTO_PROVISION_FREEAPI_API_KEY = tostring(local.auto_provision_freeapi_key)
     OPENCODE_DEFAULT_MODEL         = local.opencode_default_model
     INSTALL_CLAUDE                 = tostring(local.install_claude)
+    ENABLE_OPENCODE_FREE_MODELS    = tostring(local.enable_opencode_free_models)
+    OLLAMA_API_KEY                 = local.ollama_api_key
+    NVIDIA_API_KEY                 = local.nvidia_api_key
     CODER_USER_EMAIL               = data.coder_workspace_owner.me.email
     CODER_WORKSPACE_NAME           = data.coder_workspace.me.name
   }

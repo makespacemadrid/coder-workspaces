@@ -33,18 +33,6 @@ variable "ocabra_key" {
   type        = string
 }
 
-variable "freeapi_base_url" {
-  default     = ""
-  description = "Base URL OpenAI-compatible para FreeAPI (ej. $TF_VAR_freeapi_base_url)."
-  type        = string
-}
-
-variable "freeapi_key_endpoint" {
-  default     = ""
-  description = "Endpoint para solicitar keys FreeAPI (autoprovision)."
-  type        = string
-}
-
 data "coder_parameter" "ocabra_key_mode" {
   name         = "60_ocabra_key_mode"
   display_name = "[AI] Clave Ocabra"
@@ -73,15 +61,6 @@ data "coder_parameter" "ocabra_key_value" {
   mutable      = true
 }
 
-data "coder_parameter" "autoprovision_freeapi_key" {
-  name         = "04_autoprovision_freeapi_key"
-  display_name = "[AI/Hermes] Provisionar API key FreeAPI automáticamente"
-  description  = "Genera y precarga una API key FreeAPI."
-  type         = "bool"
-  default      = true
-  mutable      = true
-}
-
 data "coder_parameter" "hermes_workdir" {
   name         = "05_hermes_workdir"
   display_name = "[Hermes] Directorio de trabajo"
@@ -94,7 +73,7 @@ data "coder_parameter" "hermes_workdir" {
 data "coder_parameter" "hermes_default_model" {
   name         = "05_hermes_default_model"
   display_name = "[Hermes] Modelo por defecto"
-  description  = "Modelo por defecto de Hermes. 'auto' elige el modelo de mayor capacidad descubierto en Ocabra/FreeAPI; también admite provider/model."
+  description  = "Modelo por defecto de Hermes. 'auto' elige el modelo de mayor capacidad descubierto en Ocabra; también admite provider/model."
   type         = "string"
   default      = "auto"
   mutable      = true
@@ -105,14 +84,11 @@ locals {
   workspace_image            = "ghcr.io/makespacemadrid/coder-mks-developer:latest"
   ocabra_endpoint_base_url   = trimspace(var.ocabra_endpoint_base_url)
   ocabra_key                 = trimspace(var.ocabra_key)
-  freeapi_base_url           = trimspace(var.freeapi_base_url)
-  freeapi_key_endpoint       = trimspace(var.freeapi_key_endpoint)
   openai_base_url            = local.ocabra_endpoint_base_url
   ocabra_key_mode            = data.coder_parameter.ocabra_key_mode.value
   ocabra_key_value           = trimspace(data.coder_parameter.ocabra_key_value.value)
   openai_api_key             = local.ocabra_key_mode == "manual" ? local.ocabra_key_value : ""
   auto_provision_ocabra_key  = local.ocabra_key_mode == "auto"
-  auto_provision_freeapi_key = data.coder_parameter.autoprovision_freeapi_key.value
   hermes_workdir              = trimspace(data.coder_parameter.hermes_workdir.value)
   hermes_workdir_resolved     = local.hermes_workdir != "" ? local.hermes_workdir : "/home/coder/Projects"
   hermes_default_model        = trimspace(data.coder_parameter.hermes_default_model.value)
@@ -197,27 +173,6 @@ resource "coder_agent" "main" {
       fi
     fi
 
-    # Autoprovisionar clave FreeAPI para Hermes si está habilitado
-    freeapi_auto_flag="$${AUTO_PROVISION_FREEAPI_API_KEY:-true}"
-    if printf '%s' "$freeapi_auto_flag" | grep -Eq '^(1|true|TRUE|yes|on)$'; then
-      FREEAPI_BASE_URL="$${FREEAPI_BASE_URL:-}"
-      export FREEAPI_BASE_URL
-      if [ -z "$${FREEAPI_API_KEY:-}" ]; then
-        if [ -z "$${FREEAPI_KEY_ENDPOINT:-}" ]; then
-          echo "FREEAPI_KEY_ENDPOINT no configurado; omitiendo autoprovision de key FreeAPI" >&2
-        else
-          freeapi_alias="freeapi-$(tr -dc 0-9 </dev/urandom 2>/dev/null | head -c 8 | sed 's/^$/00000000/')"
-          freeapi_payload=$(printf '{"email":"%s","alias":"%s"}' "$${CODER_USER_EMAIL:-}" "$freeapi_alias")
-          freeapi_resp=$(curl -fsSL -X POST "$${FREEAPI_KEY_ENDPOINT:-}" -H "Content-Type: application/json" -d "$freeapi_payload" 2>/dev/null || true)
-          freeapi_key=$(printf '%s' "$freeapi_resp" | python3 -c 'import sys,json;x=json.load(sys.stdin);d=x if isinstance(x,dict) else {};dd=d.get("data") if isinstance(d.get("data"),dict) else {};print(d.get("key") or d.get("api_key") or d.get("apiKey") or dd.get("key") or dd.get("api_key") or dd.get("apiKey") or "")' 2>/dev/null || true)
-          if [ -n "$freeapi_key" ]; then
-            FREEAPI_API_KEY="$freeapi_key"
-            export FREEAPI_API_KEY
-          fi
-        fi
-      fi
-    fi
-
     if command -v hermes >/dev/null 2>&1; then
       mkdir -p "$HOME/.hermes"
       touch "$HOME/.hermes/.env"
@@ -230,15 +185,6 @@ resource "coder_agent" "main" {
         hermes config set providers.ocabra.base_url "$${OCABRA_BASE_URL:-}" >/dev/null 2>&1 || true
         hermes config set providers.ocabra.key_env OCABRA_API_KEY >/dev/null 2>&1 || true
       fi
-      if [ -n "$${FREEAPI_API_KEY:-}" ]; then
-        grep -v '^FREEAPI_API_KEY=' "$HOME/.hermes/.env" > "$HOME/.hermes/.env.tmp" 2>/dev/null || true
-        printf 'FREEAPI_API_KEY=%s\n' "$FREEAPI_API_KEY" >> "$HOME/.hermes/.env.tmp"
-        mv "$HOME/.hermes/.env.tmp" "$HOME/.hermes/.env"
-        hermes config set providers.freeapi.type openai >/dev/null 2>&1 || true
-        hermes config set providers.freeapi.base_url "$${FREEAPI_BASE_URL:-}" >/dev/null 2>&1 || true
-        hermes config set providers.freeapi.key_env FREEAPI_API_KEY >/dev/null 2>&1 || true
-      fi
-
       # Instala el mismo descubridor de modelos vivos que usan Developer/OpenClaw
       # para elegir "el mejor modelo disponible" sin mantener un roster estático.
       mkdir -p "$HOME/.local/bin"
@@ -362,10 +308,7 @@ NGINXCONF
     HOME                           = "/home/coder"
     OCABRA_ENDPOINT_BASE_URL       = local.ocabra_endpoint_base_url
     OCABRA_KEY                     = local.ocabra_key
-    FREEAPI_BASE_URL               = local.freeapi_base_url
-    FREEAPI_KEY_ENDPOINT           = local.freeapi_key_endpoint
     AUTO_PROVISION_OCABRA_API_KEY  = tostring(local.auto_provision_ocabra_key)
-    AUTO_PROVISION_FREEAPI_API_KEY = tostring(local.auto_provision_freeapi_key)
     CODER_USER_EMAIL               = data.coder_workspace_owner.me.email
     CODER_WORKSPACE_NAME           = data.coder_workspace.me.name
     HERMES_WORKDIR                 = local.hermes_workdir_resolved

@@ -39,18 +39,6 @@ variable "ocabra_key" {
   type        = string
 }
 
-variable "freeapi_base_url" {
-  default     = ""
-  description = "Base URL OpenAI-compatible para FreeAPI (ej. $TF_VAR_freeapi_base_url)."
-  type        = string
-}
-
-variable "freeapi_key_endpoint" {
-  default     = ""
-  description = "Endpoint para solicitar API keys de FreeAPI."
-  type        = string
-}
-
 
 # ================================
 #   Parámetros visibles en Coder
@@ -140,7 +128,7 @@ data "coder_parameter" "p03_docker_auto_prune" {
 
 data "coder_parameter" "ocabra_key_mode" {
   name         = "60_ocabra_key_mode"
-  display_name = "[AI] Clave Ocabra"
+  display_name = "[AI MakeSpace] Clave Ocabra"
   description  = "Auto-aprovisionar una API key Ocabra nueva, o usar una que ya tengas."
   type         = "string"
   default      = "auto"
@@ -158,21 +146,11 @@ data "coder_parameter" "ocabra_key_mode" {
 
 data "coder_parameter" "ocabra_key_value" {
   name         = "61_ocabra_key_value"
-  display_name = "[AI] Clave Ocabra manual"
+  display_name = "[AI MakeSpace] Clave Ocabra manual"
   description  = "Solo se usa si arriba elegiste 'Usar mi propia clave'."
   type         = "string"
   default      = ""
   order        = 61
-  mutable      = true
-}
-
-data "coder_parameter" "p05_autoprovision_freeapi_key" {
-  name         = "62_autoprovision_freeapi_key"
-  display_name = "[AI] Provisionar API key FreeAPI automáticamente"
-  description  = "Generar automaticamente una key con acceso a recursos gratis externos que pueden no ser privados."
-  type         = "bool"
-  default      = true
-  order        = 62
   mutable      = true
 }
 
@@ -181,10 +159,40 @@ data "coder_parameter" "opencode_default_model" {
   # (confirmado en models.dev, distinto de glm-5.3-flash que es de pago).
   name         = "63_opencode_default_model"
   display_name = "[AI] Modelo por defecto de OpenCode"
-  description  = "'auto' elige el modelo de mayor capacidad descubierto en Ocabra/FreeAPI; también admite cualquier provider/model actual."
+  description  = "'auto' elige el modelo de mayor capacidad descubierto en Ocabra; también admite cualquier provider/model actual."
   type         = "string"
   default      = "opencode/glm-5.3-flash-free"
   order        = 63
+  mutable      = true
+}
+
+data "coder_parameter" "enable_opencode_free_models" {
+  name         = "64_enable_opencode_free_models"
+  display_name = "[AI] Modelos gratuitos de OpenCode (Zen)"
+  description  = "Desactivalo para que no aparezcan en el selector los modelos gratuitos integrados de OpenCode (glm-5.3-flash-free, etc.)."
+  type         = "bool"
+  default      = true
+  order        = 64
+  mutable      = true
+}
+
+data "coder_parameter" "ollama_api_key" {
+  name         = "70_ollama_api_key"
+  display_name = "[AI externa] Ollama Cloud (ollama.com)"
+  description  = "Opcional. Si la rellenas, se anade como provider OpenAI-compatible en OpenCode con el catalogo vivo de ollama.com."
+  type         = "string"
+  default      = ""
+  order        = 70
+  mutable      = true
+}
+
+data "coder_parameter" "nvidia_api_key" {
+  name         = "71_nvidia_api_key"
+  display_name = "[AI externa] NVIDIA (build.nvidia.com)"
+  description  = "Opcional. Si la rellenas, se anade como provider OpenAI-compatible en OpenCode con el catalogo vivo de integrate.api.nvidia.com."
+  type         = "string"
+  default      = ""
+  order        = 71
   mutable      = true
 }
 
@@ -208,8 +216,6 @@ locals {
   wallpaper_path             = local.workspace_storage_root != "" ? "${local.workspace_storage_root}/_provisioning/desktop/wallpapers" : ""
   ocabra_endpoint_base_url   = trimspace(var.ocabra_endpoint_base_url)
   ocabra_key                 = trimspace(var.ocabra_key)
-  freeapi_base_url           = trimspace(var.freeapi_base_url)
-  freeapi_key_endpoint       = trimspace(var.freeapi_key_endpoint)
   home_volume_resolved       = "coder-${data.coder_workspace.me.id}-home"
   docker_data_volume_name    = "coder-${data.coder_workspace.me.id}-docker-data"
   default_repo_path          = "/home/coder/Projects"
@@ -218,8 +224,10 @@ locals {
   ocabra_key_value           = trimspace(data.coder_parameter.ocabra_key_value.value)
   openai_api_key             = local.ocabra_key_mode == "manual" ? local.ocabra_key_value : ""
   auto_provision_ocabra_key  = local.ocabra_key_mode == "auto"
-  auto_provision_freeapi_key = data.coder_parameter.p05_autoprovision_freeapi_key.value
   opencode_default_model     = trimspace(data.coder_parameter.opencode_default_model.value)
+  enable_opencode_free_models = data.coder_parameter.enable_opencode_free_models.value
+  ollama_api_key             = trimspace(data.coder_parameter.ollama_api_key.value)
+  nvidia_api_key             = trimspace(data.coder_parameter.nvidia_api_key.value)
   install_claude             = false
   continue_default_config    = file("${path.module}/continue-config.yaml")
   llm_model_sync_script      = file("${path.module}/sync_llm_models.py")
@@ -639,10 +647,12 @@ PY
 
 ## Listos sin login
 
-- Ocabra y FreeAPI se consultan en cada arranque. Solo aparecen modelos que el
+- Ocabra se consulta en cada arranque. Solo aparecen modelos que el
   endpoint confirma como disponibles.
-- OpenCode Zen usa el catálogo mantenido por OpenCode; no se fijan IDs en la
-  plantilla.
+- OpenCode Zen (modelos gratuitos de OpenCode, ej. GLM-5.3-Flash) se puede
+  desactivar con el parametro "[AI] Modelos gratuitos de OpenCode (Zen)".
+- Si rellenas tu propia API key de Ollama Cloud o NVIDIA (build.nvidia.com)
+  en los parametros "[AI externa]", aparecen tambien aqui con su catalogo vivo.
 
 ## Proveedores con login
 
@@ -715,32 +725,6 @@ IAREADME
       fi
     fi
 
-    # Autoprovisionar clave FreeAPI si está habilitado y hay endpoint/base URL
-    freeapi_auto_flag="$${AUTO_PROVISION_FREEAPI_API_KEY:-true}"
-    if printf '%s' "$freeapi_auto_flag" | grep -Eq '^(1|true|TRUE|yes|on)$'; then
-      FREEAPI_BASE_URL="$${FREEAPI_BASE_URL:-}"
-      export FREEAPI_BASE_URL
-      freeapi_payload=""
-      if [ -z "$${FREEAPI_API_KEY:-}" ]; then
-        FREEAPI_ENDPOINT="$${FREEAPI_KEY_ENDPOINT:-}"
-        if [ -z "$FREEAPI_ENDPOINT" ]; then
-          echo "FREEAPI_KEY_ENDPOINT no configurado; omitiendo autoprovision de key FreeAPI" >&2
-        else
-          freeapi_alias="freeapi-$(tr -dc 0-9 </dev/urandom 2>/dev/null | head -c 8 | sed 's/^$/00000000/')"
-          freeapi_payload=$(printf '{"email":"%s","alias":"%s"}' "$${CODER_USER_EMAIL:-}" "$freeapi_alias")
-          freeapi_resp=$(curl -fsSL -X POST "$FREEAPI_ENDPOINT" -H "Content-Type: application/json" -d "$freeapi_payload" 2>/dev/null || true)
-          freeapi_key=$(printf '%s' "$freeapi_resp" | python3 -c 'import sys,json;x=json.load(sys.stdin);d=x if isinstance(x,dict) else {};dd=d.get("data") if isinstance(d.get("data"),dict) else {};print(d.get("key") or d.get("api_key") or d.get("apiKey") or dd.get("key") or dd.get("api_key") or dd.get("apiKey") or "")' 2>/dev/null || true)
-          if [ -n "$freeapi_key" ]; then
-            FREEAPI_API_KEY="$freeapi_key"
-            export FREEAPI_API_KEY
-            mkdir -p /home/coder/.opencode
-            printf "%s" "$freeapi_key" > /home/coder/.opencode/.latest_freeapi_key || true
-            printf "%s" "$freeapi_payload" > /home/coder/.opencode/.latest_freeapi_request || true
-          fi
-        fi
-      fi
-    fi
-
     # Propagar variables a nuevas shells interactivas
     if [ -n "$${OPENCODE_PROVIDER_URL:-}" ]; then
       OCABRA_BASE_URL="$${OCABRA_BASE_URL:-$OPENCODE_PROVIDER_URL}"
@@ -762,17 +746,6 @@ IAREADME
         echo "export OPENCODE_API_KEY=\"$OPENCODE_API_KEY\"" >> ~/.bashrc
       fi
     fi
-    if [ -n "$${FREEAPI_BASE_URL:-}" ]; then
-      if ! grep -q "FREEAPI_BASE_URL=" ~/.bashrc 2>/dev/null; then
-        echo "export FREEAPI_BASE_URL=\"$FREEAPI_BASE_URL\"" >> ~/.bashrc
-      fi
-    fi
-    if [ -n "$${FREEAPI_API_KEY:-}" ]; then
-      if ! grep -q "FREEAPI_API_KEY=" ~/.bashrc 2>/dev/null; then
-        echo "export FREEAPI_API_KEY=\"$FREEAPI_API_KEY\"" >> ~/.bashrc
-      fi
-    fi
-
     # Instalar OpenCode CLI si Claude está activo (sin módulo)
     if printf '%s' "$${INSTALL_CLAUDE:-false}" | grep -Eq '^(1|true|TRUE|yes|on)$'; then
       if ! command -v opencode >/dev/null 2>&1; then
@@ -930,13 +903,13 @@ PY
     OPENCODE_API_KEY               = local.openai_api_key
     OCABRA_ENDPOINT_BASE_URL       = local.ocabra_endpoint_base_url
     OCABRA_KEY                     = local.ocabra_key
-    FREEAPI_BASE_URL               = local.freeapi_base_url
-    FREEAPI_KEY_ENDPOINT           = local.freeapi_key_endpoint
     OCABRA_BASE_URL                = local.openai_base_url
     OCABRA_API_KEY                 = local.openai_api_key
     AUTO_PROVISION_OCABRA_API_KEY  = tostring(local.auto_provision_ocabra_key)
-    AUTO_PROVISION_FREEAPI_API_KEY = tostring(local.auto_provision_freeapi_key)
     OPENCODE_DEFAULT_MODEL         = local.opencode_default_model
+    ENABLE_OPENCODE_FREE_MODELS    = tostring(local.enable_opencode_free_models)
+    OLLAMA_API_KEY                 = local.ollama_api_key
+    NVIDIA_API_KEY                 = local.nvidia_api_key
     CODER_USER_EMAIL               = data.coder_workspace_owner.me.email
     CODER_WORKSPACE_NAME           = data.coder_workspace.me.name
     INSTALL_CLAUDE                 = tostring(local.install_claude)
