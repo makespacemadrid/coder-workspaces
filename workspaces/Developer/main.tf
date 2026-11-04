@@ -162,12 +162,12 @@ data "coder_parameter" "opencode_default_model" {
 }
 
 data "coder_parameter" "enable_opencode_free_models" {
-  name         = "64_enable_opencode_free_models"
-  display_name = "[AI] Modelos gratuitos de OpenCode (Zen)"
+  name         = "69_enable_opencode_free_models"
+  display_name = "[AI externa] Modelos gratuitos de OpenCode (Zen)"
   description  = "Desactivalo para que no aparezcan en el selector los modelos gratuitos integrados de OpenCode (glm-5.3-flash-free, etc.)."
   type         = "bool"
   default      = true
-  order        = 64
+  order        = 69
   mutable      = true
 }
 

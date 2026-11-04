@@ -167,12 +167,12 @@ data "coder_parameter" "opencode_default_model" {
 }
 
 data "coder_parameter" "enable_opencode_free_models" {
-  name         = "64_enable_opencode_free_models"
-  display_name = "[AI] Modelos gratuitos de OpenCode (Zen)"
+  name         = "69_enable_opencode_free_models"
+  display_name = "[AI externa] Modelos gratuitos de OpenCode (Zen)"
   description  = "Desactivalo para que no aparezcan en el selector los modelos gratuitos integrados de OpenCode (glm-5.3-flash-free, etc.)."
   type         = "bool"
   default      = true
-  order        = 64
+  order        = 69
   mutable      = true
 }
 
@@ -650,7 +650,7 @@ PY
 - Ocabra se consulta en cada arranque. Solo aparecen modelos que el
   endpoint confirma como disponibles.
 - OpenCode Zen (modelos gratuitos de OpenCode, ej. GLM-5.3-Flash) se puede
-  desactivar con el parametro "[AI] Modelos gratuitos de OpenCode (Zen)".
+  desactivar con el parametro "[AI externa] Modelos gratuitos de OpenCode (Zen)".
 - Si rellenas tu propia API key de Ollama Cloud o NVIDIA (build.nvidia.com)
   en los parametros "[AI externa]", aparecen tambien aqui con su catalogo vivo.
 

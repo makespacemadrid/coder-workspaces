@@ -32,7 +32,7 @@ Workspace de desarrollo general con escritorio KDE real vía **Selkies** (stream
 - [Maintenance] Limpieza automática de Docker: activa por defecto; no elimina volúmenes ni contenedores y se puede desactivar desde los parámetros del workspace.
 - [AI MakeSpace] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
 - [AI] Modelo por defecto de OpenCode: `opencode/glm-5.3-flash-free` (gratuito); también acepta `auto` o cualquier `provider/model` del catálogo.
-- [AI] Modelos gratuitos de OpenCode (Zen): activos por defecto; desactívalo si no quieres que aparezcan en el selector.
+- [AI externa] Modelos gratuitos de OpenCode (Zen): activos por defecto; desactívalo si no quieres que aparezcan en el selector.
 - [AI externa] Ollama Cloud / NVIDIA (build.nvidia.com): campos opcionales para tu propia API key; si la rellenas, OpenCode añade ese proveedor con su catálogo vivo.
 
 ## Notas de uso
