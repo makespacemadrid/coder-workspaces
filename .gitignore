@@ -33,3 +33,6 @@ tmp/
 # Local agent notes
 AGENTS.private.md
 .claude/
+
+# Secrets for local OpenCode/Ocabra setup
+ocabra.env
