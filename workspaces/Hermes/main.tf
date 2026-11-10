@@ -73,15 +73,33 @@ data "coder_parameter" "hermes_workdir" {
 data "coder_parameter" "hermes_default_model" {
   name         = "05_hermes_default_model"
   display_name = "[Hermes] Modelo por defecto"
-  description  = "Modelo por defecto de Hermes. 'auto' elige el modelo de mayor capacidad descubierto en Ocabra; también admite provider/model."
+  description  = "Modelo por defecto de Hermes. 'auto' usa recomendado-sota de Ocabra (o, si no existe, el de mayor capacidad descubierto); también admite provider/model."
   type         = "string"
   default      = "auto"
   mutable      = true
 }
 
+data "coder_parameter" "telegram_bot_token" {
+  name         = "07_telegram_bot_token"
+  display_name = "[Telegram] Token del bot (opcional)"
+  description  = "Token de @BotFather. Si lo rellenas, Hermes queda conectado a ese bot de Telegram. Se guarda en ~/.hermes/.env (permisos 600)."
+  type         = "string"
+  default      = ""
+  mutable      = true
+}
+
+data "coder_parameter" "telegram_allowed_users" {
+  name         = "08_telegram_allowed_users"
+  display_name = "[Telegram] IDs de usuario permitidos"
+  description  = "IDs numéricos de Telegram separados por comas (los da @userinfobot). Vacío: quien escriba al bot recibe un código y lo apruebas con 'hermes pairing approve telegram <CODIGO>'."
+  type         = "string"
+  default      = ""
+  mutable      = true
+}
+
 locals {
   username                   = data.coder_workspace_owner.me.name
-  workspace_image            = "ghcr.io/makespacemadrid/coder-mks-developer:latest"
+  workspace_image            = "ghcr.io/makespacemadrid/coder-mks-developer-cli:latest"
   ocabra_endpoint_base_url   = trimspace(var.ocabra_endpoint_base_url)
   ocabra_key                 = trimspace(var.ocabra_key)
   openai_base_url            = local.ocabra_endpoint_base_url
@@ -93,6 +111,8 @@ locals {
   hermes_workdir_resolved     = local.hermes_workdir != "" ? local.hermes_workdir : "/home/coder/Projects"
   hermes_default_model        = trimspace(data.coder_parameter.hermes_default_model.value)
   llm_model_sync_script       = file("${path.module}/sync_llm_models.py")
+  loopback_proxy_script       = file("${path.module}/loopback_proxy.mjs")
+  assistant_persona           = file("${path.module}/assistant_persona.md")
 }
 
 provider "docker" {
@@ -151,12 +171,14 @@ resource "coder_agent" "main" {
       export PATH="$HOME/.local/bin:$PATH"
     fi
 
+    # Base URL OpenAI-compatible de Ocabra (vale para clave auto y manual).
+    OCABRA_BASE_URL="$${OCABRA_BASE_URL:-$${OCABRA_ENDPOINT_BASE_URL:-}}"
+    case "$OCABRA_BASE_URL" in */v1|"") ;; *) OCABRA_BASE_URL="$${OCABRA_BASE_URL%/}/v1" ;; esac
+    export OCABRA_BASE_URL
+
     # Autoprovisionar clave Ocabra para Hermes si está habilitado
     auto_flag="$${AUTO_PROVISION_OCABRA_API_KEY:-true}"
     if printf '%s' "$auto_flag" | grep -Eq '^(1|true|TRUE|yes|on)$'; then
-      OCABRA_BASE_URL="$${OCABRA_BASE_URL:-$${OCABRA_ENDPOINT_BASE_URL:-}}"
-      case "$OCABRA_BASE_URL" in */v1) ;; *) [ -n "$OCABRA_BASE_URL" ] && OCABRA_BASE_URL="$${OCABRA_BASE_URL%/}/v1" ;; esac
-      export OCABRA_BASE_URL
       if [ -z "$${OCABRA_API_KEY:-}" ]; then
         if [ -z "$${OCABRA_KEY:-}" ] || [ -z "$${OCABRA_ENDPOINT_BASE_URL:-}" ]; then
           echo "OCABRA_KEY no configurado; omitiendo autoprovision de key" >&2
@@ -193,18 +215,64 @@ ${local.llm_model_sync_script}
 PY
       chmod 0755 "$HOME/.local/bin/sync-llm-models"
 
+      # Declarar en config.yaml todo el catálogo de chat de Ocabra (con su
+      # ventana de contexto). Hermes también consulta /v1/models en vivo, pero
+      # al abrir el selector usa solo su caché en disco: en un workspace recién
+      # creado no existe y el selector enseñaba únicamente el modelo por
+      # defecto. Un mapping {id: {...}} cuenta como metadatos, no como lista
+      # cerrada, así que modelos nuevos de Ocabra siguen apareciendo.
+      # Se pasa como JSON entero porque las ids llevan '.', ':' y '/'.
+      ocabra_catalog_json=""
+      if [ -n "$${OCABRA_API_KEY:-}" ] && [ -n "$${OCABRA_BASE_URL:-}" ]; then
+        ocabra_catalog_json=$("$HOME/.local/bin/sync-llm-models" --openclaw-provider ocabra 2>/dev/null || true)
+      fi
+
       target_model="$${HERMES_DEFAULT_MODEL:-auto}"
       if [ "$target_model" = "auto" ]; then
         target_model=$("$HOME/.local/bin/sync-llm-models" --best-model 2>/dev/null || true)
       fi
-      if [ -n "$target_model" ]; then
-        if ! printf '%s' "$target_model" | grep -q '/'; then
-          target_model="ocabra/$target_model"
+      if [ -n "$target_model" ] && ! printf '%s' "$target_model" | grep -q '/'; then
+        target_model="ocabra/$target_model"
+      fi
+
+      if [ -n "$ocabra_catalog_json" ]; then
+        models_json=$(CATALOG="$ocabra_catalog_json" TARGET="$target_model" python3 - <<'PY'
+import json, os
+models = {}
+try:
+    catalog = json.loads(os.environ.get("CATALOG") or "{}")
+except Exception:
+    catalog = {}
+for m in catalog.get("models", []):
+    if not isinstance(m, dict) or not isinstance(m.get("id"), str):
+        continue
+    entry = {"name": m["id"]}
+    if m.get("contextWindow"):
+        entry["context_length"] = int(m["contextWindow"])
+    models[m["id"]] = entry
+target = os.environ.get("TARGET", "")
+if target.startswith("ocabra/") and target[len("ocabra/"):] not in models:
+    models[target[len("ocabra/"):]] = {"name": target[len("ocabra/"):]}
+print(json.dumps(models, separators=(",", ":")) if models else "")
+PY
+)
+        if [ -n "$models_json" ]; then
+          hermes config set providers.ocabra.models "$models_json" >/dev/null 2>&1 || echo "WARN: no se pudo declarar el catálogo de Ocabra en Hermes." >&2
         fi
+      fi
+
+      if [ -n "$target_model" ]; then
         target_provider="$${target_model%%/*}"
         target_model_id="$${target_model#*/}"
-        if hermes config get "providers.$target_provider" >/dev/null 2>&1; then
-          hermes config set "providers.$target_provider.models.$target_model_id.name" "$target_model_id" >/dev/null 2>&1 || true
+        if [ "$target_provider" = "ocabra" ] && [ -n "$${OCABRA_BASE_URL:-}" ]; then
+          # Explícito: "config set model ocabra/<id>" deja provider=auto y la
+          # base_url de OpenRouter hasta que Hermes lo normaliza.
+          hermes config set model.provider ocabra >/dev/null 2>&1 || true
+          hermes config set model.default "$target_model_id" >/dev/null 2>&1 || true
+          hermes config set model.base_url "$OCABRA_BASE_URL" >/dev/null 2>&1 || true
+          hermes config set model.api_mode chat_completions >/dev/null 2>&1 || true
+          hermes config set model.key_env OCABRA_API_KEY >/dev/null 2>&1 || true
+        elif hermes config get "providers.$target_provider" >/dev/null 2>&1; then
           hermes config set model "$target_model" >/dev/null 2>&1 || true
         else
           echo "WARN: modelo por defecto '$target_model' omitido: provider '$target_provider' no configurado." >&2
@@ -213,89 +281,153 @@ PY
 
       hermes config set terminal.cwd "$${HERMES_WORKDIR:-$HOME/Projects}" >/dev/null 2>&1 || true
 
-      # Persistir configuración para invocaciones manuales posteriores
-      mkdir -p "$HOME/.local/state/hermes"
-      touch "$HOME/.local/state/hermes/hermes-dashboard.log"
-      cat > "$HOME/.local/bin/start-hermes-dashboard" <<'HERMESSTART'
-#!/usr/bin/env bash
-set -euo pipefail
-STATE_DIR="$HOME/.local/state/hermes"
-LOG_FILE="$STATE_DIR/hermes-dashboard.log"
-PID_FILE="$STATE_DIR/hermes-dashboard.pid"
-mkdir -p "$STATE_DIR"
+      # --- Preconfiguración MakeSpace (idempotente; se reaplica en cada arranque) ---
+      # Idioma y zona horaria. El idioma del dashboard web no se puede fijar:
+      # lo guarda cada navegador (selector de idioma de la UI).
+      hermes config set display.language es >/dev/null 2>&1 || true
+      hermes config set stt.language es >/dev/null 2>&1 || true
+      hermes config set timezone Europe/Madrid >/dev/null 2>&1 || true
+      # Banner "Help improve Hermes?" respondido como "No thanks" (offer_version
+      # es necesario: sin él vuelve a preguntar).
+      hermes config set telemetry.shared_metrics '{"enabled":false,"send":false,"offer_version":2}' >/dev/null 2>&1 || true
 
-if curl -fsS --max-time 1 "http://127.0.0.1:9119/" >/dev/null 2>&1; then
-  echo "Hermes dashboard ya está escuchando en :9119"
-  exit 0
-fi
+      if [ -n "$${OCABRA_API_KEY:-}" ] && [ -n "$${OCABRA_BASE_URL:-}" ]; then
+        # Voz con Ocabra. "$${OCABRA_API_KEY}" va literal: Hermes lo expande al
+        # leer la config (la clave vive en ~/.hermes/.env). En STT la clave debe
+        # ir en stt.openai.api_key; si no, ignora base_url y va a api.openai.com.
+        hermes config set tts.provider openai >/dev/null 2>&1 || true
+        hermes config set tts.openai "{\"model\":\"recomendado-tts\",\"voice\":\"es_MX-claude-high\",\"base_url\":\"$OCABRA_BASE_URL\",\"api_key\":\"\$${OCABRA_API_KEY}\"}" >/dev/null 2>&1 || true
+        hermes config set stt.provider openai >/dev/null 2>&1 || true
+        hermes config set stt.openai "{\"model\":\"recomendado-stt\",\"base_url\":\"$OCABRA_BASE_URL\",\"api_key\":\"\$${OCABRA_API_KEY}\"}" >/dev/null 2>&1 || true
 
-nohup hermes dashboard --no-open >> "$LOG_FILE" 2>&1 &
-echo $! > "$PID_FILE"
+        # Memoria con embeddings de Ocabra: plugin "holographic" del catálogo
+        # (la memoria de serie de Hermes es solo texto). Se instala una vez; si
+        # no hay red se reintenta en el próximo arranque. Sin rerank: el de
+        # holographic no envía clave y Ocabra exige una.
+        if [ "$(hermes config get memory.provider 2>/dev/null | tail -1)" != "holographic" ]; then
+          hermes plugins install holographic --yes-deps --enable </dev/null >/dev/null 2>&1 || echo "WARN: no se pudo instalar el plugin de memoria holographic; se reintentará." >&2
+        fi
+        hermes config set plugins.hermes-memory-store "{\"embeddings\":\"on\",\"embedding_url\":\"$OCABRA_BASE_URL\",\"embedding_model\":\"recomendado-embedding\",\"embedding_key_env\":\"OCABRA_API_KEY\",\"embedding_timeout\":20}" >/dev/null 2>&1 || true
+      fi
 
-for _ in $(seq 1 60); do
-  if curl -fsS --max-time 1 "http://127.0.0.1:9119/" >/dev/null 2>&1; then
-    exit 0
-  fi
-  sleep 1
-done
+      # Personalidad: SOUL.md solo si falta, está vacío o es el texto por
+      # defecto de Hermes (detección del propio Hermes); nunca pisa uno editado.
+      HH="$HOME/.hermes"
+      soul_py=$(ls -d "$HH"/tools/python-3*/bin/python3 2>/dev/null | head -1)
+      if "$${soul_py:-python3}" -I - "$HH/SOUL.md" "$HH/hermes-agent" >/dev/null 2>&1 <<'PY'
+import sys, pathlib
+soul, repo = pathlib.Path(sys.argv[1]), sys.argv[2]
+sys.path.insert(0, repo)
+from hermes_cli.default_soul import DEFAULT_SOUL_MD, is_legacy_template_soul, _normalize_soul
+if not soul.exists():
+    sys.exit(0)
+text = soul.read_text(encoding="utf-8", errors="replace")
+norm = _normalize_soul(text)
+sys.exit(0 if (not norm or norm == _normalize_soul(DEFAULT_SOUL_MD) or is_legacy_template_soul(text)) else 1)
+PY
+      then
+        cat > "$HH/SOUL.md" <<'SOUL'
+Eres Hermes, el asistente de este workspace.
 
-echo "Hermes dashboard no respondió en :9119 tras 60s. Revisa $LOG_FILE" >&2
-exit 1
-HERMESSTART
-      chmod +x "$HOME/.local/bin/start-hermes-dashboard"
+${local.assistant_persona}
+SOUL
+      fi
 
-      echo ">> Arrancando Hermes dashboard..."
-      if ! "$HOME/.local/bin/start-hermes-dashboard"; then
-        echo "WARN: no se pudo arrancar el dashboard de Hermes. Revisa ~/.local/state/hermes/hermes-dashboard.log" >&2
+      # Telegram: el token del parámetro va a ~/.hermes/.env ("config set" con
+      # clave en MAYÚSCULAS escribe ahí). Sin lista de IDs, Hermes usa
+      # emparejamiento: el desconocido recibe un código para aprobar.
+      if [ -n "$${TELEGRAM_BOT_TOKEN:-}" ]; then
+        hermes config set TELEGRAM_BOT_TOKEN "$TELEGRAM_BOT_TOKEN" >/dev/null 2>&1 || true
+        if [ -n "$${TELEGRAM_ALLOWED_USERS:-}" ]; then
+          hermes config set TELEGRAM_ALLOWED_USERS "$TELEGRAM_ALLOWED_USERS" >/dev/null 2>&1 || true
+        else
+          sed -i '/^TELEGRAM_ALLOWED_USERS=/d' "$HOME/.hermes/.env" 2>/dev/null || true
+        fi
+      else
+        sed -i '/^TELEGRAM_BOT_TOKEN=/d; /^TELEGRAM_ALLOWED_USERS=/d' "$HOME/.hermes/.env" 2>/dev/null || true
       fi
 
       # El dashboard de Hermes rechaza cualquier cabecera Host que no sea
       # exactamente la de bind (defensa anti DNS-rebinding, sin lista de hosts
       # de confianza configurable a dia de hoy: issues #74664/#34390/#10567 en
-      # NousResearch/hermes-agent) y el WebSocket del chat (/api/ws) exige
-      # ademas un Origin de localhost/127.0.0.1 (CORSMiddleware hardcodeado).
-      # Bindear a 0.0.0.0 tampoco sirve: exige entonces OAuth/OIDC completo.
-      # En vez de eso, un nginx local reescribe Host y Origin antes de
+      # NousResearch/hermes-agent) y sus WebSockets (/api/ws, /api/events,
+      # /api/pty) exigen ademas un Origin de localhost/127.0.0.1. Bindear a
+      # 0.0.0.0 tampoco sirve: exige entonces OAuth/OIDC completo. En vez de
+      # eso, loopback-proxy (Node, ya viene en la imagen; antes era un nginx
+      # instalado con apt en cada arranque) reescribe Host y Origin antes de
       # reenviar a 127.0.0.1:9119, dejando el dashboard en loopback (sin
-      # login) y resolviendo ambas cabeceras para el trafico que llega vía
-      # el tunel del agente de Coder. El token de sesion embebido en la
-      # pagina (window.__HERMES_SESSION_TOKEN__) viaja como ?token= en el
-      # WebSocket y no se ve afectado por la reescritura.
-      if ! command -v nginx >/dev/null 2>&1; then
-        sudo apt-get update -y >/dev/null 2>&1 || true
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nginx-light >/dev/null 2>&1 || true
-      fi
-      if command -v nginx >/dev/null 2>&1; then
-        sudo mkdir -p /etc/nginx/hermes-shim
-        sudo tee /etc/nginx/hermes-shim/nginx.conf >/dev/null <<'NGINXCONF'
-worker_processes 1;
-pid /tmp/hermes-shim-nginx.pid;
-error_log /tmp/hermes-shim-nginx-error.log warn;
-events { worker_connections 64; }
-http {
-  map $http_upgrade $connection_upgrade {
-    default upgrade;
-    ""      close;
-  }
-  server {
-    listen 127.0.0.1:19119;
-    location / {
-      proxy_pass http://127.0.0.1:9119;
-      proxy_set_header Host 127.0.0.1:9119;
-      proxy_set_header Origin "http://127.0.0.1:9119";
-      proxy_http_version 1.1;
-      proxy_set_header Upgrade $http_upgrade;
-      proxy_set_header Connection $connection_upgrade;
-      proxy_read_timeout 3600s;
-    }
-  }
-}
-NGINXCONF
-        if sudo nginx -c /etc/nginx/hermes-shim/nginx.conf -t >/dev/null 2>&1; then
-          sudo nginx -c /etc/nginx/hermes-shim/nginx.conf -s reload 2>/dev/null || sudo nginx -c /etc/nginx/hermes-shim/nginx.conf
-        fi
-      else
-        echo "WARN: no se pudo instalar nginx; el dashboard de Hermes podría rechazar la cabecera Host del proxy de Coder." >&2
+      # login). El token de sesion embebido en la pagina
+      # (window.__HERMES_SESSION_TOKEN__) viaja como ?token= en el WebSocket
+      # y no se ve afectado por la reescritura.
+      cat > "$HOME/.local/bin/loopback-proxy" <<'JS'
+${local.loopback_proxy_script}
+JS
+      chmod 0755 "$HOME/.local/bin/loopback-proxy"
+
+      # Persistir configuración para invocaciones manuales posteriores
+      mkdir -p "$HOME/.local/state/hermes"
+      touch "$HOME/.local/state/hermes/hermes-dashboard.log"
+      cat > "$HOME/.local/bin/start-hermes-dashboard" <<'HERMESSTART'
+#!/usr/bin/env bash
+# Arranca dashboard (:9119) y proxy de la app de Coder (:19119) bajo un bucle
+# de supervisión: si alguno muere, vuelve a arrancar solo.
+set -euo pipefail
+STATE_DIR="$HOME/.local/state/hermes"
+LOG_FILE="$STATE_DIR/hermes-dashboard.log"
+PROXY_LOG="$STATE_DIR/ui-proxy.log"
+# PIDs en /tmp: el contenedor se recrea en cada arranque y un PID guardado en
+# el HOME persistente podría coincidir con otro proceso.
+RUN_DIR="/tmp/hermes-run"
+mkdir -p "$STATE_DIR" "$RUN_DIR"
+
+alive() { [ -f "$1" ] && kill -0 "$(cat "$1")" 2>/dev/null; }
+
+if ! alive "$RUN_DIR/ui-proxy.pid"; then
+  nohup setsid bash -c 'while :; do loopback-proxy 19119 9119; echo "loopback-proxy salió ($?); reinicio en 3s"; sleep 3; done' >> "$PROXY_LOG" 2>&1 < /dev/null &
+  echo $! > "$RUN_DIR/ui-proxy.pid"
+fi
+
+# Gateway de mensajería (Telegram...): "hermes dashboard" no lo arranca. Solo
+# si hay token. El botón "restart" del dashboard sale con rc=75 y el bucle lo
+# vuelve a levantar.
+if grep -q '^TELEGRAM_BOT_TOKEN=.' "$HOME/.hermes/.env" 2>/dev/null && ! alive "$RUN_DIR/gateway.pid"; then
+  nohup setsid bash -c 'while :; do hermes gateway run --replace --external-supervisor; echo "hermes gateway salió ($?); reinicio en 5s"; sleep 5; done' >> "$STATE_DIR/hermes-gateway.log" 2>&1 < /dev/null &
+  echo $! > "$RUN_DIR/gateway.pid"
+fi
+
+if ! alive "$RUN_DIR/dashboard.pid"; then
+  nohup setsid bash -c 'while :; do hermes dashboard --no-open; echo "hermes dashboard salió ($?); reinicio en 5s"; sleep 5; done' >> "$LOG_FILE" 2>&1 < /dev/null &
+  echo $! > "$RUN_DIR/dashboard.pid"
+fi
+
+for _ in $(seq 1 90); do
+  if curl -fsS --max-time 1 "http://127.0.0.1:19119/" >/dev/null 2>&1; then
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "Hermes dashboard no respondió en :19119 tras 90s. Revisa $LOG_FILE y $PROXY_LOG" >&2
+exit 1
+HERMESSTART
+      chmod +x "$HOME/.local/bin/start-hermes-dashboard"
+
+      cat > "$HOME/.local/bin/stop-hermes-dashboard" <<'HERMESSTOP'
+#!/usr/bin/env bash
+for name in dashboard ui-proxy gateway; do
+  pid_file="/tmp/hermes-run/$name.pid"
+  if [ -f "$pid_file" ]; then
+    kill -- "-$(cat "$pid_file")" 2>/dev/null || true
+    rm -f "$pid_file"
+  fi
+done
+echo "Hermes dashboard parado."
+HERMESSTOP
+      chmod +x "$HOME/.local/bin/stop-hermes-dashboard"
+
+      echo ">> Arrancando Hermes dashboard..."
+      if ! "$HOME/.local/bin/start-hermes-dashboard"; then
+        echo "WARN: no se pudo arrancar el dashboard de Hermes. Revisa ~/.local/state/hermes/hermes-dashboard.log" >&2
       fi
     fi
   EOT
@@ -313,6 +445,10 @@ NGINXCONF
     CODER_WORKSPACE_NAME           = data.coder_workspace.me.name
     HERMES_WORKDIR                 = local.hermes_workdir_resolved
     HERMES_DEFAULT_MODEL           = local.hermes_default_model
+    TELEGRAM_BOT_TOKEN             = trimspace(data.coder_parameter.telegram_bot_token.value)
+    TELEGRAM_ALLOWED_USERS         = replace(trimspace(data.coder_parameter.telegram_allowed_users.value), " ", "")
+    # Solo con "Usar mi propia clave"; en modo auto va vacío y se autoprovisiona.
+    OCABRA_API_KEY                 = local.openai_api_key
   }
 }
 
@@ -329,7 +465,7 @@ resource "coder_app" "hermes_dashboard" {
   healthcheck {
     url       = "http://localhost:19119/"
     interval  = 5
-    threshold = 12
+    threshold = 60
   }
 }
 

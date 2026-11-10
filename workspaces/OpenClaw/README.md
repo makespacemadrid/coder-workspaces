@@ -1,57 +1,75 @@
 ---
 display_name: OpenClaw
-description: "Workspace OpenClaw sin escritorio: gateway headless y Docker in Docker"
+description: "Workspace OpenClaw sin escritorio: gateway headless con Control UI web, sin privilegios"
 icon: icon.svg
 maintainer_github: makespacemadrid
-tags: [openclaw, agents, docker, dind, workspace, ocabra]
+tags: [openclaw, agents, workspace, ocabra]
 ---
 
 # OpenClaw (Inicial)
 
-Template para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid/coder-mks-developer:latest`, sin escritorio gráfico y sin nada que no haga falta para OpenClaw. OpenClaw es un gateway headless por diseño (pensado para `systemd`/`launchd`, sin necesidad de X11) y su propia herramienta de navegador corre headless por defecto, así que no hace falta KasmVNC ni Chrome instalados en el workspace. Tampoco se gestiona configuración de Codex/OpenCode ni se instala `gh`: ese tooling vive en otros templates (`Developer`, `Maker`...), no es necesario para que OpenClaw funcione.
+Template para ejecutar OpenClaw sobre la imagen headless `ghcr.io/makespacemadrid/coder-mks-developer-cli:latest`, sin escritorio gráfico y sin nada que no haga falta para OpenClaw. OpenClaw es un gateway headless por diseño (pensado para `systemd`/`launchd`, sin necesidad de X11) y su propia herramienta de navegador corre headless por defecto, así que no hace falta KasmVNC ni Chrome instalados en el workspace. Tampoco se gestiona configuración de Codex/OpenCode ni se instala `gh`: ese tooling vive en otros templates (`Developer`, `Maker`...), no es necesario para que OpenClaw funcione.
 
 ## Cuándo usarlo
-- Quieres un workspace orientado solo a agentes/OpenClaw accesible por terminal, sin el coste de un escritorio gráfico ni de tooling de otros CLIs de IA.
+- Quieres un workspace orientado solo a agentes/OpenClaw accesible desde el navegador (app `OpenClaw UI`) o por terminal, sin el coste de un escritorio gráfico ni de tooling de otros CLIs de IA.
 - Necesitas ajustar puerto/directorio de OpenClaw por proyecto.
 
 ## Qué incluye
-- Imagen `ghcr.io/makespacemadrid/coder-mks-developer:latest` (sin arrancar su escritorio ni el navegador de sistema).
-- Docker instalado al iniciar y ejecutando DinD (dockerd dentro del contenedor).
-- Node.js actualizado automáticamente a `>=24.22.1` cuando hace falta (requisito actual de OpenClaw; antes era `>=22.12`, la documentación oficial subió el mínimo).
+- Imagen `ghcr.io/makespacemadrid/coder-mks-developer-cli:latest` (Node.js 24 ya incluido; sin escritorio).
+- Contenedor **sin `privileged` y sin Docker in Docker** (ver Notas).
+- Node.js se actualiza automáticamente a `>=24.22.1` solo si la imagen trae uno más antiguo (requisito actual de OpenClaw).
 - Homebrew instalado en `~/.linuxbrew` (persistente en `/home/coder`) para facilitar instalación de skills/plugins opcionales de OpenClaw.
 - Parámetros de OpenClaw: autoarranque, puerto y directorio.
 - Instalación oficial de OpenClaw en primer arranque (`curl -fsSL https://openclaw.ai/install.sh | bash`) en modo no interactivo.
-- Script `~/.local/bin/start-openclaw` y logs en `~/.local/state/openclaw/openclaw.log`.
-- App dedicada `OpenClaw UI` en Coder (reverse proxy al puerto configurado); se abre en el navegador del propio usuario, no necesita un escritorio dentro del workspace.
-- Home persistente en `/home/coder` (volumen o bind mount según parámetros) y datos de Docker en `/var/lib/docker`.
-- Limpieza automática semanal del Docker interno: caché de build sin uso durante 7 días e imágenes sin contenedores asociadas de más de 30 días.
+- Gateway y proxy de la UI supervisados: si se caen (o OpenClaw se reinicia tras un cambio de config) vuelven a arrancar solos.
+- Scripts `~/.local/bin/start-openclaw` / `stop-openclaw`; logs en `~/.local/state/openclaw/openclaw.log` y `ui-proxy.log`.
+- App `OpenClaw UI` en Coder: un clic y entras ya autenticado y con el navegador emparejado, sin pegar token ni aprobar dispositivos.
+- App `Conectar móvil`: página con el QR para vincular la app oficial de OpenClaw (iOS/Android). Avisa si el gateway aún no es accesible desde Internet. Ver "Conectar el móvil".
+- **Preconfiguración MakeSpace** (se reaplica en cada arranque):
+  - Control UI en español y zona horaria del agente `Europe/Madrid`.
+  - Voz con Ocabra: TTS `recomendado-tts` y transcripción de audio entrante con `recomendado-stt`. Talk en modo `stt-tts`, porque Ocabra no tiene realtime.
+  - Memoria con búsqueda semántica: embeddings `recomendado-embedding` de Ocabra. Se reindexa solo si cambia el modelo. OpenClaw no tiene reranker configurable.
+  - Contexto de MakeSpace (`assistant_persona.md`) en una sección gestionada al final de `~/.openclaw/workspace/AGENTS.md`, entre marcadores `<!-- makespace:begin/end -->`. `SOUL.md`, `IDENTITY.md` y el resto de `AGENTS.md` no se tocan.
+- **Telegram (opcional):** `[Telegram] Token del bot` conecta OpenClaw a tu bot de @BotFather. Con `[Telegram] IDs de usuario permitidos` solo esos usuarios pueden escribirle (allowlist). Sin IDs se usa emparejamiento: `openclaw pairing approve telegram <CODIGO>`, y el primero aprobado queda como owner. En grupos solo responde si lo mencionan.
+- Home persistente en `/home/coder` (volumen Docker).
 - Labels `com.centurylinklabs.watchtower.*` para actualizaciones con Watchtower.
 
 ## Creación rápida en Coder
-- Entras por terminal (SSH/consola web); no hay escritorio gráfico ni code-server en este template.
+- Crea el workspace y, cuando termine el arranque (el primero tarda 2-3 minutos por la instalación), pulsa **OpenClaw UI**. También tienes terminal (SSH/consola web); no hay escritorio gráfico ni code-server.
 - `[OpenClaw] Auto-iniciar servicio`: arranca OpenClaw al iniciar.
 - `[OpenClaw] Directorio de trabajo`: directorio desde el que se ejecuta OpenClaw.
-- `[OpenClaw] Modelo por defecto`: `auto` por defecto para elegir el modelo de mayor capacidad del catálogo vivo; también acepta `provider/model`.
-- `[Maintenance] Limpieza automática de Docker`: activa por defecto; no elimina volúmenes ni contenedores y se puede desactivar.
+- `[OpenClaw] Modelo por defecto`: `auto` por defecto, que usa `recomendado-sota` de Ocabra (alias del mejor modelo de chat disponible) o, si no existe, el de mayor capacidad del catálogo vivo; también acepta `provider/model`.
 - `Provisionar API key Ocabra automáticamente`: genera una key de 30 días si no aportas una.
 - `TF_VAR_ocabra_endpoint_base_url`: base URL OpenAI-compatible de Ocabra por defecto.
 
+## Conectar el móvil
+1. Activa **`[OpenClaw] Acceso desde el móvil`** en los parámetros del workspace, al crearlo o después en *Settings → Parameters → Update*.
+2. Pulsa la app **Conectar móvil**: muestra el QR y confirma que el gateway es accesible desde Internet.
+3. En la app oficial de OpenClaw: *Settings → Gateway* (u *Onboarding → Scan QR*) y escanea el QR. Se vincula sola. El código es de un solo uso, caduca en unos minutos y con *Generar código nuevo* sale otro.
+
+Cómo funciona:
+- El checkbox crea una app de Coder **pública y oculta** (`openclaw-gateway`) que apunta directamente al gateway (`:3333`). Coder no permite marcar un puerto como público desde Terraform; una app con `share = "public"` es el equivalente.
+- El QR codifica el *setup code* de `openclaw qr` con la URL `wss://openclaw-gateway--<workspace>--<owner>.<host-coder>/openclaw` (`plugins.entries.device-pair.config.publicUrl`).
+- El gateway queda accesible desde Internet, protegido por su token y por el emparejamiento de dispositivos. `gateway.trustedProxies` en loopback hace que ese tráfico se atribuya al cliente real y se trate como remoto. La UI del navegador no cambia: sigue entrando por `loopback-proxy` como conexión local.
+- Sin el checkbox, el QR apunta al puerto compartido `wss://3333--main--<workspace>--<owner>.<host-coder>`, que funciona si pones el **3333** en **Public** a mano desde el panel *Ports* de Coder.
+- Para dejar de exponerlo, desactiva el checkbox. Los móviles ya vinculados se pueden revocar en *Configuración → Dispositivos* de la UI.
+
+Para CLI o app de escritorio no hace falta hacer público nada: `coder port-forward <workspace> --tcp 18789:3333` y conecta a `ws://127.0.0.1:18789` con el token del gateway.
+
 ## Notas
 - El arranque de OpenClaw es síncrono en startup: intenta dejar el gateway arriba antes de finalizar el arranque del workspace, lo que puede añadir 2-3 minutos al primer arranque del workspace.
-- El template sube límites de `inotify` (`max_user_watches/max_user_instances/max_queued_events`) para reducir errores `EMFILE` en watchers de OpenClaw.
+- Los límites de `inotify` (`max_user_watches/max_user_instances/max_queued_events`) que necesita OpenClaw para evitar `EMFILE` no son por contenedor: se fijan en el host (`/etc/sysctl.d/99-inotify.conf`). El arranque avisa si están bajos.
 - Si `openclaw` no está instalado y el autoarranque está activo, el template intenta instalarlo automáticamente con el instalador oficial.
 - Tras el autoarranque, el template prueba salud operativa con `openclaw health` (best-effort) para detectar fallos tempranos del gateway.
-- La app `OpenClaw UI` apunta a `http://localhost:<puerto OpenClaw>/?token=<gateway token>` para inyectar credenciales en cada apertura y su healthcheck usa `/`.
-- La app `OpenClaw UI` también inyecta `gatewayUrl=wss://<host-coder>/@<owner>/<workspace>.main/apps/openclaw-ui/?token=<gateway token>` para fijar el endpoint WS correcto del workspace.
-- La app `OpenClaw UI` se publica en modo ruta (`subdomain=false`) y abre en pestaña normal (`open_in="tab"`), evitando dependencias de cookies efímeras de subdominio que pueden terminar en `disconnected (1006)` en algunos navegadores móviles.
-- El token del gateway se genera automáticamente (aleatorio) por workspace.
-- El template sincroniza ese token en `gateway.auth.token`, de modo que `openclaw dashboard --no-open` y la app `OpenClaw UI` usan el mismo valor.
+- **Cómo funciona el acceso web**: la app `OpenClaw UI` no apunta al gateway (`:3333`) sino a `loopback-proxy` (`:13333`, script Node en `~/.local/bin`). El proxy reescribe Host/Origin a `127.0.0.1:3333` y elimina las cabeceras `X-Forwarded-*` que añade Coder, así que el gateway ve una conexión local: acepta el origen sin `allowedOrigins` y **auto-aprueba el pairing del navegador** (comportamiento documentado de OpenClaw para conexiones loopback directas). El token sigue siendo obligatorio y va en la URL de la app (`?token=`).
+- Sin el proxy, el gateway trataba al navegador como remoto y cada navegador nuevo se quedaba en *"Approve this browser — openclaw devices approve …"*. `gateway.controlUi.dangerouslyDisableDeviceAuth` ya no existe en OpenClaw (inerte; `doctor --fix` lo borra), así que esa vía no sirve.
+- Seguridad: el proxy solo escucha en `127.0.0.1` y solo se alcanza a través del proxy autenticado de Coder (app con sharing `owner`) o desde procesos del propio workspace, que ya pueden leer el token. Es la misma confianza que un `ssh -L` al gateway.
+- La UI se sirve bajo `/openclaw` (`gateway.controlUi.basePath`), no en la raíz: como la URL de la app lleva `?token=`, Coder responde 307 a cualquier petición a `/` para añadir esa query, también al WebSocket, que la UI abre en `<basePath>`. En la raíz el WebSocket nunca se abría y la UI mostraba *"Gateway ocupado, reintentando…"*.
+- La app usa subdominio (`subdomain=true`): la Control UI carga sus assets con rutas absolutas (`/assets/...`), que en modo ruta apuntarían al propio Coder. Requiere `CODER_WILDCARD_ACCESS_URL` configurado.
+- En cada arranque el template retira `gateway.controlUi.allowedOrigins` y `dangerouslyAllowHostHeaderOriginFallback`, que ponían versiones anteriores. Con el proxy ya no hacen falta. `gateway.trustedProxies` se mantiene en loopback para el acceso del móvil y no afecta a la UI, porque el proxy quita las cabeceras `X-Forwarded-*`.
+- El token del gateway se genera automáticamente (aleatorio) por workspace y se sincroniza en `gateway.auth.token`, de modo que `openclaw dashboard --no-open` y la app `OpenClaw UI` usan el mismo valor.
 - El template fija `gateway.port` al puerto configurado del workspace (por defecto `3333`) para evitar desajustes del CLI con el puerto `18789`.
-- El template configura `gateway.controlUi.allowedOrigins` para permitir el acceso de la UI a través de subdominios de Coder y evitar `origin not allowed`.
-- Importante: no usar `gateway.controlUi.allowedOrigins="*"` (ni `["*"]`) en este template. En práctica causa rechazos de origen y desconexiones (`1006`). Deben usarse orígenes explícitos de Coder.
-- El template activa `gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true` para compatibilidad con subdominios dinámicos de Coder.
-- El template fija `gateway.trustedProxies=["127.0.0.1","::1"]`: el tráfico siempre llega vía el túnel del agente de Coder, reenviado a `127.0.0.1` dentro del propio contenedor. Un wildcard (`"*"`) no es un valor válido y OpenClaw lo rechaza con `proxy_attribution_required` al abrir la UI.
-- El template desactiva el pairing de dispositivos (`gateway.controlUi.dangerouslyDisableDeviceAuth=true`) para entrar directamente con token.
+- Si abres la UI desde otro navegador/perfil (o en modo privado) se empareja de nuevo automáticamente; puedes limpiar entradas viejas con `openclaw devices list` / `openclaw devices remove <id>`.
 - El template puede autoprovisionar la credencial API de Ocabra (`OCABRA_KEY`), con su propio toggle en el formulario.
 - El template crea `auth-profiles.json` con el perfil `ocabra:manual`.
 - El template descubre el catálogo vivo de Ocabra mediante `/v1/models` o `/models`; no mantiene un roster estático.
@@ -67,11 +85,6 @@ Template para ejecutar OpenClaw sobre la imagen `ghcr.io/makespacemadrid/coder-m
 - El template no parchea los assets de `control-ui`; usa el flujo nativo de OpenClaw para tomar `?token` y guardarlo en `localStorage`.
 - Puedes relanzar manualmente con `~/.local/bin/start-openclaw`.
 - Si ejecutas `openclaw dashboard` en una terminal sin GUI, es normal ver "No GUI detected"; en Coder abre directamente el app `OpenClaw UI`.
-- El contenedor se ejecuta en modo `privileged` para soportar Docker in Docker.
-- `Docker auto-prune` se ejecuta los domingos a las 04:30 mientras el workspace está encendido. También comprueba la última ejecución al arrancar para recuperar semanas en las que estuviera apagado; los resultados aparecen en los logs de scripts de Coder.
+- **Sin `privileged` ni Docker in Docker** (antes sí): un contenedor privilegiado da root en el host a quien tenga `sudo` dentro, y aquí lo tienen tanto el usuario como el propio agente (que podría ejecutar lo que le pida una inyección de prompt). OpenClaw no necesita Docker para la UI ni para el agente. Si necesitas Docker, usa `Developer`.
 - Tras merge a `main`, ejecuta `coder templates push` para publicar el template en Coder.
 
-### Limitaciones de DinD
-- No hay Swarm ni orquestador: `docker compose` ignora la sección `deploy.*`, así que no funcionan `resources.reservations/limits`, `placement`, `replicas`, etc. Usa flags de `docker run`/`docker compose` (`--cpus`, `--memory`, `--gpus`) para limitar contenedores.
-- Las reservas de CPU/RAM solo pueden consumir lo que tenga asignado el workspace; los contenedores hijos no pueden reservar más allá de ese presupuesto.
-- El Docker interno no accede al Docker del host; si necesitas manejar contenedores del nodo host, usa otro template con acceso al socket.
