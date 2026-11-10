@@ -21,6 +21,14 @@ Template con escritorio KDE real vía Selkies (streaming WebRTC) y herramientas 
 - Docs/tipografía: Pandoc, FontForge
 - Módulos Coder: Selkies (escritorio), Filebrowser, OpenCode. RDP aplica solo a workspaces Windows según [las docs de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops); esta imagen Linux usa Selkies.
 - Blender MCP oficial de Blender Lab, con servidor y add-on fijados a una revisión reproducible e instalados sin depender de la red durante el arranque.
+- Apps Craft (Rust, Apache-2.0, versiones fijas y verificadas con el SHA256SUMS oficial): **SolidCraft** (CAD 3D paramétrico, STL/3MF/STEP), **CADCraft** (dibujo 2D, DXF/DWG), **VectorCraft** (vectorial, SVG), **PhotoCraft** (edición de fotos) y **PdfCraft** (PDF). Cada una trae su servidor MCP oficial.
+
+## Agentes y apps Craft (MCP)
+Las cinco apps Craft quedan registradas como servidores MCP en Claude (Code y Desktop), OpenCode y Codex (`solidcraft`, `cadcraft`, `vectorcraft`, `photocraft`, `pdfcraft`) mediante `~/.local/bin/craft-mcp`, que decide el modo al arrancar el servidor:
+- **App abierta:** se conecta a ella y ves en la ventana lo que hace el agente. Las apps escuchan en `127.0.0.1` (puertos 27801-27804, variables `*_CONTROL_PORT` de la imagen). PhotoCraft exige además un token, que crea en `~/.config/photocraft/control.token` (permisos 600).
+- **App cerrada:** sesión headless, sin ventana. Lee y escribe solo en `~/Projects` (CADCraft no permite limitar carpetas).
+- La decisión se toma al empezar la sesión del agente: **abre la app antes** si quieres verlo trabajar. Si la abres después, reinicia la sesión del agente o su servidor MCP.
+- PdfCraft solo funciona en headless (su canal de control no va por puerto).
 
 - `OpenCode Web` se inicia automáticamente y aparece como app privada del propietario en Coder.
 

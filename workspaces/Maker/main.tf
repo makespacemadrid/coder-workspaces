@@ -153,6 +153,7 @@ data "coder_parameter" "nvidia_api_key" {
 }
 
 locals {
+  craft_mcp_script             = file("${path.module}/craft_mcp.sh")
   username                   = data.coder_workspace_owner.me.name
   workspace_image            = "ghcr.io/makespacemadrid/coder-mks-design:latest"
   graphics_acceleration      = data.coder_parameter.graphics_acceleration.value
@@ -553,6 +554,15 @@ python3 "$BASE/main.py"
 INKLAUNCH
     chmod +x "$HOME/.local/bin/inkscape-mcp-launcher"
 
+    # Apps Craft (SolidCraft, CADCraft, VectorCraft, PhotoCraft, PdfCraft):
+    # craft-mcp se conecta a la app si está abierta y, si no, abre una sesión
+    # headless limitada a ~/Projects. Ver craft_mcp.sh.
+    cat > "$HOME/.local/bin/craft-mcp" <<'CRAFTMCP'
+${local.craft_mcp_script}
+CRAFTMCP
+    chmod +x "$HOME/.local/bin/craft-mcp"
+    mkdir -p "$HOME/.config/photocraft"
+
     mkdir -p "$HOME/.codex"
     touch "$HOME/.codex/config.toml"
     codex_config="$HOME/.codex/config.toml"
@@ -626,6 +636,16 @@ env = { SLICER_TYPE = "prusaslicer", SLICER_PATH = "/usr/bin/prusa-slicer", TEMP
     "inkscape": '''[mcp_servers.inkscape]
 command = "/home/coder/.local/bin/inkscape-mcp-launcher"''',
 }
+
+# Apps Craft: solo las instaladas en la imagen (no rompe con imágenes previas).
+import shutil
+for craft_app in ("solidcraft", "cadcraft", "vectorcraft", "photocraft", "pdfcraft"):
+    if shutil.which(craft_app + "-cli"):
+        fragments[craft_app] = (
+            "[mcp_servers." + craft_app + "]\n"
+            'command = "/home/coder/.local/bin/craft-mcp"\n'
+            'args = ["' + craft_app + '"]'
+        )
 
 # Migrar la sección que administraba la plantilla desde el servidor comunitario
 # al servidor oficial horneado en la imagen, conservando el resto del fichero.
@@ -710,6 +730,11 @@ opencode_servers = {
     "slicer": {"type": "local", "enabled": True, "command": ["npx", "-y", "mcp-3d-printer-server"], "environment": slicer_env},
     "inkscape": {"type": "local", "enabled": True, "command": [ink_launcher]},
 }
+craft_launcher = os.path.join(home, ".local", "bin", "craft-mcp")
+for craft_app in ("solidcraft", "cadcraft", "vectorcraft", "photocraft", "pdfcraft"):
+    if shutil.which(craft_app + "-cli"):
+        claude_servers[craft_app] = {"command": craft_launcher, "args": [craft_app]}
+        opencode_servers[craft_app] = {"type": "local", "enabled": True, "command": [craft_launcher, craft_app]}
 
 def load_json(path):
     if not os.path.exists(path):

@@ -182,6 +182,47 @@ rm -rf "$source_dir/.git"
 printf '%s\n' "$BLENDER_MCP_REVISION" > /opt/blender-mcp-revision
 EOSH
 
+# Apps Craft (Rust, Apache-2.0) con servidor MCP oficial (`<app>-cli mcp`):
+# SolidCraft (CAD 3D paramétrico, STL/3MF/STEP), CADCraft (2D, DXF/DWG),
+# VectorCraft (SVG), PhotoCraft (foto) y PdfCraft (PDF). Versiones fijas,
+# verificadas contra el SHA256SUMS oficial de cada release. El template Maker
+# registra sus MCP (craft-mcp) en Claude, OpenCode y Codex.
+ARG SOLIDCRAFT_VERSION=0.30.1
+ARG CADCRAFT_VERSION=0.19.0
+ARG VECTORCRAFT_VERSION=0.23.0
+ARG PHOTOCRAFT_VERSION=0.22.0
+ARG PDFCRAFT_VERSION=0.20.0
+RUN <<'EOSH'
+set -e
+mkdir -p /tmp/craft && cd /tmp/craft
+fetch_deb() {
+  repo="$1"; app="$2"; version="$3"
+  base="https://github.com/${repo}/releases/download/v${version}"
+  deb="${app}-${version}-linux-x86_64.deb"
+  curl -fsSL -o "${app}.sums" "${base}/SHA256SUMS.txt"
+  curl -fsSL -o "$deb" "${base}/${deb}"
+  grep -E "^[0-9a-f]{64} [ *]?${deb}\$" "${app}.sums" | sed 's/ \*/  /' | sha256sum -c -
+}
+fetch_deb tangency-labs/solidcraft solidcraft "$SOLIDCRAFT_VERSION"
+fetch_deb storytold/cadcraft cadcraft "$CADCRAFT_VERSION"
+fetch_deb storytold/vectorcraft vectorcraft "$VECTORCRAFT_VERSION"
+fetch_deb storytold/photocraft photocraft "$PHOTOCRAFT_VERSION"
+fetch_deb storytold/pdfcraft pdfcraft "$PDFCRAFT_VERSION"
+apt-get update
+apt-get install -y --no-install-recommends ./*.deb
+cd / && rm -rf /tmp/craft /var/lib/apt/lists/*
+EOSH
+
+# Puertos de control (solo 127.0.0.1) de las apps Craft: al abrirlas desde el
+# menú ya aceptan que un agente se conecte (craft-mcp se engancha a la app
+# abierta). PhotoCraft exige además un token: la app lo crea en este fichero
+# (permisos 600) y craft-mcp lo lee.
+ENV CADCRAFT_CONTROL_PORT=27801 \
+    PHOTOCRAFT_CONTROL_PORT=27802 \
+    VECTORCRAFT_CONTROL_PORT=27803 \
+    SOLIDCRAFT_CONTROL_PORT=27804 \
+    PHOTOCRAFT_CONTROL_TOKEN_FILE=/home/coder/.config/photocraft/control.token
+
 # Configuración FUSE para permitir AppImages (allow_other)
 RUN echo "user_allow_other" > /etc/fuse.conf
 
@@ -262,7 +303,7 @@ RUN update-desktop-database /usr/share/applications || true && \
 
 # Crear accesos directos en Desktop para todas las aplicaciones
 RUN mkdir -p /etc/skel/Desktop && \
-    for f in firefox.desktop org.freecadweb.FreeCAD.desktop org.inkscape.Inkscape.desktop gimp.desktop org.kde.krita.desktop org.kicad.kicad.desktop openscad.desktop PrusaSlicer.desktop librecad.desktop meshlab.desktop org.fritzing.Fritzing.desktop net.launchpad.code.simulide.desktop geany.desktop VisiCut.desktop orcaslicer.desktop appimagepool.desktop OpenCode.desktop com.anthropic.Claude.desktop; do \
+    for f in firefox.desktop org.freecadweb.FreeCAD.desktop org.inkscape.Inkscape.desktop gimp.desktop org.kde.krita.desktop org.kicad.kicad.desktop openscad.desktop PrusaSlicer.desktop librecad.desktop meshlab.desktop org.fritzing.Fritzing.desktop net.launchpad.code.simulide.desktop geany.desktop VisiCut.desktop orcaslicer.desktop appimagepool.desktop OpenCode.desktop com.anthropic.Claude.desktop io.tangencylabs.solidcraft.desktop ai.storyteller.cadcraft.desktop ai.storyteller.vectorcraft.desktop ai.storyteller.photocraft.desktop ai.storyteller.pdfcraft.desktop; do \
       src="/usr/share/applications/$f"; \
       if [ -f "$src" ]; then ln -sf "$src" "/etc/skel/Desktop/$f"; fi; \
     done && \

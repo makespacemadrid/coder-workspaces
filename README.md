@@ -9,7 +9,7 @@ Imágenes Docker y templates de Coder para workspaces de desarrollo y diseño en
 - `ghcr.io/makespacemadrid/coder-mks-developer-desktop:latest` (Docker-Images/DeveloperDesktop): `Desktop-KDE` + VS Code, GitHub Desktop, Antigravity, AppImage Pool; escritorio vía Selkies. Es la base de `DeveloperRE` y `DeveloperAndroid`.
 - `ghcr.io/makespacemadrid/coder-mks-developer-re:latest` (Docker-Images/DeveloperRE): `DeveloperDesktop` + toolchain gratuita de ingeniería inversa (Ghidra, JADX, apktool, GDB+pwndbg, binwalk, unblob, pwntools, mitmproxy, tshark, sigrok, WABT, rizin); escritorio vía Selkies.
 - `ghcr.io/makespacemadrid/coder-mks-developer-android:latest` (Docker-Images/DeveloperAndroid): `DeveloperDesktop` + toolchain Android (SDK/CLI/Studio/Gradle), JetBrains Toolbox y utilidades Android (adb/scrcpy); escritorio vía Selkies.
-- `ghcr.io/makespacemadrid/coder-mks-design:latest` (Docker-Images/Designer): `Desktop-KDE` + suite de diseño 2D/3D y electrónica (Inkscape, GIMP, Krita, Blender, FreeCAD, OpenSCAD, PrusaSlicer, MeshLab, LibreCAD, KiCad, Fritzing, SimulIDE, LaserGRBL via Wine), ImageMagick, FFmpeg, ExifTool, Pandoc, FontForge, AppImage Pool y Geany; escritorio vía Selkies.
+- `ghcr.io/makespacemadrid/coder-mks-design:latest` (Docker-Images/Designer): `Desktop-KDE` + suite de diseño 2D/3D y electrónica (Inkscape, GIMP, Krita, Blender, FreeCAD, OpenSCAD, PrusaSlicer, MeshLab, LibreCAD, KiCad, Fritzing, SimulIDE, LaserGRBL via Wine), apps Craft con MCP (SolidCraft, CADCraft, VectorCraft, PhotoCraft, PdfCraft), ImageMagick, FFmpeg, ExifTool, Pandoc, FontForge, AppImage Pool y Geany; escritorio vía Selkies.
 - `ghcr.io/makespacemadrid/coder-mks-developer:latest` (Docker-Images/Developer): escritorio XFCE/KasmVNC heredado, todavía en uso por `OpenClaw`/`Hermes` mientras se completa su migración.
 
 Build local:
@@ -27,6 +27,18 @@ docker build -t coder-mks-design Docker-Images/Designer
 - Guía rápida y elección de template: `workspaces/README.md`
 - Detalle de cada template: `workspaces/<Template>/README.md`
 - Instrucciones para agentes: `AGENTS.md` y `CLAUDE.md`
+
+## OpenCode local con Ocabra
+Para configurar el OpenCode de tu máquina contra el catálogo de Ocabra (el mismo que
+preconfiguran los templates), rellena `ocabra.env` con tu `OCABRA_API_KEY` y la `OCABRA_BASE_URL` de Ocabra, y ejecuta:
+
+```bash
+./setup-local-opencode-ocabra.sh
+```
+
+El script escanea los modelos disponibles, actualiza `~/.config/opencode/opencode.json`
+sin borrar el resto de tu configuración y deja una copia en `opencode.json.bak`.
+`ocabra.env` está ignorado por Git para no versionar la clave.
 
 ## Publicación
 - Cada push a `main`/`master` lanza el workflow de GitHub Actions (`.github/workflows/build.yml`) que construye y publica las imágenes en GHCR con tags `latest` y `sha`.
