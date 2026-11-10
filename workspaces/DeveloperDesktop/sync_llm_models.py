@@ -427,6 +427,9 @@ def quality_score(model_id: str) -> tuple[int, tuple[int, ...], int, str]:
     lowered = model_id.lower()
     score = 0
     priorities = (
+        # Alias de Ocabra que apunta al mejor modelo de chat que sirve en cada
+        # momento: es el preferido para "auto" siempre que exista.
+        ("recomendado-sota", 2000),
         ("gpt-6-astra", 1000),
         ("claude-fable-5-1", 990),
         ("claude-opus-5-5", 980),
