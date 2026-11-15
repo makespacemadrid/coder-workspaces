@@ -20,7 +20,7 @@ Template con escritorio KDE real vía Selkies (streaming WebRTC) y herramientas 
 - Media/imagen: ImageMagick, FFmpeg, ExifTool
 - Docs/tipografía: Pandoc, FontForge
 - Módulos Coder: Selkies (escritorio), Filebrowser, OpenCode. RDP aplica solo a workspaces Windows según [las docs de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops); esta imagen Linux usa Selkies.
-- Blender MCP oficial de Blender Lab, con servidor y add-on fijados a una revisión reproducible e instalados sin depender de la red durante el arranque.
+- Blender MCP oficial de Blender Lab, con servidor y add-on fijados a una revisión reproducible e instalados sin depender de la red durante el arranque. El arranque activa una vez `Allow Online Access` en las preferencias de Blender (desactivado de fábrica), sin el que el add-on no levanta su servidor; basta con abrir Blender.
 - Apps Craft (Rust, Apache-2.0, versiones fijas y verificadas con el SHA256SUMS oficial): **SolidCraft** (CAD 3D paramétrico, STL/3MF/STEP), **CADCraft** (dibujo 2D, DXF/DWG), **VectorCraft** (vectorial, SVG), **PhotoCraft** (edición de fotos) y **PdfCraft** (PDF). Cada una trae su servidor MCP oficial.
 
 ## Agentes y apps Craft (MCP)

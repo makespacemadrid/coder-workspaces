@@ -470,6 +470,20 @@ PY
       fi
     fi
 
+    # El add-on solo arranca su servidor (localhost:9876, autoarranque activo por
+    # defecto) si Blender permite acceso a red: Preferences > System > Network >
+    # "Allow Online Access", desactivado de fábrica. Se activa una sola vez por
+    # workspace (marcador), así que si el usuario lo desactiva luego, se respeta.
+    BLENDER_ONLINE_MARKER="$HOME/.config/blender/.mks-online-access"
+    if [ ! -f "$BLENDER_ONLINE_MARKER" ] && command -v blender >/dev/null 2>&1; then
+      if blender --background --python-expr 'import bpy; s = bpy.context.preferences.system; changed = not s.use_online_access; s.use_online_access = True; changed and bpy.ops.wm.save_userpref(); print("MKS_ONLINE_OK")' 2>/dev/null | grep -q MKS_ONLINE_OK; then
+        mkdir -p "$(dirname "$BLENDER_ONLINE_MARKER")"
+        touch "$BLENDER_ONLINE_MARKER"
+      else
+        echo "WARN: no se pudo activar 'Allow Online Access' en Blender; el MCP de Blender no arrancará hasta activarlo a mano" >&2
+      fi
+    fi
+
     mkdir -p "$HOME/.local/share/FreeCAD/Mod" "$HOME/.FreeCAD/Mod"
     if [ -d "$HOME/.local/share/mcp-servers/freecad-mcp/addon/FreeCADMCP" ]; then
       rm -rf "$HOME/.local/share/FreeCAD/Mod/FreeCADMCP" "$HOME/.FreeCAD/Mod/FreeCADMCP"
@@ -846,13 +860,15 @@ claude mcp list
 opencode mcp list
 ```
 
-## Blender (paso obligatorio)
+## Blender
 
-1. Abre Blender.
-2. En `Edit > Preferences > Add-ons` confirma que está activo `MCP`, mantenido por Blender Lab.
-3. En las preferencias del add-on activa el servidor local (y, si quieres, su autoarranque).
+Basta con **abrir Blender**: el add-on `MCP` (Blender Lab) ya está instalado y
+activo, y arranca solo su servidor local (`localhost:9876`).
 
-Si no haces este paso, verás: "Blender no está conectado".
+El workspace deja activado `Edit > Preferences > System > Network > Allow Online
+Access`, que el add-on necesita para arrancar el servidor. Si lo desactivas, el
+MCP de Blender deja de funcionar ("Blender no está conectado") hasta que lo
+vuelvas a activar.
 
 ## FreeCAD
 
