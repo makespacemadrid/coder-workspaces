@@ -9,13 +9,18 @@ Guía rápida para elegir template y rellenar los parámetros al crear un worksp
 - `DeveloperAndroid`: escritorio KDE real vía Selkies con toolchain Android (SDK/CLI), Node 24, VS Code base y JetBrains Toolbox (+ IntelliJ remoto vía Gateway).
 - `Maker`: entorno gráfico KDE real vía Selkies con suite de diseño 2D/3D, CAD y EDA. GPU opcional.
 - `OpenClaw`: agente OpenClaw con su Control UI web (un clic desde Coder, sin pairing manual), sin escritorio ni Docker; contenedor sin privilegios.
-- `Hermes`: agente [Hermes](https://hermes-agent.nousresearch.com/) de Nous Research con su dashboard web (un clic desde Coder), sin escritorio.
 
 Los templates con Docker in Docker (`Developer`, `DeveloperDesktop`, `DeveloperRE` y `DeveloperAndroid`) incluyen una limpieza automática semanal, configurable desde `[Maintenance] Limpieza automática de Docker`. Conserva volúmenes y contenedores: solo elimina caché de build sin uso durante 7 días e imágenes sin contenedores asociadas de más de 30 días.
 
 Los dos templates Maker pueden cargar perfiles privados compartidos de OrcaSlicer y PrusaSlicer desde `$TF_VAR_users_storage/_provisioning`. El origen se monta de solo lectura y su contenido no se incluye en Git, las imágenes ni el estado de Terraform.
 
-Todos los templates con escritorio (`DeveloperDesktop`, `DeveloperRE`, `DeveloperAndroid`, `Maker`) aplican un fondo de pantalla compartido en el primer arranque si existe `$TF_VAR_users_storage/_provisioning/desktop/wallpapers`, sin sobrescribir un fondo que ya hayas cambiado. `Developer`, `OpenClaw` y `Hermes` quedan fuera por no tener escritorio.
+Todos los templates con escritorio (`DeveloperDesktop`, `DeveloperRE`, `DeveloperAndroid`, `Maker`) aplican un fondo de pantalla compartido en el primer arranque si existe `$TF_VAR_users_storage/_provisioning/desktop/wallpapers`, sin sobrescribir un fondo que ya hayas cambiado. `Developer` y `OpenClaw` quedan fuera por no tener escritorio.
+
+Todos los templates tienen una opción **Syncthing** (desactivada por defecto) para sincronizar carpetas con tus dispositivos; añade la app *Syncthing* para configurarlo.
+
+Todos los templates que incluyen **OpenCode** registran automáticamente los MCP `playwright` y `chrome-devtools`. Chrome y ambos servidores vienen horneados en `DevTools-Base`: usan navegador visible cuando OpenCode hereda una sesión gráfica y modo headless en OpenCode Web/CLI o en templates sin escritorio.
+
+Los templates con escritorio KDE (`DeveloperDesktop`, `DeveloperRE`, `DeveloperAndroid`, `Maker`) crean, si se activa el parámetro **`KWallet sin contraseña`** (desactivado por defecto), un wallet `kdewallet` sin clave (`~/.local/share/kwalletd/kdewallet.kwl`) para que Claude Desktop y Unity Hub guarden credenciales sin diálogos interactivos. **Compromiso de seguridad:** equivale a `--password-store=basic` para cualquier proceso del usuario. Si prefieres un wallet con tu propia contraseña, desactiva ese parámetro: `kwalletd5` mostrará el diálogo de KWallet (Blowfish) y pedirá la clave al primer acceso; habrá que desbloquearlo una vez por sesión. Claude se lanza con `--password-store=gnome-libsecret`; `org.freedesktop.secrets` y `org.kde.kwalletd5` se activan con `/usr/local/bin/kwalletd5-offscreen`, que usa la sesión Selkies viva para mostrar diálogos y cae a offscreen si no hay GUI. Si existía un wallet anterior, se conserva en `~/.local/share/kwalletd/backup-YYYY-MM-DD/`.
 
 ## Creación rápida en Coder
 1) Elige template y revisa su README (`workspaces/<Template>/README.md`) para ver qué incluye.
@@ -37,6 +42,5 @@ Todos los templates con escritorio (`DeveloperDesktop`, `DeveloperRE`, `Develope
 - `workspaces/DeveloperAndroid/README.md`
 - `workspaces/Maker/README.md`
 - `workspaces/OpenClaw/README.md`
-- `workspaces/Hermes/README.md`
 
 Para publicar cambios tras editarlos, consulta `README.md` y `AGENTS.md`.

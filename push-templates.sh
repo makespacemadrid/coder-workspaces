@@ -12,7 +12,6 @@ WORKSPACES=(
   "DeveloperAndroid"
   "Maker"
   "OpenClaw"
-  "Hermes"
   "ProxmoxVM"
 )
 

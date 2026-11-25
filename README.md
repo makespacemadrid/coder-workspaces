@@ -3,14 +3,14 @@
 Imágenes Docker y templates de Coder para workspaces de desarrollo y diseño en MakeSpace Madrid.
 
 ## Imágenes
-- `ghcr.io/makespacemadrid/coder-mks-devtools-base:latest` (Docker-Images/DevTools-Base): base headless: Docker Engine, Node.js 24 + CLIs de IA (Codex, Claude, Gemini, Continue, Qwen), uv/pipx, gh y utilidades de consola.
+- `ghcr.io/makespacemadrid/coder-mks-devtools-base:latest` (Docker-Images/DevTools-Base): base headless: Docker Engine, Node.js 24 + CLIs de IA (Codex, Claude, Gemini, Continue, Qwen), Chrome headless y MCP de Playwright/Chrome DevTools, uv/pipx, gh y utilidades de consola.
 - `ghcr.io/makespacemadrid/coder-mks-developer-cli:latest` (Docker-Images/DeveloperCLI): `DevTools-Base` sin escritorio, usada por el template `Developer`.
-- `ghcr.io/makespacemadrid/coder-mks-desktop-kde:latest` (Docker-Images/Desktop-KDE): `DevTools-Base` + KDE Plasma real, Firefox/Chrome, Claude Desktop, OpenCode Desktop.
+- `ghcr.io/makespacemadrid/coder-mks-desktop-kde:latest` (Docker-Images/Desktop-KDE): `DevTools-Base` + KDE Plasma real, Firefox, Claude Desktop y OpenCode Desktop (Chrome viene de la base).
 - `ghcr.io/makespacemadrid/coder-mks-developer-desktop:latest` (Docker-Images/DeveloperDesktop): `Desktop-KDE` + VS Code, GitHub Desktop, Antigravity, AppImage Pool; escritorio vía Selkies. Es la base de `DeveloperRE` y `DeveloperAndroid`.
 - `ghcr.io/makespacemadrid/coder-mks-developer-re:latest` (Docker-Images/DeveloperRE): `DeveloperDesktop` + toolchain gratuita de ingeniería inversa (Ghidra, JADX, apktool, GDB+pwndbg, binwalk, unblob, pwntools, mitmproxy, tshark, sigrok, WABT, rizin); escritorio vía Selkies.
 - `ghcr.io/makespacemadrid/coder-mks-developer-android:latest` (Docker-Images/DeveloperAndroid): `DeveloperDesktop` + toolchain Android (SDK/CLI/Studio/Gradle), JetBrains Toolbox y utilidades Android (adb/scrcpy); escritorio vía Selkies.
 - `ghcr.io/makespacemadrid/coder-mks-design:latest` (Docker-Images/Designer): `Desktop-KDE` + suite de diseño 2D/3D y electrónica (Inkscape, GIMP, Krita, Blender, FreeCAD, OpenSCAD, PrusaSlicer, MeshLab, LibreCAD, KiCad, Fritzing, SimulIDE, LaserGRBL via Wine), apps Craft con MCP (SolidCraft, CADCraft, VectorCraft, PhotoCraft, PdfCraft), ImageMagick, FFmpeg, ExifTool, Pandoc, FontForge, AppImage Pool y Geany; escritorio vía Selkies.
-- `ghcr.io/makespacemadrid/coder-mks-developer:latest` (Docker-Images/Developer): escritorio XFCE/KasmVNC heredado, todavía en uso por `OpenClaw`/`Hermes` mientras se completa su migración.
+- `ghcr.io/makespacemadrid/coder-mks-developer:latest` (Docker-Images/Developer): escritorio XFCE/KasmVNC heredado; ningún template del repo la usa ya.
 
 Build local:
 ```bash

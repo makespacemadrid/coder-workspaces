@@ -3,8 +3,8 @@
 //
 // El proxy de apps de Coder entrega el tráfico en 127.0.0.1 dentro del
 // contenedor, pero con Host/Origin del dominio público y cabeceras
-// X-Forwarded-*. OpenClaw y Hermes tratan eso como acceso remoto (piden
-// pairing de dispositivo, rechazan el Host o el Origin). Este proxy escucha en
+// X-Forwarded-*. OpenClaw lo trata como acceso remoto (pide pairing de
+// dispositivo) y la GUI de Syncthing rechaza el Host ajeno. Este proxy escucha en
 // loopback, reescribe Host/Origin al destino local y elimina las cabeceras de
 // proxy, de forma que la app ve una conexión local normal.
 //

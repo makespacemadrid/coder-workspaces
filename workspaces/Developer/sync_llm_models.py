@@ -42,6 +42,18 @@ RETIRED_TEMPLATE_PLUGINS = {
     "opencode-handoff",
 }
 BASELINE_PLUGINS = ()
+BROWSER_MCP_SERVERS = {
+    "playwright": {
+        "type": "local",
+        "enabled": True,
+        "command": ["/usr/local/bin/mks-playwright-mcp"],
+    },
+    "chrome-devtools": {
+        "type": "local",
+        "enabled": True,
+        "command": ["/usr/local/bin/mks-chrome-devtools-mcp"],
+    },
+}
 LEGACY_OCABRA_MODELS = {
     "gemma4:12b-vllm-ctx256k",
     "gemma4:26b-vllm-ctx64k",
@@ -201,25 +213,50 @@ def discover(base_url: str, api_key: str, required_suffix: str = "") -> list[dic
             # which made every model look like it had room for a single token
             # of prompt and broke compaction's headroom math.
             output = 0
+        if not output and context_window:
+            # Match OpenClaw's conservative fallback for an unknown output
+            # limit, but persist it explicitly so input + output never exceeds
+            # the native window and compaction has deterministic headroom.
+            output = min(
+                32_768,
+                max(min(8_192, context_window), context_window // 2),
+            )
         input_limit = positive_int(
             model_info.get("max_input_tokens"),
             raw.get("max_input_tokens"),
         )
-        if not input_limit and context_window:
+        if context_window and (
+            not input_limit or input_limit + output > context_window
+        ):
             input_limit = max(context_window - output, 1) if output else context_window
         lowered = model_id.lower()
-        reasoning = bool(model_info.get("supports_reasoning")) or bool(
-            litellm.get("merge_reasoning_content_in_choices")
-        ) or "capability:thinking" in tags or any(
-            token in lowered for token in ("reason", "thinking", "qwen3", "nemotron")
-        )
+        declared_capabilities = {
+            value.lower()
+            for value in raw.get("capabilities", [])
+            if isinstance(value, str)
+        }
+        # Ocabra publishes authoritative booleans under
+        # ``ocabra.capabilities``. Preserve them instead of guessing from a
+        # model name (which incorrectly marked qwen3-coder as reasoning and
+        # discarded vision on the multimodal routers).
+        declared_reasoning = ocabra_caps.get("reasoning")
+        if isinstance(declared_reasoning, bool):
+            reasoning = declared_reasoning
+        else:
+            reasoning = bool(model_info.get("supports_reasoning")) or bool(
+                litellm.get("merge_reasoning_content_in_choices")
+            ) or "capability:thinking" in tags or "thinking" in declared_capabilities or any(
+                token in lowered for token in ("reason", "thinking", "qwen3", "nemotron")
+            )
         inputs = {"text"}
-        if model_info.get("supports_vision") or tags.intersection(
+        if ocabra_caps.get("vision") is True or "vision" in declared_capabilities or model_info.get("supports_vision") or tags.intersection(
             {"capability:vision", "capability:image"}
         ):
             inputs.add("image")
-        if model_info.get("supports_audio_input") or "capability:audio" in tags:
+        if ocabra_caps.get("audio_input") is True or "audio" in declared_capabilities or model_info.get("supports_audio_input") or "capability:audio" in tags:
             inputs.add("audio")
+        if ocabra_caps.get("video_input") is True or "video" in declared_capabilities:
+            inputs.add("video")
         result.append(
             {
                 "id": model_id,
@@ -492,6 +529,16 @@ def sync_opencode(
             "buffer": "25%",
         },
     )
+    # Browser automation/debugging is part of every image that exposes
+    # OpenCode. Preserve any user override with the same server name.
+    launchers = [Path(server["command"][0]) for server in BROWSER_MCP_SERVERS.values()]
+    if all(path.is_file() and os.access(path, os.X_OK) for path in launchers):
+        mcp = data.get("mcp")
+        if not isinstance(mcp, dict):
+            mcp = {}
+            data["mcp"] = mcp
+        for server_id, server in BROWSER_MCP_SERVERS.items():
+            mcp.setdefault(server_id, server)
     providers = data.setdefault("providers", {})
     for provider_id, (base_url, api_key) in connections.items():
         if not base_url:

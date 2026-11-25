@@ -17,6 +17,7 @@ Template con escritorio KDE real vía Selkies (streaming WebRTC) y herramientas 
 - Electrónica/EDA: KiCad (footprints/símbolos/templates), Fritzing, SimulIDE
 - Láser/CNC: LaserGRBL (via Wine)
 - Navegación y utilidades: Firefox (.deb, sin snap), Geany, OpenCode Desktop, AppImage Pool (tienda/gestor de AppImage)
+- OpenCode con Playwright y Chrome DevTools MCP preconfigurados para automatización y depuración web.
 - Media/imagen: ImageMagick, FFmpeg, ExifTool
 - Docs/tipografía: Pandoc, FontForge
 - Módulos Coder: Selkies (escritorio), Filebrowser, OpenCode. RDP aplica solo a workspaces Windows según [las docs de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops); esta imagen Linux usa Selkies.
@@ -40,11 +41,12 @@ Si existe `$TF_VAR_users_storage/_provisioning`, el template monta de solo lectu
 - [Compute] Aceleración gráfica: `Software` (CPU) o `GPU NVIDIA` (NVENC/CUDA).
 - [Storage] Persistencia: `Ninguna` (volumen Docker), `Home completo` o `Solo ~/Projects` en el host.
 - [AI MakeSpace] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
-- [AI] Modelo por defecto de OpenCode: `opencode/glm-5.3-flash-free` (gratuito) por defecto; también acepta `auto` o cualquier `provider/model` del catálogo.
+- [AI] Modelo por defecto de OpenCode: `opencode/big-pickle` (Big Pickle, gratuito) por defecto; también acepta `auto` o cualquier `provider/model` del catálogo.
 - [AI externa] Modelos gratuitos de OpenCode (Zen): activos por defecto; desactívalo si no quieres que aparezcan en el selector.
 - [AI externa] Ollama Cloud / NVIDIA (build.nvidia.com): campos opcionales para tu propia API key; si la rellenas, OpenCode añade ese proveedor con su catálogo vivo.
 
 ## Notas
+- **Syncthing (opcional):** sincroniza carpetas (p. ej. vaults de Obsidian o Logseq) con tus dispositivos. Al activarlo se instala en `~/.local/bin` (una vez; se actualiza solo) y aparece la app **Syncthing** para configurarlo desde el navegador (por el proxy autenticado de Coder; la GUI solo escucha en `127.0.0.1:8384`). Datos en `~/.local/state/syncthing`; `check-folder-sync <carpeta>` comprueba una carpeta. Usa un solo sincronizador por carpeta.
 - Home persistente en `/home/coder` (volumen o bind mount según parámetros). Escritorio con accesos directos a las apps clave.
 - Escritorio KDE real vía Selkies (streaming WebRTC/H.264 con detección NVENC); incluye code-server y filebrowser por si necesitas editar assets/scripts.
 - Labels `com.centurylinklabs.watchtower.*` para que Watchtower pueda actualizar si usas `--label-enable`.

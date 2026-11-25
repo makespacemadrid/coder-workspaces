@@ -17,6 +17,7 @@ Workspace gráfico KDE real vía Selkies (streaming WebRTC) con toolchain Androi
 - VS Code listo para personalizar tus extensiones (sin bundle preinstalado) y soporte C/C++ vía paquetes base.
 - JetBrains Toolbox + módulo JetBrains de Coder para lanzar IntelliJ IDEA remoto (instala el plugin Android) vía JetBrains Gateway/Coder Desktop.
 - Google Chrome, Firefox y OpenCode Desktop preinstalados.
+- OpenCode con Playwright y Chrome DevTools MCP preconfigurados para pruebas web, WebView y depuración del navegador.
 - Módulos Coder: Selkies (KDE), code-server, Filebrowser, OpenCode, git-config, tmux, JetBrains.
 - Autoprovisiona una key de IA Ocabra (30 días) por defecto; configurable en `[AI MakeSpace] Clave Ocabra`.
 - Antigravity auto-updater (`antigravity`) preinstalado.
@@ -29,7 +30,7 @@ Workspace gráfico KDE real vía Selkies (streaming WebRTC) con toolchain Androi
 - [Network] Exponer puertos al host: usa el rango de puertos para publicar servicios.
 - [Maintenance] Limpieza automática de Docker: activa por defecto; no elimina volúmenes ni contenedores y se puede desactivar.
 - [AI MakeSpace] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
-- [AI] Modelo por defecto de OpenCode: `opencode/glm-5.3-flash-free` (gratuito); también acepta `auto` o cualquier `provider/model` del catálogo.
+- [AI] Modelo por defecto de OpenCode: `opencode/big-pickle` (Big Pickle, gratuito); también acepta `auto` o cualquier `provider/model` del catálogo.
 - [AI externa] Modelos gratuitos de OpenCode (Zen): activos por defecto; desactívalo si no quieres que aparezcan en el selector.
 - [AI externa] Ollama Cloud / NVIDIA (build.nvidia.com): campos opcionales para tu propia API key; si la rellenas, OpenCode añade ese proveedor con su catálogo vivo.
 
@@ -38,6 +39,7 @@ Workspace gráfico KDE real vía Selkies (streaming WebRTC) con toolchain Androi
 - CLI: `httpie`, `yq`, `xmlstarlet`, `sqlite3`.
 
 ## Notas
+- **Syncthing (opcional):** sincroniza carpetas (p. ej. vaults de Obsidian o Logseq) con tus dispositivos. Al activarlo se instala en `~/.local/bin` (una vez; se actualiza solo) y aparece la app **Syncthing** para configurarlo desde el navegador (por el proxy autenticado de Coder; la GUI solo escucha en `127.0.0.1:8384`). Datos en `~/.local/state/syncthing`; `check-folder-sync <carpeta>` comprueba una carpeta. Usa un solo sincronizador por carpeta.
 - Escritorio KDE real vía Selkies; VS Code (web y desktop) listo para configurar a tu gusto.
 - El SDK Android canónico del workspace es `/home/coder/Android/Sdk`; `/opt/android-sdk` queda como compatibilidad para tooling heredado.
 - El emulador Android usa `-gpu swiftshader` por defecto para evitar cierres con `-gpu host` en escritorios remotos; puedes sobrescribirlo con `ANDROID_EMULATOR_DEFAULT_GPU` o pasando `-gpu` manualmente.

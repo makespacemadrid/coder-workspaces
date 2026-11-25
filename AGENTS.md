@@ -10,9 +10,9 @@ Lee esto antes de tocar plantillas o imágenes. Para notas privadas, usa `AGENTS
 - Ejemplo de Watchtower: `watchtower/README.md`
 
 ## Imágenes base
-- `ghcr.io/makespacemadrid/coder-mks-devtools-base:latest` (Docker-Images/DevTools-Base/Dockerfile): base headless de tooling: Docker Engine, Node.js 24 + 5 CLIs de IA (Codex, Claude, Gemini, Continue, Qwen), uv/pipx, gh y utilidades de consola. La usan `DeveloperCLI` y `Desktop-KDE`.
-- `ghcr.io/makespacemadrid/coder-mks-developer-cli:latest` (Docker-Images/DeveloperCLI/Dockerfile): `DevTools-Base` sin nada propio; code-server/JupyterLab se instalan vía módulo de Coder en runtime. La usan los templates `Developer`, `OpenClaw` y `Hermes`.
-- `ghcr.io/makespacemadrid/coder-mks-desktop-kde:latest` (Docker-Images/Desktop-KDE/Dockerfile): `DevTools-Base` + KDE Plasma real, Firefox/Chrome, Claude Desktop, OpenCode Desktop. Base de escritorio compartida por `DeveloperDesktop`, `Designer` y `DeveloperAndroid`.
+- `ghcr.io/makespacemadrid/coder-mks-devtools-base:latest` (Docker-Images/DevTools-Base/Dockerfile): base headless de tooling: Docker Engine, Node.js 24 + 5 CLIs de IA (Codex, Claude, Gemini, Continue, Qwen), Chrome headless y MCP de Playwright/Chrome DevTools para OpenCode, uv/pipx, gh y utilidades de consola. La usan `DeveloperCLI` y `Desktop-KDE`.
+- `ghcr.io/makespacemadrid/coder-mks-developer-cli:latest` (Docker-Images/DeveloperCLI/Dockerfile): `DevTools-Base` sin nada propio; code-server/JupyterLab se instalan vía módulo de Coder en runtime. La usan los templates `Developer` y `OpenClaw`.
+- `ghcr.io/makespacemadrid/coder-mks-desktop-kde:latest` (Docker-Images/Desktop-KDE/Dockerfile): `DevTools-Base` + KDE Plasma real, Firefox, Claude Desktop, OpenCode Desktop (Chrome viene de la base). Base de escritorio compartida por `DeveloperDesktop`, `Designer` y `DeveloperAndroid`.
 - `ghcr.io/makespacemadrid/coder-mks-developer-desktop:latest` (Docker-Images/DeveloperDesktop/Dockerfile): `Desktop-KDE` + VS Code, GitHub Desktop, Antigravity, AppImage Pool. La usa el template `DeveloperDesktop` (Selkies) y es la base de `DeveloperRE` y `DeveloperAndroid`.
 - `ghcr.io/makespacemadrid/coder-mks-developer:latest` (Docker-Images/Developer/Dockerfile): escritorio XFCE/KasmVNC (imagen heredada); ningún template del repo la usa ya.
 - `ghcr.io/makespacemadrid/coder-mks-developer-re:latest` (Docker-Images/DeveloperRE/Dockerfile): `DeveloperDesktop` + toolchain gratuita de ingeniería inversa (Ghidra, JADX, apktool, GDB+pwndbg, binwalk, unblob, pwntools, mitmproxy, tshark, sigrok, WABT, rizin) para usar con rea.
@@ -26,12 +26,11 @@ Lee esto antes de tocar plantillas o imágenes. Para notas privadas, usa `AGENTS
 - `DeveloperAndroid`: imagen sobre `DeveloperDesktop`, escritorio KDE real vía Selkies con toolchain Android (SDK/CLI), Node 24 y VS Code base.
 - `Maker`: escritorio KDE real vía Selkies con herramientas de diseño/CAD/EDA; GPUs opcionales; home persistente; módulo OpenCode. RDP aplica solo a workspaces Windows según [la guía de Coder](https://coder.com/docs/user-guides/workspace-access/remote-desktops).
 - `OpenClaw`: template headless (sin escritorio) para agentes/OpenClaw: gateway OpenClaw con Control UI web, **sin `privileged` ni DinD** (no lo necesita; un contenedor privilegiado permite escapar al host), arranque configurable (`[OpenClaw] Auto-iniciar servicio`, puerto, directorio y comando).
-- `Hermes`: template headless (sin escritorio) para el agente [Hermes](https://hermes-agent.nousresearch.com/) de Nous Research; dashboard web propio, directorio de trabajo y modelo por defecto configurables.
 
 `AdvancedHostDANGER`, el spike `developer-selkies-spike`, y las variantes experimentales `MakerSelkies`/`DeveloperAndroidSelkies` (incluida la base `linuxserver/webtop:ubuntu-kde`) se han retirado: Maker y DeveloperAndroid ya corren Selkies de forma nativa sobre `Desktop-KDE`, igual que `DeveloperDesktop`.
 
-## OpenClaw/Hermes: acceso web vía `loopback-proxy` (importante)
-- Las apps web de `OpenClaw` y `Hermes` no apuntan al servicio directamente sino a `loopback-proxy` (`workspaces/_shared/loopback_proxy.mjs`), que reescribe Host/Origin a `127.0.0.1:<puerto>` y quita `X-Forwarded-*`. Así ambos ven una conexión local.
+## OpenClaw: acceso web vía `loopback-proxy` (importante)
+- Las apps web de `OpenClaw` (Control UI y GUI de Syncthing) no apuntan al servicio directamente sino a `loopback-proxy` (`workspaces/_shared/loopback_proxy.mjs`), que reescribe Host/Origin a `127.0.0.1:<puerto>` y quita `X-Forwarded-*`. Así ambos ven una conexión local.
 - OpenClaw: sin el proxy cada navegador nuevo queda en `pairing required` (`openclaw devices approve ...`); `dangerouslyDisableDeviceAuth` está retirado. No vuelvas a meter `allowedOrigins`/`trustedProxies`/`dangerouslyAllowHostHeaderOriginFallback`: fuerzan el modo remoto.
 - La app de OpenClaw debe ir en subdominio: la Control UI usa rutas absolutas (`/assets/...`) que no funcionan en modo ruta.
 
@@ -40,7 +39,7 @@ Lee esto antes de tocar plantillas o imágenes. Para notas privadas, usa `AGENTS
 - Lo demás no lo necesita: GPU/Selkies/audio funcionan sin privilegios (ver `Maker`); en Android, KVM y FUSE ya van como `devices` (su `capabilities { add = ["SYS_ADMIN"] }` debe irse junto con `privileged`).
 - `dockerd` no arranca sin `privileged` (`failed to mount overlay`), ni solo con `SYS_ADMIN`. `systempaths=unconfined` o montar el socket del host no son alternativas seguras.
 - Plan: (1) parámetro "Docker in Docker" desactivado por defecto (sin él, contenedor sin privilegios); (2) Sysbox (`runtime = "sysbox-runc"`) en el host en ventana de mantenimiento (reinicia dockerd); probar `--gpus` con Docker ≥29.2/CDI y soporte en Debian 13.
-- `OpenClaw` ya se migró (sin DinD ni `privileged`); `Hermes` nunca lo fue.
+- `OpenClaw` ya se migró (sin DinD ni `privileged`).
 
 ## Publicar cambios
 1) Merge a `main`.

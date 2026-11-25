@@ -48,9 +48,11 @@ data "coder_parameter" "p01_graphics_acceleration" {
   # Sin nivel DRI intermedio: confirmado en vivo que no da aceleración NVIDIA
   # real sin --gpus all (Mesa cae a LLVMpipe/software igualmente).
   name         = "01_graphics_acceleration"
-  display_name = "[Compute] Aceleración gráfica"
-  description  = "Software: todo por CPU (Mesa LLVMpipe), sin GPU. GPU NVIDIA: pasa la GPU completa al contenedor (--gpus all), habilita NVENC/CUDA."
+  display_name = "Aceleración gráfica"
+  description  = "*GPU NVIDIA* pasa la GPU completa al contenedor (CUDA/NVENC). *Software*: todo por CPU."
+  icon         = "/emojis/1f5a5.png"
   type         = "string"
+  form_type    = "radio"
   default      = "software"
   order        = 10
   mutable      = true
@@ -66,18 +68,21 @@ data "coder_parameter" "p01_graphics_acceleration" {
 
 data "coder_parameter" "p02_expose_ports" {
   name         = "30_expose_ports"
-  display_name = "[Network] Exponer puertos del host"
-  description  = "Mapea un rango de puertos del host hacia el workspace. Elige un rango alto y raro para evitar colisiones."
+  display_name = "Exponer puertos del host"
+  description  = "Publica un rango de puertos del host hacia el workspace. Elige un rango alto y poco común."
+  icon         = "/emojis/1f50c.png"
   type         = "bool"
+  form_type    = "switch"
   default      = false
   order        = 30
   mutable      = true
 }
 
 data "coder_parameter" "p02_port_range_start" {
+  count        = data.coder_parameter.p02_expose_ports.value ? 1 : 0
   name         = "31_port_range_start"
-  display_name = "[Network] Puerto inicial a exponer"
-  description  = "Puerto inicial del rango publicado cuando expones puertos."
+  display_name = "Puerto inicial"
+  description  = "Primer puerto del rango."
   type         = "number"
   default      = 15000
   order        = 31
@@ -85,9 +90,10 @@ data "coder_parameter" "p02_port_range_start" {
 }
 
 data "coder_parameter" "p02_port_range_end" {
+  count        = data.coder_parameter.p02_expose_ports.value ? 1 : 0
   name         = "32_port_range_end"
-  display_name = "[Network] Puerto final a exponer"
-  description  = "Puerto final (incluido) del rango publicado cuando expones puertos."
+  display_name = "Puerto final"
+  description  = "Último puerto del rango (incluido)."
   type         = "number"
   default      = 15050
   order        = 32
@@ -96,9 +102,11 @@ data "coder_parameter" "p02_port_range_end" {
 
 data "coder_parameter" "storage_mode" {
   name         = "20_storage_mode"
-  display_name = "[Storage] Persistencia"
-  description  = "Ninguna: todo en volumen Docker (se puede perder si se limpia Docker en el host estando el workspace apagado). Home completo: monta /home/coder en el host. Solo Projects: monta solo /home/coder/Projects en el host."
+  display_name = "Dónde guardar tus ficheros"
+  description  = "*Volumen Docker*: dentro del workspace. *Home completo* o *Solo ~/Projects*: en el disco del host (sobrevive a limpiezas de Docker)."
+  icon         = "/emojis/1f4be.png"
   type         = "string"
+  form_type    = "radio"
   default      = "none"
   order        = 20
   mutable      = true
@@ -118,9 +126,11 @@ data "coder_parameter" "storage_mode" {
 
 data "coder_parameter" "p03_docker_auto_prune" {
   name         = "90_docker_auto_prune"
-  display_name = "[Maintenance] Limpieza automática de Docker"
-  description  = "Limpia semanalmente la caché de compilación sin uso durante 7 días y las imágenes sin contenedores asociadas de más de 30 días. No elimina volúmenes ni contenedores."
+  display_name = "Limpieza automática de Docker"
+  description  = "Cada semana borra caché de compilación sin uso y las imágenes sin contenedores de más de 30 días. No toca volúmenes ni contenedores."
+  icon         = "/emojis/1f9f9.png"
   type         = "bool"
+  form_type    = "switch"
   default      = true
   order        = 90
   mutable      = true
@@ -128,14 +138,16 @@ data "coder_parameter" "p03_docker_auto_prune" {
 
 data "coder_parameter" "ocabra_key_mode" {
   name         = "60_ocabra_key_mode"
-  display_name = "[AI MakeSpace] Clave Ocabra"
-  description  = "Auto-aprovisionar una API key Ocabra nueva, o usar una que ya tengas."
+  display_name = "Clave de Ocabra"
+  description  = "Por defecto se genera una clave nueva (30 días) en cada arranque."
+  icon         = "/emojis/1f511.png"
   type         = "string"
+  form_type    = "radio"
   default      = "auto"
   order        = 60
   mutable      = true
   option {
-    name  = "Auto-aprovisionar"
+    name  = "Generar automáticamente"
     value = "auto"
   }
   option {
@@ -145,32 +157,37 @@ data "coder_parameter" "ocabra_key_mode" {
 }
 
 data "coder_parameter" "ocabra_key_value" {
+  count        = data.coder_parameter.ocabra_key_mode.value == "manual" ? 1 : 0
   name         = "61_ocabra_key_value"
-  display_name = "[AI MakeSpace] Clave Ocabra manual"
-  description  = "Solo se usa si arriba elegiste 'Usar mi propia clave'."
+  display_name = "Tu clave de Ocabra"
   type         = "string"
   default      = ""
   order        = 61
   mutable      = true
+  styling      = jsonencode({ mask_input = true, placeholder = "sk-..." })
 }
 
 data "coder_parameter" "opencode_default_model" {
-  # opencode/glm-5.3-flash-free: modelo gratuito del catálogo de OpenCode Zen
-  # (confirmado en models.dev, distinto de glm-5.3-flash que es de pago).
+  # opencode/big-pickle: modelo gratuito del catálogo de OpenCode Zen
+  # (confirmado con "opencode models").
   name         = "63_opencode_default_model"
-  display_name = "[AI] Modelo por defecto de OpenCode"
-  description  = "'auto' elige el modelo de mayor capacidad descubierto en Ocabra; también admite cualquier provider/model actual."
+  display_name = "Modelo por defecto de OpenCode"
+  description  = "`auto` usa el mejor modelo de Ocabra (`recomendado-sota`). También admite `proveedor/modelo`."
+  icon         = "/emojis/1f916.png"
   type         = "string"
-  default      = "opencode/glm-5.3-flash-free"
+  default      = "opencode/big-pickle"
   order        = 63
   mutable      = true
+  styling      = jsonencode({ placeholder = "auto" })
 }
 
 data "coder_parameter" "enable_opencode_free_models" {
   name         = "69_enable_opencode_free_models"
-  display_name = "[AI externa] Modelos gratuitos de OpenCode (Zen)"
-  description  = "Desactivalo para que no aparezcan en el selector los modelos gratuitos integrados de OpenCode (glm-5.3-flash-free, etc.)."
+  display_name = "Modelos gratuitos de OpenCode (Zen)"
+  description  = "Muestra en OpenCode sus modelos gratuitos integrados."
+  icon         = "/emojis/1f193.png"
   type         = "bool"
+  form_type    = "switch"
   default      = true
   order        = 69
   mutable      = true
@@ -178,28 +195,32 @@ data "coder_parameter" "enable_opencode_free_models" {
 
 data "coder_parameter" "ollama_api_key" {
   name         = "70_ollama_api_key"
-  display_name = "[AI externa] Ollama Cloud (ollama.com)"
-  description  = "Opcional. Si la rellenas, se anade como provider OpenAI-compatible en OpenCode con el catalogo vivo de ollama.com."
+  display_name = "Clave de Ollama Cloud (opcional)"
+  description  = "Añade los modelos de ollama.com a OpenCode."
+  icon         = "/emojis/1f310.png"
   type         = "string"
   default      = ""
   order        = 70
   mutable      = true
+  styling      = jsonencode({ mask_input = true })
 }
 
 data "coder_parameter" "nvidia_api_key" {
   name         = "71_nvidia_api_key"
-  display_name = "[AI externa] NVIDIA (build.nvidia.com)"
-  description  = "Opcional. Si la rellenas, se anade como provider OpenAI-compatible en OpenCode con el catalogo vivo de integrate.api.nvidia.com."
+  display_name = "Clave de NVIDIA build (opcional)"
+  description  = "Añade los modelos de build.nvidia.com a OpenCode."
+  icon         = "/emojis/1f310.png"
   type         = "string"
   default      = ""
   order        = 71
   mutable      = true
+  styling      = jsonencode({ mask_input = true })
 }
 
 locals {
   username                   = data.coder_workspace_owner.me.name
   workspace_image            = "ghcr.io/makespacemadrid/coder-mks-developer-re:latest"
-  port_range                 = data.coder_parameter.p02_expose_ports.value ? range(data.coder_parameter.p02_port_range_start.value, data.coder_parameter.p02_port_range_end.value + 1) : []
+  port_range                 = data.coder_parameter.p02_expose_ports.value ? range(try(data.coder_parameter.p02_port_range_start[0].value, "15000"), try(data.coder_parameter.p02_port_range_end[0].value, "15050") + 1) : []
   graphics_acceleration      = data.coder_parameter.p01_graphics_acceleration.value
   enable_gpu                 = local.graphics_acceleration == "gpu"
   enable_dri                 = local.graphics_acceleration == "gpu"
@@ -221,13 +242,14 @@ locals {
   default_repo_path          = "/home/coder/Projects"
   openai_base_url            = ""
   ocabra_key_mode            = data.coder_parameter.ocabra_key_mode.value
-  ocabra_key_value           = trimspace(data.coder_parameter.ocabra_key_value.value)
+  ocabra_key_value           = trimspace(try(data.coder_parameter.ocabra_key_value[0].value, ""))
   openai_api_key             = local.ocabra_key_mode == "manual" ? local.ocabra_key_value : ""
   auto_provision_ocabra_key  = local.ocabra_key_mode == "auto"
   opencode_default_model     = trimspace(data.coder_parameter.opencode_default_model.value)
   enable_opencode_free_models = data.coder_parameter.enable_opencode_free_models.value
   ollama_api_key             = trimspace(data.coder_parameter.ollama_api_key.value)
   nvidia_api_key             = trimspace(data.coder_parameter.nvidia_api_key.value)
+  kwallet_empty_password     = data.coder_parameter.kwallet_empty_password.value
   install_claude             = false
   continue_default_config    = file("${path.module}/continue-config.yaml")
   llm_model_sync_script      = file("${path.module}/sync_llm_models.py")
@@ -293,6 +315,63 @@ PULSECFG
 $${COWORK_TAG}
 COWORK_VM_BACKEND=host
 EOF
+    # Wallet vacío solo si se activa 85_kwallet_empty_password.
+    if [ "${local.kwallet_empty_password}" = "true" ]; then
+      # KWallet sin contraseña para Claude Desktop y Unity Hub. En un escritorio
+      # remoto no se puede responder el dialogo de creacion de wallet: si no hay
+      # wallet abierto, Electron cae a texto plano y keytar/Unity falla con
+      # "no puede acceder al almacen de credenciales del sistema". Estos archivos
+      # se generaron con libkwalletbackend5 (blowfish, clave vacia); mismo
+      # compromiso de seguridad que --password-store=basic.
+      KWALLET_DIR="$HOME/.local/share/kwalletd"
+      if [ ! -f "$KWALLET_DIR/kdewallet.kwl" ]; then
+        mkdir -p "$KWALLET_DIR"
+        printf '%s' 'S1dBTExFVAoNAA0KAAEDAgAAAAFpU07TTGIXxDWM8Y1N8H9TAAAAAnjaYucgIYT4nkmnDZ1g2z8IH8voY4dSWAyLcDjMBG5tnI2yOEV1cYeOlB+AgcZLqbeEtMlV4T8xtDzdqwy8wLnC0/jU0hc1BNDimIhiEq0JJyGc2QLiU96VAl/u3nkGpdWaCpOAxlqb/jHhGpVYmVnCS1Lvphkz39S4gwKi9R6WG68F36DjB7Eqf1UXLzV2dfLxUgYEqy5jQaKZpwKicwYpxW0sIgkGTz4pRJ7fkjegdd6dO9XugHx944jYdyJZxyyjQoi+jOqFYBPDKQRuoviINMw2MHpE3eVL6FYO9P1CxUvwGTWGQmgScf3CEuCz3PY1HaSEeeOTtm5Kp8ZUvb+6ksvxzlQLiRhbbVpfTn1eyNsHLagcYAl3e7ccvPtXvGMR65YoLLd9CNL7Enu+46z27bPHSGgF9w==' | base64 -d > "$KWALLET_DIR/kdewallet.kwl"
+        printf '%s' 'Vuo3sYHDJJnffS7E2AnFjMods9ilfea4aC4Ly3jkP1Y3F76c955ijmoRRtYCHdIwINLgvxyQ9Cg=' | base64 -d > "$KWALLET_DIR/kdewallet.salt"
+        chmod 0600 "$KWALLET_DIR/kdewallet.kwl" "$KWALLET_DIR/kdewallet.salt"
+      fi
+    fi
+
+    # El bus de sesion no pasa DISPLAY a los servicios activados por D-Bus.
+    # El helper busca la sesion Selkies para mostrar los dialogos de KWallet y
+    # solo cae a offscreen si no hay GUI: asi un wallet con contraseña puede
+    # pedirla al usuario y gnome-keyring no roba Secret Service.
+    KWALLET_HELPER="/usr/local/bin/kwalletd5-offscreen"
+    if [ ! -x "$KWALLET_HELPER" ]; then
+      sudo tee "$KWALLET_HELPER" >/dev/null <<'KWHELPER'
+#!/bin/sh
+# Activar kwalletd5 desde D-Bus. El bus de sesion no pasa DISPLAY, asi que
+# buscamos la sesion Selkies viva para poder mostrar los dialogos de KWallet.
+# Si no hay GUI, caemos a offscreen para que el servicio no muera al arrancar.
+if [ -z "${DISPLAY:-}" ]; then
+  for _xauth in /tmp/selkies-session-*/Xauthority; do
+    [ -r "$_xauth" ] || continue
+    _dir=${_xauth%/Xauthority}
+    if command -v xset >/dev/null 2>&1 && ! DISPLAY=:0 XAUTHORITY="$_xauth" xset q >/dev/null 2>&1; then
+      continue
+    fi
+    DISPLAY=:0
+    XAUTHORITY="$_xauth"
+    XDG_RUNTIME_DIR="$_dir"
+    export DISPLAY XAUTHORITY XDG_RUNTIME_DIR
+    break
+  done
+  unset _dir _xauth
+fi
+if [ -z "${DISPLAY:-}" ]; then
+  export QT_QPA_PLATFORM=offscreen
+fi
+exec /usr/bin/kwalletd5 "$@"
+KWHELPER
+      sudo chmod 0755 "$KWALLET_HELPER"
+    fi
+    for _kwallet_svc in /usr/share/dbus-1/services/org.freedesktop.secrets.service /usr/share/dbus-1/services/org.kde.kwalletd5.service; do
+      if [ -f "$_kwallet_svc" ] && ! grep -qF "$KWALLET_HELPER" "$_kwallet_svc"; then
+        sudo sed -i "s|^Exec=.*|Exec=$KWALLET_HELPER|" "$_kwallet_svc"
+      fi
+    done
+    unset _kwallet_svc
+
     CLAUDE_WRAP_TAG="# managed-by-developer-template: claude-desktop-wrapper"
     # claude-desktop: /usr/bin/claude-desktop es un symlink al binario Electron en
     # /usr/lib. Escribir el wrapper con 'tee' sobre el symlink machacaria el binario
@@ -307,7 +386,7 @@ EOF
 exec env ELECTRON_DISABLE_SANDBOX=1 ELECTRON_OZONE_PLATFORM_HINT=auto COWORK_VM_BACKEND=host \
   /usr/lib/claude-desktop/claude-desktop \
   --no-sandbox --disable-gpu-sandbox --use-gl=angle --use-angle=swiftshader \
-  --enable-unsafe-swiftshader --ignore-gpu-blocklist --disable-dev-shm-usage --password-store=basic "$@"
+  --enable-unsafe-swiftshader --ignore-gpu-blocklist --disable-dev-shm-usage --password-store=gnome-libsecret "$@"
 CLAUDEWRAP
       sudo chmod 0755 /usr/bin/claude-desktop
     fi
@@ -1599,5 +1678,128 @@ resource "docker_container" "workspace" {
   labels {
     label = "com.centurylinklabs.watchtower.scope"
     value = "coder-workspaces"
+  }
+}
+
+# --- Syncthing (opcional) ------------------------------------------------------
+# Sincroniza carpetas (p. ej. vaults de Obsidian o Logseq) con los dispositivos
+# del usuario. Binario oficial en ~/.local/bin (se instala una vez, en el HOME
+# persistente, y se actualiza solo); config y base en ~/.local/state/syncthing.
+# La GUI solo escucha en 127.0.0.1:8384 y la publica la app "Syncthing" (proxy
+# autenticado de Coder) a través de gui-proxy (reescribe el Host, que Syncthing
+# rechaza si no es local). Desactivado por defecto: los workspaces existentes
+# no cambian al actualizar. Scripts: syncthing/ (copia de _shared/syncthing).
+data "coder_parameter" "syncthing" {
+  name         = "80_syncthing"
+  display_name = "Syncthing"
+  description  = "Sincroniza carpetas (p. ej. vaults de Obsidian o Logseq) con tus dispositivos. Añade la app *Syncthing* para configurarlo."
+  icon         = "/emojis/1f504.png"
+  type         = "bool"
+  form_type    = "switch"
+  default      = false
+  mutable      = true
+  order        = 80
+}
+
+data "coder_parameter" "kwallet_empty_password" {
+  name         = "85_kwallet_empty_password"
+  display_name = "KWallet sin contraseña"
+  description  = "Crea un wallet KWallet vacío para que Claude Desktop y Unity Hub guarden secretos sin diálogos. Desactívalo si prefieres crear tu propio wallet con contraseña en el primer arranque."
+  icon         = "/emojis/1f511.png"
+  type         = "bool"
+  form_type    = "switch"
+  default      = false
+  mutable      = true
+  order        = 85
+}
+
+locals {
+  syncthing_enabled           = data.coder_parameter.syncthing.value
+  syncthing_ui_port           = 18384
+  syncthing_start_script      = file("${path.module}/syncthing/start.sh")
+  syncthing_stop_script       = file("${path.module}/syncthing/stop.sh")
+  syncthing_check_script      = file("${path.module}/syncthing/check-folder-sync.sh")
+  syncthing_gui_proxy_script  = file("${path.module}/syncthing/gui-proxy.mjs")
+}
+
+resource "coder_script" "syncthing" {
+  count              = local.syncthing_enabled ? 1 : 0
+  agent_id           = coder_agent.main.id
+  display_name       = "Syncthing"
+  icon               = "/emojis/1f504.png"
+  run_on_start       = true
+  start_blocks_login = false
+  timeout            = 900
+  script             = <<-EOT
+    #!/usr/bin/env bash
+    set -uo pipefail
+    export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"
+    mkdir -p "$HOME/.local/bin"
+    # Syncthing (parámetro "[Integraciones] Syncthing"): binario oficial en
+    # ~/.local/bin, una vez; luego se actualiza solo. Config y base en
+    # ~/.local/state/syncthing. Los scripts se instalan siempre (datos
+    # conservados); solo se arranca con la opción activa.
+    if ! command -v syncthing >/dev/null 2>&1; then
+      (
+        set -e
+        tmp=$(mktemp -d)
+        trap 'rm -rf "$tmp"' EXIT
+        tag=$(curl -fsSL https://api.github.com/repos/syncthing/syncthing/releases/latest | python3 -c 'import json, sys; print(json.load(sys.stdin)["tag_name"])')
+        tgz="syncthing-linux-amd64-$tag.tar.gz"
+        curl -fsSL -o "$tmp/$tgz" "https://github.com/syncthing/syncthing/releases/download/$tag/$tgz"
+        curl -fsSL -o "$tmp/sha256sum.txt.asc" "https://github.com/syncthing/syncthing/releases/download/$tag/sha256sum.txt.asc"
+        (cd "$tmp" && grep " $tgz\$" sha256sum.txt.asc | sha256sum -c - >/dev/null)
+        tar -xzf "$tmp/$tgz" -C "$tmp"
+        install -m 755 "$tmp/syncthing-linux-amd64-$tag/syncthing" "$HOME/.local/bin/syncthing"
+      ) || echo "WARN: no se pudo instalar Syncthing; se reintentará en el próximo arranque." >&2
+    fi
+    cat > "$HOME/.local/bin/start-syncthing" <<'SYNCSTART'
+${local.syncthing_start_script}
+SYNCSTART
+    cat > "$HOME/.local/bin/stop-syncthing" <<'SYNCSTOP'
+${local.syncthing_stop_script}
+SYNCSTOP
+    cat > "$HOME/.local/bin/check-folder-sync" <<'SYNCCHECK'
+${local.syncthing_check_script}
+SYNCCHECK
+    chmod 755 "$HOME/.local/bin/start-syncthing" "$HOME/.local/bin/stop-syncthing" "$HOME/.local/bin/check-folder-sync"
+    # Proxy de la GUI (copia propia: no depende del orden con el startup_script).
+    mkdir -p "$HOME/.local/share/syncthing-svc"
+    cat > "$HOME/.local/share/syncthing-svc/gui-proxy.mjs" <<'GUIPROXY'
+${local.syncthing_gui_proxy_script}
+GUIPROXY
+
+    # Syncthing + proxy de su GUI para la app de Coder. La GUI solo escucha en
+    # 127.0.0.1:8384 y rechaza Host ajenos; loopback-proxy los reescribe.
+    if command -v syncthing >/dev/null 2>&1; then
+      if "$HOME/.local/bin/start-syncthing"; then
+        mkdir -p /tmp/syncthing-run
+        gui_pid=/tmp/syncthing-run/gui-proxy.pid
+        if ! { [ -f "$gui_pid" ] && kill -0 "$(cat "$gui_pid")" 2>/dev/null; }; then
+          nohup setsid bash -c 'while :; do node "$HOME/.local/share/syncthing-svc/gui-proxy.mjs" "$1" 8384; sleep 3; done' syncthing-gui "$${SYNCTHING_UI_PORT:-18384}" \
+            >> "$HOME/.local/state/syncthing/gui-proxy.log" 2>&1 < /dev/null &
+          echo $! > "$gui_pid"
+        fi
+      else
+        echo "WARN: Syncthing no arrancó; revisa ~/.local/state/syncthing/launcher.log" >&2
+      fi
+    fi
+  EOT
+}
+
+resource "coder_app" "syncthing" {
+  count        = local.syncthing_enabled ? data.coder_workspace.me.start_count : 0
+  agent_id     = coder_agent.main.id
+  slug         = "syncthing"
+  display_name = "Syncthing"
+  icon         = "/emojis/1f504.png"
+  url          = "http://localhost:${local.syncthing_ui_port}/"
+  subdomain    = true
+  open_in      = "tab"
+
+  healthcheck {
+    url       = "http://localhost:${local.syncthing_ui_port}/rest/noauth/health"
+    interval  = 10
+    threshold = 30
   }
 }

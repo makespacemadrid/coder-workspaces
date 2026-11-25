@@ -53,6 +53,29 @@ RUN apt-get update && \
 # que heredan de esta base; inocuo en headless).
 RUN echo "user_allow_other" > /etc/fuse.conf
 
+# Chrome headless para las herramientas de navegador de los agentes. Vive en
+# la base común para que Playwright y Chrome DevTools funcionen también en los
+# templates sin escritorio (Developer y OpenClaw). En los escritorios KDE el
+# mismo wrapper sirve tanto en modo visible como headless.
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
+    chmod a+r /etc/apt/keyrings/google-chrome.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+      | tee /etc/apt/sources.list.d/google-chrome.list > /dev/null && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/* && \
+    if [ -x /opt/google/chrome/google-chrome ]; then \
+      mv /usr/bin/google-chrome-stable /usr/bin/google-chrome-stable.real 2>/dev/null || true; \
+      printf '%s\n' '#!/bin/sh' \
+        'exec /opt/google/chrome/google-chrome --no-sandbox --disable-gpu-sandbox --disable-setuid-sandbox \' \
+        '  --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader \' \
+        '  --ignore-gpu-blocklist --disable-dev-shm-usage "$@"' \
+        > /usr/bin/google-chrome-stable; \
+      chmod +x /usr/bin/google-chrome-stable; \
+      ln -sf google-chrome-stable /usr/bin/google-chrome 2>/dev/null || true; \
+    fi
+
 # Locales
 RUN locale-gen es_ES.UTF-8 en_US.UTF-8 && \
     update-locale LANG=es_ES.UTF-8
@@ -97,6 +120,8 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
     npm install -g --omit=dev --no-update-notifier --no-fund \
         pnpm \
         yarn \
+        @playwright/mcp \
+        chrome-devtools-mcp \
         @openai/codex \
         @anthropic-ai/claude-code \
         @google/gemini-cli \
@@ -104,6 +129,25 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
         @qwen-code/qwen-code && \
     npm cache clean --force && \
     rm -rf /var/lib/apt/lists/*
+
+# Los MCP usan navegador visible cuando heredan una sesión gráfica y caen a
+# headless en OpenCode Web/CLI y en los templates sin escritorio. Mantener esta
+# decisión en launchers evita duplicar configuraciones por template.
+RUN printf '%s\n' '#!/bin/sh' \
+      'set -eu' \
+      'if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then' \
+      '  set -- --headless "$@"' \
+      'fi' \
+      'exec playwright-mcp --browser=chrome --executable-path=/usr/bin/google-chrome-stable "$@"' \
+      > /usr/local/bin/mks-playwright-mcp && \
+    printf '%s\n' '#!/bin/sh' \
+      'set -eu' \
+      'if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then' \
+      '  set -- --headless "$@"' \
+      'fi' \
+      'exec chrome-devtools-mcp --executable-path=/usr/bin/google-chrome-stable "$@"' \
+      > /usr/local/bin/mks-chrome-devtools-mcp && \
+    chmod 0755 /usr/local/bin/mks-playwright-mcp /usr/local/bin/mks-chrome-devtools-mcp
 
 ENV PIPX_HOME=/opt/pipx \
     PIPX_BIN_DIR=/opt/pipx/bin \

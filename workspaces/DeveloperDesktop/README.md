@@ -19,6 +19,7 @@ Workspace de desarrollo general con escritorio KDE real vía **Selkies** (stream
 - Docker Engine y docker-compose-plugin internos (DinD, no se usa el socket del host).
 - Escritorio KDE Plasma vía Selkies, accesible como app "Desktop" desde Coder.
 - Apps desktop: VS Code, GitHub Desktop, Claude Desktop, OpenCode Desktop, Google Chrome, Firefox, Geany, AppImage Pool, Antigravity.
+- OpenCode con Playwright y Chrome DevTools MCP preconfigurados; el navegador puede abrirse visible desde la sesión gráfica o headless desde OpenCode Web/CLI.
 - Node.js 24, CLIs de IA (OpenAI/Codex, Claude, Gemini, Continue, Qwen), git/gh.
 - Persistencia en `/home/coder` (volumen o bind mount) y `/var/lib/docker`.
 - Limpieza automática semanal del Docker interno: caché de build sin uso durante 7 días e imágenes sin contenedores asociadas de más de 30 días.
@@ -31,7 +32,7 @@ Workspace de desarrollo general con escritorio KDE real vía **Selkies** (stream
 - [Network] Exponer puertos al host: usa el rango de puertos para publicar servicios.
 - [Maintenance] Limpieza automática de Docker: activa por defecto; no elimina volúmenes ni contenedores y se puede desactivar desde los parámetros del workspace.
 - [AI MakeSpace] Clave Ocabra: auto-aprovisionar una key nueva (por defecto) o usar la tuya.
-- [AI] Modelo por defecto de OpenCode: `opencode/glm-5.3-flash-free` (gratuito); también acepta `auto` o cualquier `provider/model` del catálogo.
+- [AI] Modelo por defecto de OpenCode: `opencode/big-pickle` (Big Pickle, gratuito); también acepta `auto` o cualquier `provider/model` del catálogo.
 - [AI externa] Modelos gratuitos de OpenCode (Zen): activos por defecto; desactívalo si no quieres que aparezcan en el selector.
 - [AI externa] Ollama Cloud / NVIDIA (build.nvidia.com): campos opcionales para tu propia API key; si la rellenas, OpenCode añade ese proveedor con su catálogo vivo.
 
@@ -49,3 +50,6 @@ Workspace de desarrollo general con escritorio KDE real vía **Selkies** (stream
 ## Cómo publicar cambios
 - Edita este template y la imagen base en `Docker-Images/DeveloperDesktop/Dockerfile`.
 - Tras el merge a `main`, ejecuta `coder templates push` para desplegar el template en Coder.
+
+## Syncthing
+- **Syncthing (opcional):** sincroniza carpetas (p. ej. vaults de Obsidian o Logseq) con tus dispositivos. Al activarlo se instala en `~/.local/bin` (una vez; se actualiza solo) y aparece la app **Syncthing** para configurarlo desde el navegador (por el proxy autenticado de Coder; la GUI solo escucha en `127.0.0.1:8384`). Datos en `~/.local/state/syncthing`; `check-folder-sync <carpeta>` comprueba una carpeta. Usa un solo sincronizador por carpeta.

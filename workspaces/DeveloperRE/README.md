@@ -26,6 +26,7 @@ El workspace registra rea automáticamente en cada arranque con **todos los agen
 - **Señales lógicas**: sigrok-cli.
 - **WebAssembly**: WABT (wasm2wat, wat2wasm, etc.).
 - **Web/Electron**: Chrome (ya incluido en la base) para el análisis con navegador headless de rea.
+- **Automatización web**: OpenCode trae los MCP de Playwright y Chrome DevTools preconfigurados para navegación, pruebas y depuración del navegador.
 - Todo lo demás de `DeveloperDesktop`: Docker Engine interno (DinD), escritorio KDE vía Selkies, Node.js, CLIs de IA, VS Code, GitHub Desktop, Antigravity, etc. — ver `workspaces/DeveloperDesktop/README.md`.
 
 ## Qué NO incluye (licencia comercial o sin confirmar)
@@ -42,3 +43,6 @@ Los parámetros son idénticos a `DeveloperDesktop` (aceleración gráfica, puer
 - Edita este template y la imagen base en `Docker-Images/DeveloperRE/Dockerfile`.
 - Tras el merge a `main`, espera a que GitHub Actions publique `ghcr.io/makespacemadrid/coder-mks-developer-re:latest` antes de crear un workspace real con este template.
 - Ejecuta `coder templates push DeveloperRE` para desplegar el template en Coder.
+
+## Syncthing
+- **Syncthing (opcional):** sincroniza carpetas (p. ej. vaults de Obsidian o Logseq) con tus dispositivos. Al activarlo se instala en `~/.local/bin` (una vez; se actualiza solo) y aparece la app **Syncthing** para configurarlo desde el navegador (por el proxy autenticado de Coder; la GUI solo escucha en `127.0.0.1:8384`). Datos en `~/.local/state/syncthing`; `check-folder-sync <carpeta>` comprueba una carpeta. Usa un solo sincronizador por carpeta.

@@ -22,7 +22,7 @@ build "Docker-Images/DeveloperDesktop" "ghcr.io/makespacemadrid/coder-mks-develo
 build "Docker-Images/DeveloperRE" "ghcr.io/makespacemadrid/coder-mks-developer-re:latest"
 build "Docker-Images/DeveloperAndroid" "ghcr.io/makespacemadrid/coder-mks-developer-android:latest"
 
-# Cadena heredada (MATE/KasmVNC), todavía en uso por OpenClaw/Hermes.
+# Cadena heredada (MATE/KasmVNC); ningún template del repo la usa ya.
 build "Docker-Images/Desktop" "ghcr.io/makespacemadrid/coder-mks-desktop:latest"
 build "Docker-Images/Developer" "ghcr.io/makespacemadrid/coder-mks-developer:latest"
 

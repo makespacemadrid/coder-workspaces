@@ -69,25 +69,8 @@ RUN apt-get update && \
         mesa-vulkan-drivers \
     && rm -rf /var/lib/apt/lists/*
 
-# Google Chrome (repositorio oficial) — disponible en cualquier escritorio KDE
-RUN install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
-    chmod a+r /etc/apt/keyrings/google-chrome.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
-      | tee /etc/apt/sources.list.d/google-chrome.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends google-chrome-stable && \
-    rm -rf /var/lib/apt/lists/* && \
-    if [ -x /opt/google/chrome/google-chrome ]; then \
-      mv /usr/bin/google-chrome-stable /usr/bin/google-chrome-stable.real 2>/dev/null || true; \
-      printf '%s\n' '#!/bin/sh' \
-        'exec /opt/google/chrome/google-chrome --no-sandbox --disable-gpu-sandbox --disable-setuid-sandbox \' \
-        '  --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader \' \
-        '  --ignore-gpu-blocklist --disable-dev-shm-usage "$@"' \
-        > /usr/bin/google-chrome-stable; \
-      chmod +x /usr/bin/google-chrome-stable; \
-      ln -sf google-chrome-stable /usr/bin/google-chrome 2>/dev/null || true; \
-    fi
+# Google Chrome y los MCP de Playwright/Chrome DevTools vienen de
+# DevTools-Base para que también estén disponibles en los templates headless.
 
 # KasmVNC (módulo de Coder) y Selkies arrancan KDE como session manager
 RUN update-alternatives --set x-session-manager /usr/bin/startplasma-x11
@@ -132,8 +115,29 @@ ARG OPENCODE_DESKTOP_URL=https://opencode.ai/es/download/stable/linux-x64-deb
 RUN set -e; \
     curl -fsSL "$OPENCODE_DESKTOP_URL" -o /tmp/opencode-desktop.deb; \
     apt-get update && \
-    apt-get install -y --no-install-recommends gnome-keyring libwebkit2gtk-4.1-0 && \
+    apt-get install -y --no-install-recommends gnome-keyring libkf5wallet-bin libqca-qt5-2-plugins libwebkit2gtk-4.1-0 && \
     apt-get install -y --no-install-recommends /tmp/opencode-desktop.deb; \
+    printf '%s\n' \
+      '#!/bin/sh' \
+      '# Activar kwalletd5 desde D-Bus con la GUI de Selkies si existe; si no, offscreen.' \
+      'if [ -z "${DISPLAY:-}" ]; then' \
+      '  for _xauth in /tmp/selkies-session-*/Xauthority; do' \
+      '    [ -r "$_xauth" ] || continue' \
+      '    _dir=${_xauth%/Xauthority}' \
+      '    if command -v xset >/dev/null 2>&1 && ! DISPLAY=:0 XAUTHORITY="$_xauth" xset q >/dev/null 2>&1; then continue; fi' \
+      '    DISPLAY=:0 XAUTHORITY="$_xauth" XDG_RUNTIME_DIR="$_dir"' \
+      '    export DISPLAY XAUTHORITY XDG_RUNTIME_DIR' \
+      '    break' \
+      '  done' \
+      '  unset _dir _xauth' \
+      'fi' \
+      'if [ -z "${DISPLAY:-}" ]; then export QT_QPA_PLATFORM=offscreen; fi' \
+      'exec /usr/bin/kwalletd5 "$@"' \
+      > /usr/local/bin/kwalletd5-offscreen; \
+    chmod +x /usr/local/bin/kwalletd5-offscreen; \
+    for svc in /usr/share/dbus-1/services/org.freedesktop.secrets.service /usr/share/dbus-1/services/org.kde.kwalletd5.service; do \
+      if [ -f "$svc" ]; then sed -i 's|^Exec=.*|Exec=/usr/local/bin/kwalletd5-offscreen|' "$svc"; fi; \
+    done; \
     rm -rf /var/lib/apt/lists/* /tmp/opencode-desktop.deb; \
     if [ -x /opt/OpenCode/ai.opencode.desktop ]; then \
       mv /opt/OpenCode/ai.opencode.desktop /opt/OpenCode/ai.opencode.desktop.real; \
