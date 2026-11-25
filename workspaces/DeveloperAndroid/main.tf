@@ -339,10 +339,10 @@ EOF
 # Activar kwalletd5 desde D-Bus. El bus de sesion no pasa DISPLAY, asi que
 # buscamos la sesion Selkies viva para poder mostrar los dialogos de KWallet.
 # Si no hay GUI, caemos a offscreen para que el servicio no muera al arrancar.
-if [ -z "${DISPLAY:-}" ]; then
+if [ -z "$${DISPLAY:-}" ]; then
   for _xauth in /tmp/selkies-session-*/Xauthority; do
     [ -r "$_xauth" ] || continue
-    _dir=${_xauth%/Xauthority}
+    _dir=$${_xauth%/Xauthority}
     if command -v xset >/dev/null 2>&1 && ! DISPLAY=:0 XAUTHORITY="$_xauth" xset q >/dev/null 2>&1; then
       continue
     fi
@@ -354,7 +354,7 @@ if [ -z "${DISPLAY:-}" ]; then
   done
   unset _dir _xauth
 fi
-if [ -z "${DISPLAY:-}" ]; then
+if [ -z "$${DISPLAY:-}" ]; then
   export QT_QPA_PLATFORM=offscreen
 fi
 exec /usr/bin/kwalletd5 "$@"
